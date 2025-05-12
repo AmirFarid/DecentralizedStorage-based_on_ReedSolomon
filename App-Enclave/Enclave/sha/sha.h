@@ -31,11 +31,11 @@ typedef SHA1_CTX SHA_CTX;
 /** SHA-1 Digest size in bytes (OpenSSL compat) */
 #define SHA_DIGEST_LENGTH SHA1_DIGEST_SIZE
 
-void SHA1_Init(SHA1_CTX *context);
+void MY_SHA1_Init(SHA1_CTX *context);
 
-void SHA1_Update(SHA1_CTX *context, const void *p, size_t len);
+void MY_SHA1_Update(SHA1_CTX *context, const void *p, size_t len);
 
-void SHA1_Final(uint8_t digest[SHA1_DIGEST_SIZE], SHA1_CTX *context);
+void MY_SHA1_Final(uint8_t digest[SHA1_DIGEST_SIZE], SHA1_CTX *context);
 
 #endif
 

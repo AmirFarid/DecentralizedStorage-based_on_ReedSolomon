@@ -18,6 +18,8 @@
 #include "ccom.h"
 #include <time.h>
 
+
+#include "decentralize/decentralize.h"
 #include <string.h>
 
 void ocall_send_parity(int startPage, uint8_t *parityData, size_t size)
@@ -353,7 +355,10 @@ void app_file_init(sgx_enclave_id_t eid, const char *fileName,  int numBlocks)
     fclose(file);
 	/* server function file_init has now completed execution, it does not require any more data */
 	printf("generate parity!\n");
-    ecall_generate_file_parity(eid, fileNum); // Note: The convention for this call is slightly different than the rest of the file initialization.
+
+    // our logics are the same ----
+
+   // ecall_generate_file_parity(eid, fileNum); // Note: The convention for this call is slightly different than the rest of the file initialization.
                                          // Above, the gennerated data is directly retrurned, rather than written via an ocall, as is done here.
 }
 
@@ -377,6 +382,24 @@ int main(void)
         return 1;
     }
 
+
+    char fileName[512];
+    strcpy(fileName, "/home/amoghad1/f/Decentralized-Cloud-Storage-Self-Audit-Repair/App-Enclave/testFile");
+
+    // number of blocks in the file
+    int numBlocks;
+
+    preprocessing(eid, 2, fileName, &numBlocks);
+
+    printf("Number of blocks: %d\n", numBlocks);
+
+    printf("the address of fileName: %s\n", fileName);
+
+    printf("Press enter to repair <enter>\n");
+
+    getchar();
+
+
     // Call Enclave initialization function.
     //int result;
 
@@ -395,9 +418,8 @@ int main(void)
     }
 
     // Data for initialization provided by local file at the filePath of fileName
-    char fileName[512];
-    strcpy(fileName, "/home/jdafoe/Decentralized-Cloud-Storage-Self-Audit-Repair/App-Enclave/testFile");
-    int numBlocks = 10;
+
+    // strcpy(fileName, "/home/jdafoe/Decentralized-Cloud-Storage-Self-Audit-Repair/App-Enclave/testFile");
 
     // Perform file initialization in SGX
     //gettimeofday(&start_time, NULL);

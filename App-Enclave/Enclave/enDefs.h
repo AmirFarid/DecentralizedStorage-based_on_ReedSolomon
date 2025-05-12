@@ -8,10 +8,27 @@
 #define ENCODE_INDICATOR "ENCODE"
 #define PARITY_INDICATOR "PARITY"
 
+// Amir MM Farid
+#define talloc(type, num) ((type *) malloc((num) * sizeof(type)))
+// end Amir MM Farid
+
+
 typedef struct PorSK {
 	uint8_t encKey[KEY_SIZE];
 	uint8_t macKey[MAC_SIZE];
 } PorSK;
+
+// Amir MM Farid
+// peer info
+typedef struct {
+    const char* ip;
+	uint8_t is_parity_peer;
+	uint8_t chunk_id;
+    int port;
+    int socket_fd;
+    int is_ready;
+} NodeInfo;
+// end Amir MM Farid
 
 // n and k are the erasure code parameters for an (n, k) erasure code.
 typedef struct File {
@@ -20,6 +37,10 @@ typedef struct File {
 	int numGroups;
 	int n;
 	int k;
+	// Amir MM Farid
+	uint8_t is_parity_peer;
+	NodeInfo *nodes;
+	// end Amir MM Farid
 	char fileName[FILE_NAME_LEN];
 	uint8_t prime[PRIME_LENGTH / 8];
 	uint8_t sortKey[KEY_SIZE]; // I never define this. I should randomly generate it in file_init.

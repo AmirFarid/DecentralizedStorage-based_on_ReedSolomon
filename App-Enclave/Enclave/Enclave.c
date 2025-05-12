@@ -1159,12 +1159,18 @@ for (int currentSymbol = 0; currentSymbol < nroots; currentSymbol++) {
 }
 
 
-
+/*
+* Initialize the enclave.
+* This function is called when the enclave is first created.
+* It initializes the enclave's private key, public key to communicate with FTL, and exchange FTL public key.
+* It also intitializes peers to peers public and private keys, and exchange their public keys.
+* It also initializes the files[] array.
+*/
 void ecall_init() 
 {
 
 
-	// Diffie hellman key exchange
+	// Diffie hellman key exchange with FTL
 	uint8_t sgx_privKey[ECC_PRV_KEY_SIZE];
 	uint8_t sgx_pubKey[ECC_PUB_KEY_SIZE] = {0};
 	uint8_t ftl_pubKey[ECC_PUB_KEY_SIZE] = {0};
@@ -1204,13 +1210,70 @@ void ecall_init()
 
 	//ocall_printf("------------------------", 25, 0);
 
+
+
 	return;
 }
+// Amir MM Farid
+// void ecall_peer_init(NodeInfo *nodes, uint8_t is_parity_peer) {
+
+	// int fileNum;
+	// for(fileNum = 0; fileNum < MAX_FILES; fileNum++) {
+	// 	if(strcmp(fileName, files[fileNum].fileName) == 0) {
+	// 		break;
+	// 	}
+	// }
+	// files[fileNum].is_parity_peer = is_parity_peer;
+	// // 1. Add peers to peer list.
+	// files[fileNum].nodes = nodes;
+
+	// if (is_parity_peer) {
+		
+	// } else { // data peer
+	// }
+	// TODO:
+	// 1. define a key storage for parity peers ( parity chunks get encrypted by the client and then sent to the parity peer )
+
+	// TODO:
+	// 2. generate a key pair for the local peer.
+	// 3. exchange public keys with the local peer.
+	// 4. update peers struct with local peer's public key.
+	// 5. update dh_sharedKey with local peer's public key.
+	// 6. add local peer to enclave_init.
 
 
-// Initialize the file with PoR Tags
+// }
+// end Amir MM Farid
+
+// Initialize the file with PoR Tags and send them to FTL
 int ecall_file_init(const char *fileName, Tag *tag, uint8_t *sigma, int numBlocks) 
 {
+
+	// Amir MM Farid
+	// TODO:
+
+	// 1. define two flow (1- parity chunks) (2- data chunks)
+	
+	// 2. data chunks flow:
+	// 2.1. read data chunks from the file
+	// 2.2. intinitlize files struct with data chunks
+	// 2.3. generate tags for data chunks
+	// 2.4. store the tags in enclave
+	// 2.5. store the data chunk in the FTL
+	// 2.6. store the tags at the end of the FTL
+
+	// 3. parity chunks flow:
+	// 3.1. read parity chunks from the file
+	// 3.2. store the parity chunks key from the file
+	// 3.3. generate tags for parity chunks and store them in enclave
+	// 3.4. generate key for shuffling parity chunks and store the key in enclave
+	// 3.5. divide parity chunks into blocks and shuffle them
+	// 3.6. store the parity chunks in the FTL
+	// 3.7. store the tags at the end of the FTL
+
+	
+	// end Amir MM Farid
+
     int i, j;
     uint8_t blockNum;
     BIGNUM *prime;
@@ -1327,8 +1390,16 @@ int ecall_file_init(const char *fileName, Tag *tag, uint8_t *sigma, int numBlock
         for(int k = 0; k < SEGMENT_PER_BLOCK; k++) {
             BN_free(data_bn[k]);
         }
+		ocall_printf("----------------------------------------", 42, 0);
+		ocall_printf("Sigma for block:", 17, 0);
+	// ocall_printint(blockNum);
+	// ocall_printf("is", 3, 0);
+		ocall_printf(sigma + (blockNum * (PRIME_LENGTH/8)), PRIME_LENGTH/8, 1);
+
         blockNum++;
     }
+
+	
 
     // Free the allocated BIGNUMs
     for (j = 0; j < SEGMENT_PER_BLOCK; j++) {
@@ -1350,6 +1421,12 @@ int ecall_file_init(const char *fileName, Tag *tag, uint8_t *sigma, int numBlock
 // Audit the file data integrity.
 void ecall_audit_file(const char *fileName, int *ret) 
 {
+	// Amir MM Farid
+	// TODO: (consier the different flows for data and parity chunks) parity chunks should be deshuffled first.
+	
+	// 1. get the tag segment number
+
+	// end Amir MM Farid
 
 	// Find file in files
 	int i;

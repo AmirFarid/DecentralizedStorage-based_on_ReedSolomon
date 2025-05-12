@@ -24,6 +24,12 @@
 #define SECRET_LENGTH ((PAGE_SIZE * 8) / 256) // One bit in secret message every 512 bits.
 #define PARITY_START 5000 // Start address for parity data.
 
+
+// #define N 5 // Number of chunks
+// #define K 3 // Number of original data chunks
+// #define M (N - K) // Number of parity chunks
+
+
 typedef struct Tag {
     int n;
     uint8_t prfKey[KEY_SIZE];

@@ -56,9 +56,9 @@ void hmac_sha1(const uint8_t *k,  /* secret key */
     if (lk > SHA_BLOCKSIZE) {
         SHA_CTX tctx;
 
-        SHA1_Init(&tctx);
-        SHA1_Update(&tctx, k, lk);
-        SHA1_Final(key, &tctx);
+        MY_SHA1_Init(&tctx);
+        MY_SHA1_Update(&tctx, k, lk);
+        MY_SHA1_Final(key, &tctx);
 
         k = key;
         lk = SHA_DIGEST_LENGTH;
@@ -66,7 +66,7 @@ void hmac_sha1(const uint8_t *k,  /* secret key */
 
     /**** Inner Digest ****/
 
-    SHA1_Init(&ictx);
+    MY_SHA1_Init(&ictx);
 
     /* Pad the key for inner digest */
     for (i = 0; i < lk; ++i) {
@@ -76,14 +76,14 @@ void hmac_sha1(const uint8_t *k,  /* secret key */
         buf[i] = 0x36;
     }
 
-    SHA1_Update(&ictx, buf, SHA_BLOCKSIZE);
-    SHA1_Update(&ictx, d, ld);
+    MY_SHA1_Update(&ictx, buf, SHA_BLOCKSIZE);
+    MY_SHA1_Update(&ictx, d, ld);
 
-    SHA1_Final(isha, &ictx);
+    MY_SHA1_Final(isha, &ictx);
 
     /**** Outer Digest ****/
 
-    SHA1_Init(&octx);
+    MY_SHA1_Init(&octx);
 
     /* Pad the key for outter digest */
 
@@ -94,10 +94,10 @@ void hmac_sha1(const uint8_t *k,  /* secret key */
         buf[i] = 0x5c;
     }
 
-    SHA1_Update(&octx, buf, SHA_BLOCKSIZE);
-    SHA1_Update(&octx, isha, SHA_DIGEST_LENGTH);
+    MY_SHA1_Update(&octx, buf, SHA_BLOCKSIZE);
+    MY_SHA1_Update(&octx, isha, SHA_DIGEST_LENGTH);
 
-    SHA1_Final(osha, &octx);
+    MY_SHA1_Final(osha, &octx);
 
     /* truncate and print the results */
     *t = *t > SHA_DIGEST_LENGTH ? SHA_DIGEST_LENGTH : *t;
