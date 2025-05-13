@@ -1,0 +1,6 @@
+*.o
+*.so
+*.so.signed
+*.so.unsigned
+*.so.signed.debug
+*.so.unsigned.debug
