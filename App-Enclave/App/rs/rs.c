@@ -625,7 +625,6 @@ void read_file(const char *filename, uint16_t **chunks, int *chunk_size, int *pa
                    0, *padding_size);
         }
     }
-
     encode(*chunks, N, *chunk_size);
     fclose(file);
 }

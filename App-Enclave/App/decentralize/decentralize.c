@@ -17,7 +17,7 @@
 
 #include "../rs/rs.h"
 #include "../aes/aes.h"
-#define NUM_NODES 4
+#define NUM_NODES 2
 #define N 5
 #define K 3
 int Number_Of_Blocks;
@@ -33,9 +33,9 @@ typedef struct {
 
 NodeInfo nodes[NUM_NODES] = {
     {"192.168.1.1", 8080, -1, 0}, // This is the host node do not count it as a node
-    {"192.168.1.1", 8080, -1, 0},
-    {"192.168.1.2", 8081, -1, 0},
-    {"192.168.1.3", 8082, -1, 0}
+    {"141.219.210.172", 0,0, 8080, -1, 0},
+    // {"192.168.1.2", 8081, -1, 0},
+    // {"192.168.1.3", 8082, -1, 0}
 };
 
 typedef struct {
@@ -52,7 +52,7 @@ typedef struct {
     uint8_t nodeID;
 } ThreadArgs;
 
-#define CHUNK_PATH_FORMAT "chunks/chunk_%d.bin"
+#define CHUNK_PATH_FORMAT "App/decentralize/chunks/data_%d.dat"
 #define CHUNK_BUFFER_SIZE 1024
 
 // Parity chunk encryption key
@@ -282,8 +282,8 @@ void* listener_thread_func(sgx_enclave_id_t eid) {
  */
 char* store_received_file(int client_socket, char* save_path) {
 
-    long file_size;
-    uint8_t file_type;
+    u_int32_t file_size;
+    u_int32_t file_type;
 
 
     FILE *fp = fopen(save_path, "wb");
@@ -301,10 +301,15 @@ char* store_received_file(int client_socket, char* save_path) {
 
 
     // while ((len = recv(client_socket, buffer, sizeof(buffer), 0)) > 0) {
-    while ((len = secure_recv(client_socket, buffer, file_size)) > 0) {
-
+    // while ((len = secure_recv(client_socket, buffer, file_size)) > 0) {
+    for (size_t i = 0; i < file_size/CHUNK_BUFFER_SIZE; i++)
+    {
+        len = secure_recv(client_socket, buffer, CHUNK_BUFFER_SIZE);
+        printf("this is the %d th len: %d\n", i, len);
         fwrite(buffer, 1, len, fp);
+
     }
+
 
     if (file_type == 2) {
         secure_recv(client_socket, PC_KEY_received, 16);
@@ -496,38 +501,48 @@ void handle_client(sgx_enclave_id_t eid, int client_socket) {
  * @param fileChunkName 
  */
 void initiate_Chunks(char* fileChunkName, char* current_file) {
+    
     char path[256];
 
     // divide the file into K chunks and generate N - K parity chunks. generated parities are stored in decentralize/chunks/chunk_i.bin
-    Number_Of_Blocks = initiate_rs(fileChunkName, K, N);
-
-    printf("Number of blocks: %d\n", Number_Of_Blocks);
+    initiate_rs(fileChunkName, K, N);
 
 
 
-    for (int i = 0; i < NUM_NODES; i++) {
+    for (int i = 0; i < NUM_NODES ; i++) {
+
+
+        // 1. Open the file chunk_i.bin
+        snprintf(path, sizeof(path), CHUNK_PATH_FORMAT, i);
+        printf("----------------------------File sending to node %d------------------------------\n", i);
+        printf("path: %s\n", path);
+        FILE *fp = fopen(path, "rb");
+        if (!fp) {
+            perror("Failed to open chunk file");
+            continue;
+        }
 
         if (i == 0) {
         // if (strcmp(nodes[i].ip, current_ip) == 0) {
 
-            rename_file(fileChunkName, current_file);
+        
+            Number_Of_Blocks = get_file_size(fp)/BLOCK_SIZE;
+            rename_file(path, current_file);
+            printf("Number of blocks: %d\n", Number_Of_Blocks);
+
             //TODO: set the is_parity_peer to 0 for the first node ( idea save the current node ip and compare)
             nodes[i].is_parity_peer = 0;
+
             continue;
-        }
+        } 
+
 
         uint32_t chunk_type = 1; // 1 for data chunk, 2 for parity chunk
         uint32_t chunk_len;
 
         if (i > K) chunk_type = 2;
 
-        // 1. Open the file chunk_i.bin
-        snprintf(path, sizeof(path), CHUNK_PATH_FORMAT, i);
-        FILE *fp = fopen(path, "rb");
-        if (!fp) {
-            perror("Failed to open chunk file");
-            continue;
-        }
+        
 
         // get the size of the file
         chunk_len = get_file_size(fp);
@@ -541,11 +556,16 @@ void initiate_Chunks(char* fileChunkName, char* current_file) {
             continue;
         }
 
+
         // 3. Connect to the ith node
         struct sockaddr_in server_addr = {
             .sin_family = AF_INET,
             .sin_port = htons(nodes[i].port)
         };
+
+        printf("server_addr.sin_addr: %s\n", nodes[i].ip);
+        printf("server_addr.sin_port: %d\n", nodes[i].port);
+
         inet_pton(AF_INET, nodes[i].ip, &server_addr.sin_addr);
 
         if (connect(sock, (struct sockaddr*)&server_addr, sizeof(server_addr)) < 0) {
@@ -583,14 +603,16 @@ void initiate_Chunks(char* fileChunkName, char* current_file) {
         if (chunk_type == 2) {
             secure_send(sock, PC_KEY, 16);
         }
-
+        printf("-----------------------------------------------------------\n");
         printf("File %s sent to node %d\n", path, i);
+        printf("-----------------------------------------------------------\n");
+
 
         close(sock);
         fclose(fp);
     }
-}
 
+}
 
 // void ocall_request_data_chunk(uint8_t nodeID, uint32_t blockID, uint8_t *output_buffer, size_t *actual_len, size_t buf_len) {
 //     if (nodeID >= NUM_NODES || !nodes[nodeID].is_ready) {
@@ -700,13 +722,16 @@ void preprocessing(sgx_enclave_id_t eid, int mode,  char* fileChunkName, int *nu
 
     if (mode == 1) {
         // reciever mode
-        reciever_data_initialization(current_file);
 
+        printf("+++mode 1 started+++\n");
+        reciever_data_initialization(current_file);
+        printf("+++mode 1 finished+++\n");
     } else if (mode == 2) {
         // performer mode
+        printf("+++mode 2 started+++\n");
         if (RAND_bytes((unsigned char*)PC_KEY, 16) != 1) {}
         initiate_Chunks(fileChunkName, current_file);
-        
+        printf("+++mode 2 finished+++\n");
     } 
    
    *numBlocks = Number_Of_Blocks;
