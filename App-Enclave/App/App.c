@@ -200,7 +200,7 @@ void ocall_printf(unsigned char *buffer, size_t size, int type)
 	}
 	else if(type == 2) {
 		for(int i = 0; i < (int)size; i++) {
-			printf("%d%",buffer[i]);
+			printf("%d",buffer[i]);
 		}
 		printf("\n");
 	}
@@ -231,50 +231,61 @@ void ocall_printint(int *buffer)
  * Implicit returns : Writes the file and POR data to the storage device. Calls ecall_file_init,
  * Which initializes many values in the enclave.
  */
-void app_file_init(sgx_enclave_id_t eid, const char *fileName,  int numBlocks) 
+void app_file_init(sgx_enclave_id_t eid, FileDataTransfer *fileDataTransfer) 
 {
+
+    // printf("file name in app file init: %s\n", fileDataTransfer->fileName);
+
+    // printf("file opened\n");
+
+    char *fileName = fileDataTransfer->fileName;
 
     sgx_status_t status;
 
 	/* Check input values */
-    if (fileName == NULL) {
+    if (fileDataTransfer->fileName == NULL) {
         printf("Error: filename is NULL\n");
         return;
     }
 
-    if (numBlocks <= 0) {
+    if (fileDataTransfer->numBlocks <= 0) {
         printf("Error: numBlocks must be positive\n");
         return;
     }
 
 	Tag *tag = malloc(sizeof(Tag));
-
 	// Allocate memory for sigma
-	uint8_t **sigma = malloc(numBlocks * sizeof(uint8_t *));
-	uint8_t *sigma_mem = malloc(numBlocks * (PRIME_LENGTH / 8) * sizeof(uint8_t));
-	for (int i = 0; i < numBlocks; i++) {
+	uint8_t **sigma = malloc(fileDataTransfer->numBlocks * sizeof(uint8_t *));
+	uint8_t *sigma_mem = malloc(fileDataTransfer->numBlocks * (PRIME_LENGTH / 8) * sizeof(uint8_t));
+	for (int i = 0; i < fileDataTransfer->numBlocks; i++) {
     	sigma[i] = sigma_mem + i * (PRIME_LENGTH / 8);
     	memset(sigma[i], 0, (PRIME_LENGTH / 8) * sizeof(uint8_t)); /* Initialize all sigma to 0 */
 	}
 
     /* Call ecall_file_init to initialize tag and sigma */
 
+
+    printf("--------------Test 1------------\n");
+    printf("file name for second time in app file init: %s\n", fileDataTransfer->fileName);
+    FILE *file = fopen(fileName, "rb");
+
 	//printf("call ecall\n");
 	int fileNum = 0;
-    status = ecall_file_init(eid, &fileNum, fileName, tag, *sigma, numBlocks); // make sure the change to returning fileNum works properly.
+    status = ecall_file_init(eid, &fileNum, tag, *sigma, fileDataTransfer, sizeof(FileDataTransfer)); // make sure the change to returning fileNum works properly.
     if (status != SGX_SUCCESS) {
         printf("Error calling enclave function: %d\n", status);
         return;
     }
 
+    
 
     /* Open the file for reading */
-    FILE *file = fopen(fileName, "rb");
+    // FILE *file = fopen(fileDataTransfer->fileName, "rb");
     if (!file) {
-        fprintf(stderr, "Error: failed to open file %s\n", fileName);
+
+        fprintf(stderr, "Error: failed to open file %s\n", fileDataTransfer->fileName);
         return;
     }
-
     /* 
 	 * Now, store the data back in FTL. Since no filesystem, we need to know start and end location of each file. This will be managed on FTL server side.
      * Store file in FTL as ( block1 || ... || blockN || sigma1 || ... || sigmaN || Tag ).
@@ -285,30 +296,28 @@ void app_file_init(sgx_enclave_id_t eid, const char *fileName,  int numBlocks)
     uint8_t blockData[BLOCK_SIZE];
 	int client_fd;
 
-
 	/* Call file initialization function on server */
 	client_fd = create_client_socket();
     connect_to_server(client_fd);
 	write(client_fd, "file_init", 9);
 	close(client_fd);
-
     /* Send file name and number of blocks to server function file_init */
 	client_fd = create_client_socket();
 	connect_to_server(client_fd);
-    write(client_fd, fileName, strlen(fileName)); /* Send file Name */
+    write(client_fd, fileDataTransfer->fileName, strlen(fileDataTransfer->fileName)); /* Send file Name */
 	close(client_fd);
-
 
 	client_fd = create_client_socket();
 	connect_to_server(client_fd);
-    write(client_fd, &numBlocks, sizeof(numBlocks)); /* Send number of blocks */
+    write(client_fd, &fileDataTransfer->numBlocks, sizeof(fileDataTransfer->numBlocks)); /* Send number of blocks */
 	close(client_fd);
 
     /* Send each block data to the server */
-    for (int i = 0; i < numBlocks; i++) {
+    for (int i = 0; i < fileDataTransfer->numBlocks; i++) {
+
         /* Read the i-th block from the file into blockData */
         if (fread(blockData, BLOCK_SIZE, 1, file) != 1) {
-            fprintf(stderr, "Error: failed to read block %d from file %s\n", i, fileName);
+            fprintf(stderr, "Error: failed to read block %d from file %s\n", i, fileDataTransfer->fileName);
             fclose(file);
             close(client_fd);
             return;
@@ -335,9 +344,8 @@ void app_file_init(sgx_enclave_id_t eid, const char *fileName,  int numBlocks)
     }
 	/* All blocks sent to server */
 
-
     /* Send each sigma to the server */
-    for (int i = 0; i < numBlocks; i++) {
+    for (int i = 0; i < fileDataTransfer->numBlocks; i++) {
         /* Send the i-th sigma to the server */
 		client_fd = create_client_socket();
 		connect_to_server(client_fd);
@@ -345,19 +353,28 @@ void app_file_init(sgx_enclave_id_t eid, const char *fileName,  int numBlocks)
 		close(client_fd);
     }
 	/* All sigma sent to server */
-
     /* Send the tag to the server */
 	client_fd = create_client_socket();
 	connect_to_server(client_fd);
     write(client_fd, tag, sizeof(Tag));
 	close(client_fd);
 
+    if (!file) {
+    perror("fopen failed");
+    printf("fopen failed\n");
     fclose(file);
+    }
+
+    free(fileDataTransfer);
+
+    printf("--------------Test 10------------\n");
+
+    // free(fileDataTransfer);
 	/* server function file_init has now completed execution, it does not require any more data */
 	printf("generate parity!\n");
 
     // our logics are the same ----
-
+    
    // ecall_generate_file_parity(eid, fileNum); // Note: The convention for this call is slightly different than the rest of the file initialization.
                                          // Above, the gennerated data is directly retrurned, rather than written via an ocall, as is done here.
 }
@@ -386,12 +403,20 @@ int main(void)
     char fileName[512];
     strcpy(fileName, "/home/amoghad1/f/Decentralized-Cloud-Storage-Self-Audit-Repair/App-Enclave/testFile");
 
-    // number of blocks in the file
-    int numBlocks;
 
-    preprocessing(eid, 2, fileName, &numBlocks);
+    // Amir M M Farid
 
-    printf("Number of blocks: %d\n", numBlocks);
+    NodeInfo nodes[NUM_NODES];
+
+
+
+    FileDataTransfer *fileDataTransfer =  malloc(sizeof(FileDataTransfer));
+    
+    preprocessing(eid, 2, fileName, fileDataTransfer);
+
+    strcpy(fileName, fileDataTransfer->fileName);
+
+    printf("Number of blocks: %d\n", fileDataTransfer->numBlocks);
 
     printf("the address of fileName: %s\n", fileName);
 
@@ -405,7 +430,7 @@ int main(void)
 
     //gettimeofday(&start_time, NULL);
     printf("Call FTL init\n");
-    ret = ecall_init(eid);
+    ret = ecall_init(eid, fileDataTransfer, sizeof(FileDataTransfer));
     
 	//gettimeofday(&end_time, NULL);
     //waittime = 3;
@@ -424,7 +449,8 @@ int main(void)
     // Perform file initialization in SGX
     //gettimeofday(&start_time, NULL);
     printf("Call file init\n");
-    app_file_init(eid, fileName, numBlocks);
+    // it is called in untrusted side
+    app_file_init(eid, fileDataTransfer);
     //gettimeofday(&end_time, NULL);
     //waittime = 24;
     //cpu_time_used = (end_time.tv_sec - start_time.tv_sec) + (end_time.tv_usec - start_time.tv_usec) / 1000000.0;

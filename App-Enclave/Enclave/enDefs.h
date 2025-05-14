@@ -18,17 +18,17 @@ typedef struct PorSK {
 	uint8_t macKey[MAC_SIZE];
 } PorSK;
 
-// Amir MM Farid
-// peer info
-typedef struct {
-    const char* ip;
-	uint8_t is_parity_peer;
-	uint8_t chunk_id;
-    int port;
-    int socket_fd;
-    int is_ready;
-} NodeInfo;
-// end Amir MM Farid
+// // Amir MM Farid
+// // peer info
+// typedef struct {
+//     const char* ip;
+// 	uint8_t is_parity_peer;
+// 	uint8_t chunk_id;
+//     int port;
+//     int socket_fd;
+//     int is_ready;
+// } NodeInfo;
+// // end Amir MM Farid
 
 // n and k are the erasure code parameters for an (n, k) erasure code.
 typedef struct File {
@@ -40,6 +40,10 @@ typedef struct File {
 	// Amir MM Farid
 	uint8_t is_parity_peer;
 	NodeInfo *nodes;
+	uint8_t dh_sharedKey[64];
+	// parity shuffle key
+	uint8_t parity_sharedKey_AES[64];
+
 	// end Amir MM Farid
 	char fileName[FILE_NAME_LEN];
 	uint8_t prime[PRIME_LENGTH / 8];

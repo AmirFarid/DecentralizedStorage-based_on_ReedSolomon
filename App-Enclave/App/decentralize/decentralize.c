@@ -17,19 +17,12 @@
 
 #include "../rs/rs.h"
 #include "../aes/aes.h"
-#define NUM_NODES 2
 #define N 5
 #define K 3
 int Number_Of_Blocks;
+int Current_Chunk_ID;
 
-typedef struct {
-    const char* ip;
-	uint8_t is_parity_peer;
-	uint8_t chunk_id;
-    int port;
-    int socket_fd;
-    int is_ready;
-} NodeInfo;
+
 
 NodeInfo nodes[NUM_NODES] = {
     {"192.168.1.1", 8080, -1, 0}, // This is the host node do not count it as a node
@@ -284,7 +277,7 @@ char* store_received_file(int client_socket, char* save_path) {
 
     u_int32_t file_size;
     u_int32_t file_type;
-
+    int chunk_id;
 
     FILE *fp = fopen(save_path, "wb");
     if (!fp) {
@@ -296,10 +289,11 @@ char* store_received_file(int client_socket, char* save_path) {
     ssize_t len;
 
     // receive the file type and size
+    secure_recv(client_socket, &chunk_id, sizeof(int));
     secure_recv(client_socket, &file_type, sizeof(file_type));
     secure_recv(client_socket, &file_size, sizeof(file_size));
 
-
+    Current_Chunk_ID = chunk_id;
     // while ((len = recv(client_socket, buffer, sizeof(buffer), 0)) > 0) {
     // while ((len = secure_recv(client_socket, buffer, file_size)) > 0) {
     for (size_t i = 0; i < file_size/CHUNK_BUFFER_SIZE; i++)
@@ -398,10 +392,9 @@ int rename_file(const char* old_name, const char* new_name) {
         return 0; // success
     } else {
         perror("Error renaming file");
-        return -1; // failure
+        return -1;
     }
 }
-
 // ------------------------------------------------------------------------------
 //                                 client functions
 
@@ -525,7 +518,7 @@ void initiate_Chunks(char* fileChunkName, char* current_file) {
         if (i == 0) {
         // if (strcmp(nodes[i].ip, current_ip) == 0) {
 
-        
+            Current_Chunk_ID = i;
             Number_Of_Blocks = get_file_size(fp)/BLOCK_SIZE;
             rename_file(path, current_file);
             printf("Number of blocks: %d\n", Number_Of_Blocks);
@@ -535,6 +528,9 @@ void initiate_Chunks(char* fileChunkName, char* current_file) {
 
             continue;
         } 
+
+        // TODO: remove this break
+        break;
 
 
         uint32_t chunk_type = 1; // 1 for data chunk, 2 for parity chunk
@@ -578,6 +574,7 @@ void initiate_Chunks(char* fileChunkName, char* current_file) {
         printf("Connected to node %d (%s:%d), sending file: %s\n", i, nodes[i].ip, nodes[i].port, path);
 
         // 4. Send the chunk type and length
+        secure_send(sock, &i, sizeof(int));
         secure_send(sock, &chunk_type, sizeof(chunk_type));
         secure_send(sock, &chunk_len, sizeof(chunk_len));
         // secure_send(sock, chunk, chunk_len);     
@@ -715,7 +712,7 @@ void* transfer_chunk_thread_func(void *args_ptr) {
 // ------------------------------------------------------------------------------
 //                                 main functions
 
-void preprocessing(sgx_enclave_id_t eid, int mode,  char* fileChunkName, int *numBlocks) {
+void preprocessing(sgx_enclave_id_t eid, int mode,  char* fileChunkName, FileDataTransfer *fileDataTransfer) {
 
     // the stored file name for local peer
     char *current_file = "App/decentralize/chunks/current_file.bin";
@@ -733,8 +730,24 @@ void preprocessing(sgx_enclave_id_t eid, int mode,  char* fileChunkName, int *nu
         initiate_Chunks(fileChunkName, current_file);
         printf("+++mode 2 finished+++\n");
     } 
-   
-   *numBlocks = Number_Of_Blocks;
+
+// initialize the fileDataTransfer
+   fileDataTransfer->numBlocks = Number_Of_Blocks;   
+//    fileDataTransfer->nodes = nodes;
+   memcpy(fileDataTransfer->nodes, nodes, sizeof(NodeInfo) * NUM_NODES);
+
+   fileDataTransfer->n = N;
+   fileDataTransfer->k = K;
+   strncpy(fileDataTransfer->fileName, current_file, sizeof(fileDataTransfer->fileName) - 1);
+   fileDataTransfer->fileName[sizeof(fileDataTransfer->fileName) - 1] = '\0';
+//    strcpy(fileDataTransfer->fileName, current_file);
+//    fileDataTransfer->fileName = current_file;
+   fileDataTransfer->current_id = Current_Chunk_ID;
+
+printf("current_file: %s\n", current_file);
+
+//    strcpy(fileChunkName, current_file);
+//    fileChunkName = current_file;
 
     // ------------------------------------------------------------------------------
     //                                 rest of the code for all modes

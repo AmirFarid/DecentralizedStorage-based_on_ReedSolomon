@@ -34,8 +34,16 @@
 #include <math.h>
 
 // TODO: How should these be stored?
+// shared key with ftl
 uint8_t dh_sharedKey[ECC_PUB_KEY_SIZE];
+
+// current node chunk id
+// if id > k, then it is a parity node
+uint8_t current_id;
+
+// porSK
 PorSK porSK;
+// files
 File files[MAX_FILES];
 
 #ifdef TEST_MODE
@@ -1166,9 +1174,8 @@ for (int currentSymbol = 0; currentSymbol < nroots; currentSymbol++) {
 * It also intitializes peers to peers public and private keys, and exchange their public keys.
 * It also initializes the files[] array.
 */
-void ecall_init() 
-{
-
+void ecall_init(FileDataTransfer *fileDataTransfer, size_t fileDataTransferSize) 
+{	
 
 	// Diffie hellman key exchange with FTL
 	uint8_t sgx_privKey[ECC_PRV_KEY_SIZE];
@@ -1203,15 +1210,26 @@ void ecall_init()
 	// ocall_printf(dh_sharedKey, ECC_PUB_KEY_SIZE, 1);
 
 	// Generate keys for auditing and initialize files[]
+	
+
+	// Amir MM Farid
+
+	uint8_t currentPeerPubKey[ECC_PUB_KEY_SIZE];
+
+	//ocall_printf("------------------------", 25, 0);	
+	for(int i = 0; i < NUM_NODES; i++) {
+		// ocall_peer_init(nodes[i].ip, nodes[i].port, nodes[i].pubKey, currentPeerPubKey);
+
+		// ocall_printf("Peer %d: %s:%d\n", i, nodes[i].ip, nodes[i].port);
+		// ocall_printf("Peer %d Public Key: ", 20, 0);
+		// ocall_printf(currentPeerPubKey, ECC_PUB_KEY_SIZE, 1);
+	}
+
 	porSK = por_init();
 	for(int i = 0; i < MAX_FILES; i++) {
 		files[i].inUse = 0;
 	}
-
-	//ocall_printf("------------------------", 25, 0);
-
-
-
+	// end Amir MM Farid
 	return;
 }
 // Amir MM Farid
@@ -1246,7 +1264,7 @@ void ecall_init()
 // end Amir MM Farid
 
 // Initialize the file with PoR Tags and send them to FTL
-int ecall_file_init(const char *fileName, Tag *tag, uint8_t *sigma, int numBlocks) 
+int ecall_file_init(Tag *tag, uint8_t *sigma, FileDataTransfer *fileDataTransfer, size_t fileDataTransferSize) 
 {
 
 	// Amir MM Farid
@@ -1283,12 +1301,12 @@ int ecall_file_init(const char *fileName, Tag *tag, uint8_t *sigma, int numBlock
 
     for(i = 0; i < MAX_FILES; i++) { // TODO: This maybe should loop through MAX_FILES? it was FILE_NAME_LEN
         if(files[i].inUse == 0) {
-            memcpy(files[i].fileName, fileName, strlen(fileName)); // TODO: change inUse to 1 here?? the line was not here.
+            memcpy(files[i].fileName, fileDataTransfer->fileName, strlen(fileDataTransfer->fileName)); // TODO: change inUse to 1 here?? the line was not here.
 			files[i].inUse = 1;
             break;
         }
     } // TODO: rename i to fileNum
-	files[i].numBlocks = numBlocks;
+	files[i].numBlocks = fileDataTransfer->numBlocks;
 	files[i].numGroups = 2; // TODO: Come up with some function to determine this value for a given file. For now, it is hardcoded.
 
 
@@ -1316,6 +1334,7 @@ int ecall_file_init(const char *fileName, Tag *tag, uint8_t *sigma, int numBlock
     for(j = 0; j < PRIME_LENGTH / 8; j++) {
         files[i].prime[j] = prime_bytes[j];
     }
+
 
 	// Generate PDP alpha tags.
     gen_file_tag(prime, tag);
@@ -1345,9 +1364,9 @@ int ecall_file_init(const char *fileName, Tag *tag, uint8_t *sigma, int numBlock
 
 
 	// Read file data. 
-    for (j = 0; j < numBlocks; j++) { // Each block
+    for (j = 0; j < fileDataTransfer->numBlocks; j++) { // Each block
 
-        ocall_get_block(data, SEGMENT_SIZE, SEGMENT_PER_BLOCK, blockNum, fileName);
+        ocall_get_block(data, SEGMENT_SIZE, SEGMENT_PER_BLOCK, blockNum, fileDataTransfer->fileName);
 
         BIGNUM *data_bn[SEGMENT_PER_BLOCK];
         for(int k = 0; k < SEGMENT_PER_BLOCK; k++) { // Each Segment in block
@@ -1421,6 +1440,10 @@ int ecall_file_init(const char *fileName, Tag *tag, uint8_t *sigma, int numBlock
 // Audit the file data integrity.
 void ecall_audit_file(const char *fileName, int *ret) 
 {
+
+
+	ocall_printf(fileName, 42, 0);
+	ocall_printf("debug 1", 8, 0);
 	// Amir MM Farid
 	// TODO: (consier the different flows for data and parity chunks) parity chunks should be deshuffled first.
 	
@@ -1435,12 +1458,13 @@ void ecall_audit_file(const char *fileName, int *ret)
 			break;
 		}
 	}
+	ocall_printf("debug 2", 8, 0);
 
 	// First, calculate tag segment number
 	const int totalSegments = (files[i].numBlocks * SEGMENT_PER_BLOCK);
 	int sigPerSeg = floor((double)SEGMENT_SIZE / ((double)PRIME_LENGTH / 8));
 	int tagSegNum = totalSegments + ceil((double)files[i].numBlocks /(double) sigPerSeg);
-
+	ocall_printf("debug 3", 8, 0);
 	// Generate public challenge number
 	uint8_t challNum[KEY_SIZE];
 	if(sgx_read_rand(challNum, KEY_SIZE) != SGX_SUCCESS) {
@@ -1457,15 +1481,15 @@ void ecall_audit_file(const char *fileName, int *ret)
 	uint8_t tempKey[KEY_SIZE];
 	hmac_sha1(challKey, KEY_SIZE, (uint8_t *)&tagSegNum, sizeof(uint8_t), tempKey, &len);
 	
-
-
+	ocall_printf("debug 4", 8, 0);
 
 	// Get tag from FTL (Note that tag is always  on final segment. This can be calculated easily)
 	uint8_t segData[SEGMENT_SIZE];
 	//ocall_printf("HERE??", 7, 0);
 	ocall_get_segment(fileName, tagSegNum, segData, 0); // ocall get segment will write segNum to addr 951396 then simply read the segment. it should have first 16 bytes encrypted.
-
+	ocall_printf("debug 5", 8, 0);
 	DecryptData((uint32_t *)tempKey, segData, KEY_SIZE);
+	ocall_printf("debug 6", 8, 0);
 
 	// Call fix_tag(), which will check the MAC, and decrypt alphas and prfKey
 
@@ -1474,7 +1498,7 @@ void ecall_audit_file(const char *fileName, int *ret)
 	memcpy(tag, segData, sizeof(Tag));
 	
 	decrypt_tag(tag, porSK);
-
+	ocall_printf("debug 7", 8, 0);
 	// JD test alphas
 	#ifdef TEST_MODE
 
@@ -1493,9 +1517,9 @@ void ecall_audit_file(const char *fileName, int *ret)
 	// Call gen_challenge to get {i, Vi}
 	uint8_t indices[NUM_CHAL_BLOCKS];
 	uint8_t *coefficients = malloc(sizeof(uint8_t) * ((PRIME_LENGTH / 8) * NUM_CHAL_BLOCKS));
-
+	ocall_printf("debug 8", 8, 0);
 	gen_challenge(files[i].numBlocks, indices, coefficients, files[i].prime); // MAYBE?? reduce coeff mod p
-
+	ocall_printf("debug 9", 8, 0);
 	// JD test 
 	#ifdef TEST_MODE
 
@@ -1511,7 +1535,7 @@ void ecall_audit_file(const char *fileName, int *ret)
 	#endif
 	// end JD test
 
-
+	ocall_printf("debug 10", 8, 0);
 	//BIGNUM *products[NUM_CHAL_BLOCKS][SEGMENT_PER_BLOCK];
 	BIGNUM *bprime = BN_new();
 	BN_zero(bprime);
@@ -1532,7 +1556,7 @@ void ecall_audit_file(const char *fileName, int *ret)
 	// Get sigma segments, parse for necessary sigmas and decrypt. calculate Vi * sigmai
 	BIGNUM *sigma = BN_new();
 	BN_zero(sigma);
-
+	ocall_printf("debug 11", 8, 0);
 	for (int j = 0; j < NUM_CHAL_BLOCKS; j++) {
 		BN_CTX_start(ctx);
 	    // Calculate the segment number containing the desired sigma
@@ -1585,7 +1609,7 @@ void ecall_audit_file(const char *fileName, int *ret)
 		BN_CTX_end(ctx);
 	}
 
-
+	ocall_printf("debug 12", 8, 0);
 
 	// BIGNUM sigma now contains master sigma!
 	
@@ -1595,6 +1619,7 @@ void ecall_audit_file(const char *fileName, int *ret)
 	BN_zero(sum2);
 	BIGNUM *sigma2 = BN_new();
 	BN_zero(sigma2);
+	ocall_printf("debug 13", 8, 0);
 
 	for(int j = 0; j < NUM_CHAL_BLOCKS; j++) {
 		BN_CTX_start(ctx);
@@ -1634,7 +1659,7 @@ void ecall_audit_file(const char *fileName, int *ret)
 		BN_CTX_end(ctx);
 	}
 	// We have sum1
-	
+	ocall_printf("debug 14", 8, 0);
 	// Calculate sum2
 	BN_CTX *ctx2 = BN_CTX_new();
 	for(int j = 0; j < NUM_CHAL_BLOCKS; j++) {
@@ -1709,12 +1734,12 @@ void ecall_audit_file(const char *fileName, int *ret)
 		BN_mod_add(sum2, sum2, product3, bprime, ctx);
 		BN_CTX_end(ctx2);
 	}
-
+	ocall_printf("debug 15", 8, 0);
 	// We have sum2
 	BN_CTX_start(ctx);
 	BN_mod_add(sigma2, sum1, sum2, bprime, ctx);
 	BN_CTX_end(ctx);
-
+	ocall_printf("debug 16", 8, 0);
 	uint8_t sigs[PRIME_LENGTH / 8];
 	BN_bn2bin(sigma, sigs);
 	ocall_printf("SIGMA (1 and 2): ", 18, 0);

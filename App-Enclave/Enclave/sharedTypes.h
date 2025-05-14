@@ -17,7 +17,7 @@
 #define FILE_NAME_LEN 512
 #define MAX_FILES 10
 
-#define NUM_CHAL_BLOCKS 5
+#define NUM_CHAL_BLOCKS 1
 #define NUM_ORIGINAL_SYMBOLS 2 // Erasure code parameters. Maybe should be part of File struct
 #define NUM_TOTAL_SYMBOLS 3
 
@@ -29,6 +29,33 @@
 // #define K 3 // Number of original data chunks
 // #define M (N - K) // Number of parity chunks
 
+// Amir MM Farid
+// Number of nodes also needs to be changed in Enclave.edl for the function ecall_init
+#define NUM_NODES 2
+
+
+typedef struct {
+    const char* ip;
+	uint8_t is_parity_peer;
+	uint8_t chunk_id;
+    // peers communication keys
+	uint8_t dh_sharedKey_peer2peer[64];
+    int port;
+    int socket_fd;
+    int is_ready;
+} NodeInfo;
+
+
+// the file information gathered and send to enclave ( it is similar to the concept of DTO in Java)
+typedef struct {
+    NodeInfo nodes[NUM_NODES];
+    int n;
+    int k;
+    int current_id;
+    char fileName[256];
+    int numBlocks;
+} FileDataTransfer;
+// end Amir MM Farid
 
 typedef struct Tag {
     int n;
