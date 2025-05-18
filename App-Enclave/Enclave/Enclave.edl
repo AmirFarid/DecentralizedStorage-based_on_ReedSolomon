@@ -13,6 +13,7 @@ enclave {
 		public void ecall_audit_file([in, string] const char *fileName,[out] int *ret);
 		public void ecall_generate_file_parity(int fileNum);
 		public void ecall_decode_partition([in, string] const char *fileName, int blockNum);
+		public void ecall_peer_init([in, count=64] uint8_t *current_pubKey, [out,count=64] uint8_t *sender_pubKey, [in, string] const char *ip, [out] int *socket_fd, int current_id);
 	};
 
 	untrusted {
@@ -20,6 +21,8 @@ enclave {
 
 
 		void ocall_ftl_init([in, count=64] uint8_t *sgx_pubKey, [out,count=64] uint8_t *ftl_pubKey);
+
+		void ocall_peer_init([in, count=64] uint8_t *current_pubKey, [out,count=64] uint8_t *peer_pubKey, [in, string] const char *ip, int port, [out] int *socket_fd, int current_id);
 
 		void ocall_get_block([out, count=4096] uint8_t *data, size_t segSize, int segPerBlock, int blockNum,[in, size=1024] char *fileName);
 

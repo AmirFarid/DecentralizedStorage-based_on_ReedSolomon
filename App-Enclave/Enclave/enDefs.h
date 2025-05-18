@@ -32,22 +32,31 @@ typedef struct PorSK {
 
 // n and k are the erasure code parameters for an (n, k) erasure code.
 typedef struct File {
+
 	int inUse;
 	int numBlocks;
 	int numGroups;
 	int n;
 	int k;
-	// Amir MM Farid
-	uint8_t is_parity_peer;
-	NodeInfo *nodes;
-	uint8_t dh_sharedKey[64];
-	// parity shuffle key
-	uint8_t parity_sharedKey_AES[64];
-
-	// end Amir MM Farid
 	char fileName[FILE_NAME_LEN];
 	uint8_t prime[PRIME_LENGTH / 8];
 	uint8_t sortKey[KEY_SIZE]; // I never define this. I should randomly generate it in file_init.
+
+	// Amir MM Farid
+	// this is the file id for support of multiple files
+	char File_ID[30];
+
+	uint8_t is_parity_peer;
+	NodeInfo *nodes;
+	// keys
+	uint8_t AES_Parity_Key[KEY_SIZE];
+	uint8_t parity_shuffel_key[KEY_SIZE];
+	// owner info
+	uint8_t dh_sharedKey_DataOwner[64];
+	char owner_ip[30];
+	int owner_port;
+	// end Amir MM Farid
+
 } File;
 
 extern File files[MAX_FILES];

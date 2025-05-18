@@ -13,7 +13,8 @@
 #include <stdio.h>
 #include "Enclave_u.h"
 #include <openssl/rand.h>
-
+#include "prng.h"
+#include "ecdh.h"
 
 #include "../rs/rs.h"
 #include "../aes/aes.h"
@@ -22,11 +23,19 @@
 int Number_Of_Blocks;
 int Current_Chunk_ID;
 
+// define all the types that reciver can accept
+typedef enum {
+    INIT = 0,
+    CHUNK = 1,
+    PARITY_KEY = 2,
+    BLOCK = 3
+} RequestType;
+
 
 
 NodeInfo nodes[NUM_NODES] = {
     {"192.168.1.1", 8080, -1, 0}, // This is the host node do not count it as a node
-    {"141.219.210.172", 0,0, 8080, -1, 0},
+    {"141.219.210.172", 8080, -1, 0},
     // {"192.168.1.2", 8081, -1, 0},
     // {"192.168.1.3", 8082, -1, 0}
 };
@@ -40,22 +49,41 @@ typedef struct {
 } TransferThreadArgs;
 
 typedef struct {
-    uint8_t *sgx_host_pubKey;
-    uint8_t *sgx_guest_pubKey;
-    uint8_t nodeID;
+    uint8_t *current_pubKey;
+    uint8_t *peer_pubKey;
+    char *ip;
+    int port;
+    int *socket_fd;
+    int current_id;
 } ThreadArgs;
+
+
 
 #define CHUNK_PATH_FORMAT "App/decentralize/chunks/data_%d.dat"
 #define CHUNK_BUFFER_SIZE 1024
 
 // Parity chunk encryption key
-uint32_t PC_KEY[4];
-uint32_t PC_KEY_received[4];
+uint8_t PC_KEY[32];
+uint8_t Shuffle_key[KEY_SIZE];
 
 
 
 // ------------------------------------------------------------------------------
 //                                 helper functions
+
+void init_keys(){
+
+    uint32_t seed;
+    RAND_bytes((unsigned char*)&seed, sizeof(seed));  // 32 bits of entropy
+    prng_init(seed);
+    for (int i = 0; i < 32; i++) {
+        PC_KEY[i] = prng_next();
+    }
+
+    // generate the shuffle key
+    RAND_bytes(Shuffle_key, KEY_SIZE);
+}
+
 /**
  * @brief this function receives data securely from the server
  * @param sock the socket file descriptor
@@ -177,70 +205,6 @@ ssize_t secure_send(int sock, const void *buf, size_t len) {
 }
 
 
-void* connection_thread_func(void *args_ptr) {
-    ThreadArgs *args = (ThreadArgs *)args_ptr;
-    uint8_t nodeID = args->nodeID;
-
-    if (nodeID >= NUM_NODES) {
-        printf("Invalid nodeID: %d\n", nodeID);
-        free(args);
-        return NULL;
-    }
-
-    NodeInfo *node = &nodes[nodeID];
-
-    // 1. Create and connect the socket
-    node->socket_fd = socket(AF_INET, SOCK_STREAM, 0);
-    if (node->socket_fd < 0) {
-        printf("Socket creation failed for node %d\n", nodeID);
-        free(args);
-        return NULL;
-    }
-
-    struct sockaddr_in server_addr;
-    server_addr.sin_family = AF_INET;
-    server_addr.sin_port = htons(node->port);
-
-    if (inet_pton(AF_INET, node->ip, &server_addr.sin_addr) <= 0) {
-        printf("Invalid IP for node %d\n", nodeID);
-        close(node->socket_fd);
-        free(args);
-        return NULL;
-    }
-
-    if (connect(node->socket_fd, (struct sockaddr*)&server_addr, sizeof(server_addr)) < 0) {
-        printf("Connection failed for node %d\n", nodeID);
-        close(node->socket_fd);
-        free(args);
-        return NULL;
-    }
-
-    // 2. Exchange public keys
-    if (send(node->socket_fd, args->sgx_host_pubKey, KEY_SIZE, 0) != KEY_SIZE) {
-        printf("Failed to send host pubKey to node %d\n", nodeID);
-        close(node->socket_fd);
-        free(args);
-        return NULL;
-    }
-
-    ssize_t received = recv(node->socket_fd, args->sgx_guest_pubKey, KEY_SIZE, 0);
-    if (received != KEY_SIZE) {
-        printf("Failed to receive guest pubKey from node %d\n", nodeID);
-        close(node->socket_fd);
-        free(args);
-        return NULL;
-    }
-
-
-    // 4. Mark node as ready
-    node->is_ready = 1;
-    printf("Node %d connected and session key initialized.\n", nodeID);
-
-    // Do not close the socket — keep it open for future use!
-    free(args);
-    return NULL;
-}
-
 void* listener_thread_func(sgx_enclave_id_t eid) {
     int server_socket = setup_server_socket();
     if (server_socket < 0) {
@@ -304,10 +268,11 @@ char* store_received_file(int client_socket, char* save_path) {
 
     }
 
+    Number_Of_Blocks = file_size/BLOCK_SIZE;
 
-    if (file_type == 2) {
-        secure_recv(client_socket, PC_KEY_received, 16);
-    }
+    // if (file_type == 2) {
+    //     secure_recv(client_socket, PC_KEY_received, 16);
+    // }
 
 
     fclose(fp);
@@ -396,8 +361,52 @@ int rename_file(const char* old_name, const char* new_name) {
     }
 }
 // ------------------------------------------------------------------------------
-//                                 client functions
+//                                 Receiver functions
 
+void ocall_get_shuffle_key( u_int8_t *Shuffle_key, u_int8_t *Kexchange_PUB_KEY, u_int8_t *Kexchange_DataOwner_PUB_KEY, u_int8_t *PARITY_AES_KEY, char *owner_ip, int owner_port) {
+    // printf("Shuffle key: %s\n", Shuffle_key);
+    printf("Owner IP: %s\n", owner_ip);
+    printf("Owner Port: %d\n", owner_port);
+
+    int client_socket = socket(AF_INET, SOCK_STREAM, 0);
+    if (client_socket < 0) {
+        perror("Socket creation failed");
+        return;
+    }
+
+    struct sockaddr_in server_addr = {
+        .sin_family = AF_INET,
+        .sin_port = htons(owner_port)
+    };
+
+    inet_pton(AF_INET, owner_ip, &server_addr.sin_addr);
+
+    if (connect(client_socket, (struct sockaddr*)&server_addr, sizeof(server_addr)) < 0) {
+        perror("Connection to server failed");
+        close(client_socket);
+        return;
+    }
+
+    secure_send(client_socket, PARITY_KEY, sizeof(RequestType));
+
+    // ------------------------------------------------------------
+    // |             need to be done for attestation               |
+    // |                         Decap                             |
+    // ------------------------------------------------------------
+    // ecall_get_report(eid, pub_key, quote, quote_size);
+    // uint8_t quote[1024];
+    // uint32_t quote_size;
+
+    secure_send(client_socket, Kexchange_PUB_KEY, 64);
+    
+    secure_recv(client_socket, Kexchange_DataOwner_PUB_KEY, 64);
+
+    secure_recv(client_socket, Shuffle_key, KEY_SIZE);
+
+    secure_recv(client_socket, PARITY_AES_KEY, 64);
+
+    close(client_socket);
+}
 
 void reciever_data_initialization(char* fileChunkName) {
     int server_socket = setup_server_socket();
@@ -430,51 +439,150 @@ void reciever_data_initialization(char* fileChunkName) {
 }
 
 
+void initialize_peer2peer_connection(sgx_enclave_id_t eid, int client_socket) {
+
+    int sender_id;
+    uint8_t sender_pubKey[PUB_SIZE];
+    uint8_t current_pubKey[PUB_SIZE];
+
+    secure_recv(client_socket, &sender_id, sizeof(sender_id));
+    secure_recv(client_socket, sender_pubKey, PUB_SIZE);
+
+    // get the sender ip and port
+    struct sockaddr_in addr;
+    socklen_t addr_len = sizeof(addr);
+
+    if (getpeername(client_socket, (struct sockaddr *)&addr, &addr_len) == -1) {
+        perror("getpeername failed");
+        return;
+    }
+
+    char ip_str[INET_ADDRSTRLEN]; // enough for IPv4
+    inet_ntop(AF_INET, &addr.sin_addr, ip_str, sizeof(ip_str));
+
+    int port = ntohs(addr.sin_port);
+
+    printf("Client IP: %s\n", ip_str);
+    printf("Client Port: %d\n", port);
+
+
+    ecall_peer_init(eid, current_pubKey, sender_pubKey, ip_str, &client_socket, sender_id);
+
+    secure_send(client_socket, current_pubKey, PUB_SIZE);
+    
+    
+
+}
+
+// #include <sgx_dcap_quoteverify.h>
+// #include <openssl/sha.h>
+
+// the owner of data he needs to make sure the key requested from TEE is correct
+void handle_key_exchange(sgx_enclave_id_t eid, int client_socket) {
+
+
+
+    uint8_t Requester_PUB_KEY[PUB_SIZE];
+
+    uint8_t Kexchange_DataOwner_PUB_KEY[64];
+    uint8_t Kexchange_DataOwner_prv_KEY[32];
+
+    uint8_t sharedKey[32];
+
+    uint32_t seed;
+    RAND_bytes((unsigned char*)&seed, sizeof(seed));  // 32 bits of entropy
+    prng_init(seed);
+    for (int i = 0; i < 32; i++) {
+        Kexchange_DataOwner_prv_KEY[i] = prng_next();
+    }
+
+    ecdh_generate_keys(Kexchange_DataOwner_PUB_KEY, Kexchange_DataOwner_prv_KEY);
+
+
+    char owner_ip[INET_ADDRSTRLEN];
+    int owner_port;
+
+
+// ------------------------------------------------------------
+// |             need to be done for attestation               |
+// ------------------------------------------------------------
+    
+//     sgx_ql_qv_result_t qv_result = SGX_QL_QV_RESULT_UNSPECIFIED;
+//     quote3_error_t qv_ret;
+
+//     uint8_t *quote = ...;       // received from enclave
+//     uint32_t quote_size = ...;  // known or transmitted
+//     time_t current_time = time(NULL);
+
+// // 1. Verify the quote (offline, fully local)
+//     qv_ret = sgx_qv_verify_quote(
+//         quote,
+//         quote_size,
+//         NULL,              // collateral - NULL to use default
+//         current_time,
+//         &qv_result,
+//         NULL, NULL, NULL   // optional supplemental data
+//     );
+    
+//     if (qv_ret != SGX_QL_SUCCESS || qv_result != SGX_QL_QV_RESULT_OK) {
+//         printf("Quote verification failed\n");
+//         exit(1);
+//     }
+    
+    // enclave_attestation_send(eid, client_socket);
+
+    secure_recv(client_socket, Requester_PUB_KEY, PUB_SIZE);
+
+    secure_send(client_socket, Kexchange_DataOwner_PUB_KEY, PUB_SIZE);
+
+    ecdh_shared_secret(Kexchange_DataOwner_prv_KEY, Requester_PUB_KEY, sharedKey);
+
+    uint8_t Shuffle_key_tmp[KEY_SIZE];
+    uint8_t PC_KEY_tmp[32];
+
+    memcpy(Shuffle_key_tmp, Shuffle_key, KEY_SIZE);
+    memcpy(PC_KEY_tmp, PC_KEY, 32);
+
+    EncryptData(sharedKey, Shuffle_key_tmp, KEY_SIZE);
+    EncryptData(sharedKey, PC_KEY_tmp, 32);
+
+    secure_send(client_socket, Shuffle_key_tmp, KEY_SIZE);
+    secure_send(client_socket, PC_KEY_tmp, 32);
+
+    close(client_socket);
+}
+
 
 void handle_client(sgx_enclave_id_t eid, int client_socket) {
 
-    // Server side
-    
-    // uint8_t sgx_host_pubKey[KEY_SIZE];
-    // uint8_t sgx_guest_pubKey[KEY_SIZE];
-    // uint8_t nonce[KEY_SIZE];
-
-    // ssize_t ns = recv(client_socket, nonce, KEY_SIZE, 0);
-
-
-    // // Get the host pubKey and generate private key save in sgx2sgx_privKey
-    // ecall_get_pubKey(eid, sgx_host_pubKey);
-
-    // // Do key exchange first...
-    // ssize_t received = recv(client_socket, sgx_guest_pubKey, KEY_SIZE, 0);
-    // if (received != KEY_SIZE) {
-    //     printf("Failed to receive host pubKey from client\n");
-    
-
-    // send(client_socket, sgx_host_pubKey, KEY_SIZE, 0);
-
+    // Reciever side
     printf("Client connected\n");
 
     while (1) {
-        uint8_t buffer[1024];
-        ssize_t len = recv(client_socket, buffer, sizeof(buffer), 0);
+
+        uint8_t type;
+        ssize_t len = recv(client_socket, &type, sizeof(type), 0);
+
+        RequestType request = (RequestType)type;
+
         if (len <= 0) break; // client disconnected
 
-        if (strncmp((char*)buffer, "BLOCK:", 6) == 0) {
-            int blockNumber;
-            if (sscanf((char*)buffer + 6, "%d", &blockNumber) == 1) {
-                printf("Block request received: %d\n", blockNumber);
-                // process block request here
-            } else {
-                printf("Failed to parse block number\n");
-            }
-
-        } else if (strncmp((char*)buffer, "Close:", 6) == 0) {
-            printf("Client disconnected\n");
-            break;
-        } else {
-            // unknown command
+        if (request == INIT){
+            printf("Initialization request received\n");
+            initialize_peer2peer_connection(eid, client_socket);
+        }else if(request == CHUNK) {
+            printf("Chunk request received\n");
+        }else if(request == PARITY_KEY) {
+            printf("Parity request received\n");
+            // for the key exchange we need attestation
+            handle_key_exchange(eid, client_socket);
+        }else if(request == BLOCK) {
+            printf("Block request received\n");
+        }else {
+            printf("Unknown request received\n");
         }
+
+
     }
 
     close(client_socket);
@@ -485,7 +593,7 @@ void handle_client(sgx_enclave_id_t eid, int client_socket) {
 
 
 // ------------------------------------------------------------------------------
-//                                 server functions
+//                                 Sender functions
 
 /**
  * @brief this function divides the file into K chunks and generates N - K parity chunks. 
@@ -574,32 +682,66 @@ void initiate_Chunks(char* fileChunkName, char* current_file) {
         printf("Connected to node %d (%s:%d), sending file: %s\n", i, nodes[i].ip, nodes[i].port, path);
 
         // 4. Send the chunk type and length
+
+        // send the chunk id
         secure_send(sock, &i, sizeof(int));
+        
+        // send the chunk type
         secure_send(sock, &chunk_type, sizeof(chunk_type));
+        
+        // send the chunk length
         secure_send(sock, &chunk_len, sizeof(chunk_len));
         // secure_send(sock, chunk, chunk_len);     
 
         // 4. Send file in chunks
+        uint8_t *complete_buffer = malloc(chunk_len * sizeof(uint8_t));
+        memset(complete_buffer, 0, chunk_len);
         uint8_t buffer[CHUNK_BUFFER_SIZE];
         size_t bytes_read;
-        while ((bytes_read = fread(buffer, 1, sizeof(buffer), fp)) > 0) {
 
-            if (i > K) { // encrypt the parity chunks
+        uint8_t Shuffle_key[KEY_SIZE];
+
+        RAND_bytes(Shuffle_key, KEY_SIZE);
+
+
+        if (i > K) { // parity chunks
+
+        // shuffle the file
+            int num_bits = ceil(log2(Number_Of_Blocks));
+            for (int j = 0; j < Number_Of_Blocks; j++) {
+                // we need to generate key for shuffle
+                uint64_t j2 = feistel_network_prp(Shuffle_key, j, num_bits);
+                bytes_read = fread(buffer, 1, 4096, fp);
+                memcpy(complete_buffer + (j2 * 4096), buffer, bytes_read);
+                // offset += bytes_read;
+            }
+
+            for (int i = 0; i < Number_Of_Blocks * 4; i++)
+            {
+                memcpy(buffer, complete_buffer + (i * CHUNK_BUFFER_SIZE), CHUNK_BUFFER_SIZE);
+
                 EncryptData(PC_KEY, buffer, bytes_read);
+
+                ssize_t sent = secure_send(sock, buffer, bytes_read);
+                if (sent < 0) {
+                    perror("Send failed");
+                    break;
+                }
             }
-            ssize_t sent = secure_send(sock, buffer, bytes_read);
-            // send(sock, buffer, bytes_read, 0);
-            if (sent < 0) {
-                perror("Send failed");
-                break;
+            
+
+        }else{ // data chunks
+            while ((bytes_read = fread(buffer, 1, CHUNK_BUFFER_SIZE, fp)) > 0) {
+                ssize_t sent = secure_send(sock, buffer, bytes_read);
+                if (sent < 0) {
+                    perror("Send failed");
+                    break;
+                }
             }
         }
 
-        // TODO: send the chunk id to the enclave and set the key through ecall_peer_init
-        // 6. for parity chunks, send key
-        if (chunk_type == 2) {
-            secure_send(sock, PC_KEY, 16);
-        }
+
+
         printf("-----------------------------------------------------------\n");
         printf("File %s sent to node %d\n", path, i);
         printf("-----------------------------------------------------------\n");
@@ -643,28 +785,106 @@ void initiate_Chunks(char* fileChunkName, char* current_file) {
 // }
 
 
+void* connection_thread_func(void *args_ptr) {
 
-void ocall_sgx2sgx_connection(uint8_t *sgx_host_pubKey, uint8_t *sgx_guest_pubKey, uint8_t nodeID) {
+    ThreadArgs *args = (ThreadArgs *)args_ptr;
+
+    int current_id = args->current_id;
+    char *ip = args->ip;
+    int port = args->port;
+    
+
+    // 1. Create and connect the socket
+    args->socket_fd = socket(AF_INET, SOCK_STREAM, 0);
+    if (args->socket_fd < 0) {
+        printf("Socket creation failed for ip %s\n", ip);
+        free(args);
+        return NULL;
+    }
+
+    struct sockaddr_in server_addr;
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = htons(port);
+
+    if (inet_pton(AF_INET, ip, &server_addr.sin_addr) <= 0) {
+        printf("Invalid IP for ip %s\n", ip);
+        close(args->socket_fd);
+        free(args);
+        return NULL;
+    }
+
+    if (connect(args->socket_fd, (struct sockaddr*)&server_addr, sizeof(server_addr)) < 0) {
+        printf("Connection failed for ip %s\n", ip);
+        close(args->socket_fd);
+        free(args);
+        return NULL;
+    }
+
+    uint8_t type = (uint8_t)INIT;
+
+    secure_send(args->socket_fd, &type, sizeof(type));
+
+    // send the current id
+    if (secure_send(args->socket_fd, &current_id, sizeof(current_id)) != sizeof(current_id)) {
+        printf("Failed to send current id to ip %s\n", ip);
+        close(args->socket_fd);
+        free(args);
+        return NULL;
+    }
+
+    // 2. Exchange public keys
+    if (secure_send(args->socket_fd, args->current_pubKey, PUB_SIZE) != PUB_SIZE) {
+        printf("Failed to send host pubKey to ip %s\n", ip);
+        close(args->socket_fd);
+        free(args);
+        return NULL;
+    }
+
+    if (secure_recv(args->socket_fd, args->peer_pubKey, PUB_SIZE) != PUB_SIZE) {
+        printf("Failed to receive guest pubKey from ip %s\n", ip);
+        close(args->socket_fd);
+        free(args);
+        return NULL;
+    }
+
+    free(args);
+    // 4. Mark node as ready
+    printf("-------------------------------------------------------\n");
+    printf("The IP %s connected and session key initialized with socket ID%d and peer pubKey %s\n", ip, args->socket_fd, args->peer_pubKey);
+    printf("-------------------------------------------------------\n");
+    // Do not close the socket — keep it open for future use!
+    return NULL;
+}
+
+
+
+void ocall_peer_init(uint8_t *current_pubKey, uint8_t *peer_pubKey, const char *ip, int port, int *socket_fd, int current_id) {
+
     ThreadArgs *args = malloc(sizeof(ThreadArgs));
     if (!args) {
         printf("Failed to allocate memory for thread args\n");
         return;
     }
 
-    args->sgx_host_pubKey = sgx_host_pubKey;
-    args->sgx_guest_pubKey = sgx_guest_pubKey;
-    args->nodeID = nodeID;
+    args->current_pubKey = current_pubKey;
+    args->peer_pubKey = peer_pubKey;
+    args->ip = ip;
+    args->port = port;
+    args->socket_fd = socket_fd;
+    args->current_id = current_id;
 
     pthread_t thread;
     if (pthread_create(&thread, NULL, connection_thread_func, args) != 0) {
-        printf("Failed to create thread for node %d\n", nodeID);
+        printf("Failed to create thread for node %s\n", ip);
         free(args);
         return;
     }
 
+
     pthread_detach(thread);  // Let the thread run independently
 }
 
+/** 
 
 void* transfer_chunk_thread_func(void *args_ptr) {
     TransferThreadArgs *args = (TransferThreadArgs *)args_ptr;
@@ -703,6 +923,7 @@ void* transfer_chunk_thread_func(void *args_ptr) {
 
     return NULL;
 }
+*/
 
 // ------------------------------------------------------------------------------
 
@@ -714,6 +935,7 @@ void* transfer_chunk_thread_func(void *args_ptr) {
 
 void preprocessing(sgx_enclave_id_t eid, int mode,  char* fileChunkName, FileDataTransfer *fileDataTransfer) {
 
+    init_keys();
     // the stored file name for local peer
     char *current_file = "App/decentralize/chunks/current_file.bin";
 
@@ -744,15 +966,15 @@ void preprocessing(sgx_enclave_id_t eid, int mode,  char* fileChunkName, FileDat
 //    fileDataTransfer->fileName = current_file;
    fileDataTransfer->current_id = Current_Chunk_ID;
 
-printf("current_file: %s\n", current_file);
-
 //    strcpy(fileChunkName, current_file);
 //    fileChunkName = current_file;
+
 
     // ------------------------------------------------------------------------------
     //                                 rest of the code for all modes
     pthread_t listener_thread;
     sgx_enclave_id_t *eid_ptr = malloc(sizeof(sgx_enclave_id_t));
+    // the reason for this is that the pthread_create only accepts pointer
     *eid_ptr = eid;
     if (pthread_create(&listener_thread, NULL, listener_thread_func, eid_ptr) != 0) {
         perror("Failed to create listener thread");

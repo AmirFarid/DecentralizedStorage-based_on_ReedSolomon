@@ -20,6 +20,8 @@
 
 
 #include "decentralize/decentralize.h"
+#include "prp/prp.h"
+
 #include <string.h>
 
 void ocall_send_parity(int startPage, uint8_t *parityData, size_t size)
@@ -264,10 +266,11 @@ void app_file_init(sgx_enclave_id_t eid, FileDataTransfer *fileDataTransfer)
 
     /* Call ecall_file_init to initialize tag and sigma */
 
-
     printf("--------------Test 1------------\n");
     printf("file name for second time in app file init: %s\n", fileDataTransfer->fileName);
     FILE *file = fopen(fileName, "rb");
+    
+
 
 	//printf("call ecall\n");
 	int fileNum = 0;
@@ -277,7 +280,6 @@ void app_file_init(sgx_enclave_id_t eid, FileDataTransfer *fileDataTransfer)
         return;
     }
 
-    
 
     /* Open the file for reading */
     // FILE *file = fopen(fileDataTransfer->fileName, "rb");
@@ -312,8 +314,17 @@ void app_file_init(sgx_enclave_id_t eid, FileDataTransfer *fileDataTransfer)
     write(client_fd, &fileDataTransfer->numBlocks, sizeof(fileDataTransfer->numBlocks)); /* Send number of blocks */
 	close(client_fd);
 
-    /* Send each block data to the server */
-    for (int i = 0; i < fileDataTransfer->numBlocks; i++) {
+    // if current id is greater than k, then we are a parity peer
+    if(fileDataTransfer->current_id > fileDataTransfer->k){
+
+        // the parity block should be shuffled first and stored from enclave
+        // ecall_store_parity(eid);
+
+    }else{ // we are noremal parity
+
+
+         /* Send each block data to the server */
+        for (int i = 0; i < fileDataTransfer->numBlocks; i++) {
 
         /* Read the i-th block from the file into blockData */
         if (fread(blockData, BLOCK_SIZE, 1, file) != 1) {
@@ -342,7 +353,10 @@ void app_file_init(sgx_enclave_id_t eid, FileDataTransfer *fileDataTransfer)
 		close(client_fd);
 	//	printf("Sent block %d\n", i);
     }
-	/* All blocks sent to server */
+	    /* All blocks sent to server */
+    }
+
+   
 
     /* Send each sigma to the server */
     for (int i = 0; i < fileDataTransfer->numBlocks; i++) {
@@ -364,7 +378,7 @@ void app_file_init(sgx_enclave_id_t eid, FileDataTransfer *fileDataTransfer)
     printf("fopen failed\n");
     fclose(file);
     }
-
+    close(file);
     free(fileDataTransfer);
 
     printf("--------------Test 10------------\n");
@@ -380,11 +394,31 @@ void app_file_init(sgx_enclave_id_t eid, FileDataTransfer *fileDataTransfer)
 }
 
 
-
-
+#include <openssl/rand.h>
+#include <openssl/err.h>
 
 int main(void) 
 {
+
+    // uint8_t key[16];
+    // RAND_bytes(key, 16);
+    // printf("key: %s\n", key);
+    // printf("size of key: %d\n", sizeof(key));
+//     const uint8_t key[16] = {0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8, 
+//                          0x9, 0xA, 0xB, 0xC, 0xD, 0xE, 0xF, 0x0};
+    // int numBits = 3;
+
+// // Forward operation
+// uint64_t output = feistel_network_prp(key, 0, numBits);  // returns 7
+
+// printf("output: %lld\n", output);
+
+// uint64_t output2 = feistel_network_prp(key, output, numBits);
+
+// printf("output2 should be 0: %lld\n", output2);
+
+// getchar();
+
     //struct timeval start_time, end_time;
     //double cpu_time_used;
     //int waittime;
@@ -416,14 +450,15 @@ int main(void)
 
     strcpy(fileName, fileDataTransfer->fileName);
 
+    for (int i = 0; i < NUM_NODES; i++) {
+        printf("Node %d: %s:%d\n", i, fileDataTransfer->nodes[i].ip, fileDataTransfer->nodes[i].port);
+    }
+
     printf("Number of blocks: %d\n", fileDataTransfer->numBlocks);
 
     printf("the address of fileName: %s\n", fileName);
 
     printf("Press enter to repair <enter>\n");
-
-    getchar();
-
 
     // Call Enclave initialization function.
     //int result;
@@ -432,6 +467,8 @@ int main(void)
     printf("Call FTL init\n");
     ret = ecall_init(eid, fileDataTransfer, sizeof(FileDataTransfer));
     
+
+
 	//gettimeofday(&end_time, NULL);
     //waittime = 3;
     //cpu_time_used = (end_time.tv_sec - start_time.tv_sec) + (end_time.tv_usec - start_time.tv_usec) / 1000000.0;
