@@ -58,7 +58,7 @@ typedef struct {
     int current_id;
     char fileName[256];
     int numBlocks;
-    char owner_ip[30];
+    char owner_ip[16];
     int owner_port;
 } FileDataTransfer;
 // end Amir MM Farid

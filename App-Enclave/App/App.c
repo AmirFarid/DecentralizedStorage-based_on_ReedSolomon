@@ -314,17 +314,9 @@ void app_file_init(sgx_enclave_id_t eid, FileDataTransfer *fileDataTransfer)
     write(client_fd, &fileDataTransfer->numBlocks, sizeof(fileDataTransfer->numBlocks)); /* Send number of blocks */
 	close(client_fd);
 
-    // if current id is greater than k, then we are a parity peer
-    if(fileDataTransfer->current_id > fileDataTransfer->k){
-
-        // the parity block should be shuffled first and stored from enclave
-        // ecall_store_parity(eid);
-
-    }else{ // we are noremal parity
-
 
          /* Send each block data to the server */
-        for (int i = 0; i < fileDataTransfer->numBlocks; i++) {
+    for (int i = 0; i < fileDataTransfer->numBlocks; i++) {
 
         /* Read the i-th block from the file into blockData */
         if (fread(blockData, BLOCK_SIZE, 1, file) != 1) {
@@ -354,7 +346,6 @@ void app_file_init(sgx_enclave_id_t eid, FileDataTransfer *fileDataTransfer)
 	//	printf("Sent block %d\n", i);
     }
 	    /* All blocks sent to server */
-    }
 
    
 
@@ -491,6 +482,15 @@ int main(void)
     //gettimeofday(&end_time, NULL);
     //waittime = 24;
     //cpu_time_used = (end_time.tv_sec - start_time.tv_sec) + (end_time.tv_usec - start_time.tv_usec) / 1000000.0;
+
+    printf("Call compare\n");
+
+    ecall_compare(eid);
+
+    // the block number is 0 for the first block if you are on mode 
+    ecall_small_corruption(eid, fileName, 0);
+
+    getchar();
 
     //printf("FILE INIT TIME: %f with %d wait time\n", cpu_time_used, waittime);
 

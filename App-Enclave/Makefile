@@ -79,8 +79,8 @@ else
 	Urts_Library_Name := sgx_urts
 endif
 
-App_C_Files := App/App.c App/ccom/ccom.c  App/decentralize/decentralize.c App/rs/rs.c App/aes/aes.c App/prp/prp.c
-App_Include_Paths := -IApp -I$(SGX_SDK)/include -IApp/ccom -IEnclave -IApp/decentralize -IApp/rs -IApp/aes -IApp/prp -I/usr/local/include/jerasure -L/usr/local/lib
+App_C_Files := App/App.c App/ccom/ccom.c  App/decentralize/decentralize.c App/rs/rs.c App/aes/aes.c App/prp/prp.c App/eccDH/ecdh.c App/decentralize/prng.c 
+App_Include_Paths := -IApp -I$(SGX_SDK)/include -IApp/ccom -IEnclave -IApp/decentralize -IApp/rs -IApp/aes -IApp/prp -IApp/eccDH -I/usr/local/include/jerasure -L/usr/local/lib
 
 App_C_Flags := -fPIC -Wno-attributes $(App_Include_Paths)
 
@@ -96,7 +96,7 @@ else
         App_C_Flags += -DNDEBUG -UEDEBUG -UDEBUG
 endif
 
-App_Link_Flags := -L$(SGX_LIBRARY_PATH) -l$(Urts_Library_Name) -lpthread -lssl -lcrypto -lJerasure -lgf_complete
+App_Link_Flags := -L$(SGX_LIBRARY_PATH) -l$(Urts_Library_Name) -lpthread -lssl -lcrypto -lJerasure -lgf_complete -lm
 
 App_C_Objects := $(App_C_Files:.c=.o)
 

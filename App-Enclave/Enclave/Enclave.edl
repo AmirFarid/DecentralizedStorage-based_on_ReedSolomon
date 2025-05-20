@@ -14,6 +14,8 @@ enclave {
 		public void ecall_generate_file_parity(int fileNum);
 		public void ecall_decode_partition([in, string] const char *fileName, int blockNum);
 		public void ecall_peer_init([in, count=64] uint8_t *current_pubKey, [out,count=64] uint8_t *sender_pubKey, [in, string] const char *ip, [out] int *socket_fd, int current_id);
+		public void ecall_compare();
+		public void ecall_small_corruption([in, string] const char *fileName, int blockNum);
 	};
 
 	untrusted {
@@ -43,6 +45,8 @@ enclave {
 		void ocall_write_partition(int numBits);
 
 		void ocall_write_page(int pageNum, [in, size=2048] uint8_t *pageData);
+
+		void ocall_get_shuffle_key([out, size=16] uint8_t *shuffle_key, [in, size=64] uint8_t *Kexchange_PUB_KEY, [out, size=64] uint8_t *Kexchange_DataOwner_PUB_KEY, [out, size=32] uint8_t *parity_aes_key, [in, string] char *owner_ip, int owner_port);
 
 	};
 };
