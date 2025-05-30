@@ -470,30 +470,35 @@ int matrix_decode(int k, int m, int w, int *matrix, int *erasures, int *data_ptr
 
 
 
-void decode(int chunk_size, int *erasures) {
+void decode(int chunk_size, int *erasures, int *code_word, int *code_word_index, int *matrix, int current_chunk_id, uint16_t *recovered_data) {
     int symSize = 16;
     
     // Create the original coding matrix
-    int *matrix = reed_sol_vandermonde_coding_matrix(K, N-K, symSize);
+    // int *matrix = reed_sol_vandermonde_coding_matrix(K, N-K, symSize);
     
     // Allocate and read data from files
     char **data_ptrs = (char **)malloc(sizeof(char *) * K);
     char **coding_ptrs = (char **)malloc(sizeof(char *) * (N-K));
     
     // Allocate memory for each data and coding pointer
-    for (int i = 0; i < K; i++) {
-        data_ptrs[i] = (char *)malloc(sizeof(uint16_t));
-    }
-    for (int i = 0; i < N-K; i++) {
-        coding_ptrs[i] = (char *)malloc(sizeof(uint16_t));
-    }
+    // for (int i = 0; i < N; i++){
+    //     if (i < K){
+    //         data_ptrs[i] = (char *)malloc(sizeof(uint16_t));
+    //         memcpy(data_ptrs[i], code_word + i * chunk_size, chunk_size);
+    //     }else{
+    //         coding_ptrs[i-K] = (char *)malloc(sizeof(uint16_t));
+    //         memcpy(coding_ptrs[i-K], code_word + i * chunk_size, chunk_size);
+    //     }
+    // }
+    size_t offset = 0;
+    // uint16_t *recovered_data = talloc(uint16_t, chunk_size);
 
     // Process each symbol
     for (int s = 0; s < chunk_size; s++) {
         // Read available chunks
         for (int i = 0; i < N; i++) {
-            char filename[20];
-            sprintf(filename, "data_%d.dat", i);
+            // char filename[20];
+            // sprintf(filename, "data_%d.dat", i);
             
             // Skip if this chunk is in erasures
             int is_erased = 0;
@@ -505,48 +510,69 @@ void decode(int chunk_size, int *erasures) {
             }
             
             if (!is_erased) {
-                FILE *file = fopen(filename, "rb");
-                if (file == NULL) continue;
+                // FILE *file = fopen(filename, "rb");
+                // if (file == NULL) continue;
                 
-                uint16_t value;
-                fseek(file, s * sizeof(uint16_t), SEEK_SET);
-                fread(&value, sizeof(uint16_t), 1, file);
-                fclose(file);
+                // uint16_t value;
+                // fseek(file, s * sizeof(uint16_t), SEEK_SET);
+                // fread(&value, sizeof(uint16_t), 1, file);
+                // fclose(file);
                 
-                if (i < K) {
+
+                // if (i < K) {      
+                //     data_ptrs[i] = (char *)malloc(sizeof(uint16_t));
+                //     memcpy(data_ptrs[i], code_word + i * chunk_size, chunk_size);
+                // }else{
+                //     coding_ptrs[i-K] = (char *)malloc(sizeof(uint16_t));
+                //     memcpy(coding_ptrs[i-K], code_word + i * chunk_size, chunk_size);
+                // } 
+                // if (i < K) {
+                //     *((uint16_t *)data_ptrs[i]) = value;
+                // } else {
+                //     *((uint16_t *)coding_ptrs[i-K]) = value;
+                // } 
+
+                if (i < K) {      
+                    data_ptrs[i] = (char *)malloc(sizeof(uint16_t));
+                    // Convert and assign directly
+                    uint16_t value = *(uint16_t *)(code_word + i * chunk_size);
                     *((uint16_t *)data_ptrs[i]) = value;
                 } else {
+                    coding_ptrs[i-K] = (char *)malloc(sizeof(uint16_t));
+                    // Convert and assign directly
+                    uint16_t value = *(uint16_t *)(code_word + i * chunk_size);
                     *((uint16_t *)coding_ptrs[i-K]) = value;
                 } 
             }
         }
 
         // Decode
-        int ret = jerasure_matrix_decode(K, N-K, symSize, matrix, 1, erasures, 
-                                       data_ptrs, coding_ptrs, sizeof(uint16_t));
+        // int ret = jerasure_matrix_decode(K, N-K, symSize, matrix, 1, erasures, data_ptrs, coding_ptrs, sizeof(uint16_t));
+        int ret = matrix_decode(K, N-K, symSize, matrix, erasures, data_ptrs, coding_ptrs, sizeof(uint16_t));
+
         
         if (ret == 0) {
             // Write recovered data
-            for (int i = 0; erasures[i] != -1; i++) {
-                int idx = erasures[i];
-                char filename[20];
-                sprintf(filename, "data_%d.dat", idx);
-                FILE *file = fopen(filename, "r+b");
-                if (file == NULL) {
-                    file = fopen(filename, "wb");
-                }
+            // for (int i = 0; erasures[i] != -1; i++) {
+            //     int idx = erasures[i];
+            //     char filename[20];
+            //     sprintf(filename, "data_%d.dat", idx);
+            //     FILE *file = fopen(filename, "r+b");
+            //     if (file == NULL) {
+            //         file = fopen(filename, "wb");
+            //     }
                 
-                uint16_t value;
-                if (idx < K) {
-                    value = *((uint16_t *)data_ptrs[idx]);
+                // uint16_t value;
+                if (current_chunk_id < K) {
+                    memcpy(recovered_data + offset, (uint16_t *)data_ptrs[current_chunk_id], 16);
                 } else {
-                    value = *((uint16_t *)coding_ptrs[idx-K]);
+                    memcpy(recovered_data + offset, (uint16_t *)coding_ptrs[current_chunk_id-K], 16);
                 }
-                
-                fseek(file, s * sizeof(uint16_t), SEEK_SET);
-                fwrite(&value, sizeof(uint16_t), 1, file);
-                fclose(file);
-            }
+                offset += 16;
+                // fseek(file, s * sizeof(uint16_t), SEEK_SET);
+                // fwrite(&value, sizeof(uint16_t), 1, file);
+                // fclose(file);
+            // }
         } else {
             fprintf(stderr, "Decoding failed for symbol %d\n", s);
         }

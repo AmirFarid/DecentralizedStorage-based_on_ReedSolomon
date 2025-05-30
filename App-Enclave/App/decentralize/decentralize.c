@@ -29,24 +29,29 @@ typedef enum {
     INIT = 0,
     CHUNK = 1,
     PARITY_KEY = 2,
-    BLOCK = 3
+    BLOCK = 3,
 } RequestType;
 
 
 
 NodeInfo nodes[NUM_NODES] = {
     {"192.168.1.1", 8080, -1, 0}, // This is the host node do not count it as a node
-    {"141.219.210.172", 8080, -1, 0},
+    {"10.50.18.251", 8080, -1, 0},
+    // {"141.219.210.172", 8080, -1, 0},
+
     // {"192.168.1.2", 8081, -1, 0},
     // {"192.168.1.3", 8082, -1, 0}
 };
 
 typedef struct {
-    uint8_t nodeID;
-    uint32_t blockID;
-    uint8_t *output_buffer;
-    size_t *output_len_ptr;
-    size_t buf_len;
+    int node_id;
+    int node_port;
+    char node_ip[16];
+    uint8_t fileNum;
+    uint8_t blockNum;
+    uint8_t *output_code_word_buffer;
+    pthread_mutex_t lock;
+    uint8_t *output_index_list;
 } TransferThreadArgs;
 
 typedef struct {
@@ -110,6 +115,123 @@ static void prng_init(uint32_t seed)
 
 // ------------------------------------------------------------------------------
 //                                 helper functions
+
+void* broadcast_request_data_from_node(void* arg){
+
+    printf("Requesting data from node %d\n", arg->node_id);
+
+    int client_socket = socket(AF_INET, SOCK_STREAM, 0);
+
+
+    int sock = socket(AF_INET, SOCK_STREAM, 0);
+    if (sock < 0) {
+        perror("Socket creation failed");
+        return NULL;
+    }
+
+
+    // 3. Connect to the ith node
+    struct sockaddr_in server_addr = {
+        .sin_family = AF_INET,
+        .sin_port = htons(arg->node_port)
+    };
+
+    printf("server_addr.sin_addr: %s\n", arg->node_ip);
+    printf("server_addr.sin_port: %d\n", arg->node_port);
+
+    inet_pton(AF_INET, arg->node_ip, &server_addr.sin_addr);
+
+    if (connect(sock, (struct sockaddr*)&server_addr, sizeof(server_addr)) < 0) {
+        perror("Connection to server failed");
+        close(sock);
+        return NULL;
+    }
+    
+
+
+    // send the request type
+    secure_send(sock, BLOCK , sizeof(RequestType));
+
+    secure_send(sock, &arg->fileNum, sizeof(uint8_t));
+    secure_send(sock, &arg->blockNum, sizeof(uint8_t));
+
+    uint8_t status;
+    uint8_t index;
+    // receive the block
+    secure_recv(sock, &status, sizeof(uint8_t));
+    secure_recv(sock, &index, sizeof(uint8_t));
+
+
+    if (status == 1){
+        uint8_t *buffer = malloc(BLOCK_SIZE * sizeof(uint8_t));
+        secure_recv(sock, buffer, BLOCK_SIZE * sizeof(uint8_t));
+
+        // receive the block
+        pthread_mutex_lock(&arg->lock);
+        memcpy(arg->output_code_word_buffer + index * BLOCK_SIZE, buffer, BLOCK_SIZE * sizeof(uint8_t));
+        memcpy(arg->output_index_list + index, 1, sizeof(uint8_t));
+        pthread_mutex_unlock(&arg->lock);
+
+        free(buffer);
+    }
+
+    
+    close(sock);
+    return NULL;
+}
+
+void ocall_broadcast_block(int fileNum, int blockNum, uint8_t *code_word, int *code_word_index, NodeInfo *nodes){
+
+    int k = K;
+    int n = N;
+    int symSize = 16;
+    int m = n - k;
+
+    pthread_t threads[NUM_NODES];
+
+    TransferThreadArgs args;
+
+    args.fileNum = (uint8_t)fileNum;
+    args.blockNum = (uint8_t)blockNum;
+    args.output_code_word_buffer = malloc(N * BLOCK_SIZE * sizeof(uint8_t));
+    args.output_index_list = malloc(N * sizeof(uint8_t));
+    memset(args.output_index_list, 0, N * sizeof(uint8_t));
+
+    pthread_mutex_init(&args.lock, NULL);
+    
+    for (int i = 1; i < NUM_NODES; i++) {
+        args.socket_fd = nodes[i].socket_fd;
+        args.node_ip = nodes[i].ip;
+        args.node_port = nodes[i].port;
+
+        pthread_create(&threads[i], NULL, broadcast_request_data_from_node, &args);
+    }
+
+    for (int i = 0; i < NUM_NODES; i++) {
+        pthread_join(threads[i], NULL);
+    }
+
+    if (NUM_NODES < N){
+        // we should read them from the file
+    }
+
+    // Reconstruct the block
+    uint8_t *reconstructed_block = malloc(BLOCK_SIZE * sizeof(uint8_t));
+    
+
+
+    free(args.output_buffer);
+    free(args.output_id_list);
+    free(threads);
+    return;
+}
+
+void ocall_get_rs_matrix(int k, int m, int symSize, int *matrix){
+
+    int *rs_matrix = reed_sol_vandermonde_coding_matrix(k, m, symSize);
+    memcpy(matrix, rs_matrix, sizeof(int) * m * k);
+    free(rs_matrix);
+}
 
 void init_keys(){
 
@@ -592,6 +714,32 @@ void handle_key_exchange(sgx_enclave_id_t eid, int client_socket) {
     close(client_socket);
 }
 
+void handle_block_retrival_request(sgx_enclave_id_t eid, int client_socket){
+
+
+    int block_id;
+    int file_id;
+     uint8_t status;
+     uint8_t *recovered_block;
+
+    secure_recv(client_socket, &file_id, sizeof(file_id));
+    secure_recv(client_socket, &block_id, sizeof(block_id));
+
+    ecall_check_block(eid, file_id, block_id, status, recovered_block);
+
+    secure_send(client_socket, &status, sizeof(status));
+
+    if (status == 1){
+        // send the chunk id so the clinet can retrive the data by reed solomon
+        secure_send(client_socket, &Current_Chunk_ID, sizeof(Current_Chunk_ID));
+        // send the recovered block
+        secure_send(client_socket, recovered_block, BLOCK_SIZE);
+    }else{
+        secure_send(client_socket, NULL, 0);
+    }
+
+}
+
 
 void handle_client(sgx_enclave_id_t eid, int client_socket) {
 
@@ -608,18 +756,34 @@ void handle_client(sgx_enclave_id_t eid, int client_socket) {
         if (len <= 0) break; // client disconnected
 
         if (request == INIT){
-            printf("Initialization request received\n");
+            printf("-------------------------------------------------------\n");
+            printf("\t Initialization request received\n");
+            printf("-------------------------------------------------------\n");
             initialize_peer2peer_connection(eid, client_socket);
+            break;
         }else if(request == CHUNK) {
-            printf("Chunk request received\n");
+            printf("-------------------------------------------------------\n");
+            printf("\t Chunk request received\n");
+            printf("-------------------------------------------------------\n");
+            break;
         }else if(request == PARITY_KEY) {
-            printf("Parity request received\n");
+            printf("-------------------------------------------------------\n");
+            printf("\t Parity request received\n");
+            printf("-------------------------------------------------------\n");
             // for the key exchange we need attestation
             handle_key_exchange(eid, client_socket);
+            break;
         }else if(request == BLOCK) {
-            printf("Block request received\n");
+            printf("-------------------------------------------------------\n");
+            printf("\t Block request received\n");
+            printf("-------------------------------------------------------\n");
+            handle_block_retrival_request(eid, client_socket);
+            break;
         }else {
-            printf("Unknown request received\n");
+            printf("-------------------------------------------------------\n");
+            printf("\t Unknown request received\n");
+            printf("-------------------------------------------------------\n");
+            break;
         }
 
 
@@ -677,7 +841,7 @@ void initiate_Chunks(char* fileChunkName, char* current_file) {
             continue;
         } 
 
-
+        // break;
 
         uint32_t chunk_type = 1; // 1 for data chunk, 2 for parity chunk
         uint32_t chunk_len;
@@ -1024,7 +1188,7 @@ void preprocessing(sgx_enclave_id_t eid, int mode,  char* fileChunkName, FileDat
 
     printf("Preprocessing started\n");
    
-   
+    
     // // Generate a random K x N matrix A
     // int A[K][N];
     // for (int i = 0; i < K; i++) {

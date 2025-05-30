@@ -8,8 +8,8 @@ enclave {
 
 	trusted {
 
-		public void ecall_init([in, size=fileDataTransferSize]FileDataTransfer *fileDataTransfer, size_t fileDataTransferSize);
-		public int ecall_file_init([out] Tag *tag,[out, size=10, count=10] uint8_t *sigma, [in, size=fileDataTransferSize] FileDataTransfer *fileDataTransfer, size_t fileDataTransferSize);
+		public void ecall_init([in, size=508]FileDataTransfer *fileDataTransfer);
+		public int ecall_file_init([out] Tag *tag,[out, size=10, count=numBlocks] uint8_t *sigma, [in, size=508] FileDataTransfer *fileDataTransfer, int numBlocks);
 		public void ecall_audit_file([in, string] const char *fileName,[out] int *ret);
 		public void ecall_generate_file_parity(int fileNum);
 		public void ecall_decode_partition([in, string] const char *fileName, int blockNum);

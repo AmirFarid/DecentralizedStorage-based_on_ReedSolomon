@@ -706,6 +706,7 @@ int initiate_rs(const char *original_file, int k, int n){
     int chunk_size;
     printf("original_file: %s\n", original_file);
     read_file(original_file, &chunks, &chunk_size, &padding_size);
+    free(chunks);
     return chunk_size/4096;
 }
 

@@ -53,6 +53,7 @@ typedef struct {
 // the file information gathered and send to enclave ( it is similar to the concept of DTO in Java)
 typedef struct {
     NodeInfo nodes[NUM_NODES];
+    int current_chunk_id;
     int n;
     int k;
     int current_id;

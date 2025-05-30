@@ -22,6 +22,8 @@
 #include "hmac.h"
 #include "aes.h"
 #include "prp.h"
+#include "rs.h";
+
 
 
 #include <fec.h>
@@ -1175,9 +1177,12 @@ for (int currentSymbol = 0; currentSymbol < nroots; currentSymbol++) {
 * It also intitializes peers to peers public and private keys, and exchange their public keys.
 * It also initializes the files[] array.
 */
-void ecall_init(FileDataTransfer *fileDataTransfer, size_t fileDataTransferSize) 
+void ecall_init(FileDataTransfer *fileDataTransfer) 
 {	
 
+	if(fileDataTransfer->numBlocks == 4){
+		ocall_printf("numBlocks is 4\n", 14, 0);
+	}
 
 
 	// Diffie hellman key exchange with FTL
@@ -1294,7 +1299,7 @@ void ecall_peer_init(uint8_t *current_pubKey, uint8_t *sender_pubKey, const char
 
 
 // Initialize the file with PoR Tags and send them to FTL
-int ecall_file_init(Tag *tag, uint8_t *sigma, FileDataTransfer *fileDataTransfer, size_t fileDataTransferSize) 
+int ecall_file_init(Tag *tag, uint8_t *sigma, FileDataTransfer *fileDataTransfer, int numBlocks) 
 {
 
     int i, j;
@@ -2082,6 +2087,43 @@ ocall_printf("tagSegNum2", 10, 0);
 }
 
 
+void recover_block(int fileNum, int blockNum, uint8_t *blockData){
+
+	int k = files[fileNum].k;
+	int n = files[fileNum].n;
+	int symSize = 16;
+	int m = n - k;
+	
+	uint8_t code_word = (uint8_t *)malloc(k * BLOCK_SIZE);
+	uint8_t recovered_block = (uint8_t *)malloc(BLOCK_SIZE);
+	int code_word_index[k];
+
+	ocall_broadcast_block(fileNum, blockNum, code_word, code_word_index);
+
+
+    int *matrix = (int *)malloc(sizeof(int) * m * k);
+
+	ocall_get_rs_matrix(k, m, symSize, matrix);
+
+
+
+	rs.decode(BLOCK_SIZE, code_word_index, recovered_block, code_word, matrix);
+
+
+	sleep(10);
+
+	ocall_printf("Recovered block", 15, 0);
+
+
+}
+
+void ecall_check_block(int fileNum, int blockNum,  uint8_t status, uint8_t *recovered_block){
+
+	ocall_printf("Checking block", 15, 0);
+
+	recover_block(fileNum, blockNum, blockData);
+
+}
 
 void ecall_small_corruption(const char *fileName, int blockNum) {
 
@@ -2202,6 +2244,8 @@ void ecall_small_corruption(const char *fileName, int blockNum) {
 
 	if (audit_block_group(fileNum, 1, &blockNum, sigmas, tag, blockData) != 0) {
 		    ocall_printf("AUDIT FAILED!!", 15, 0);
+
+			recover_block(fileNum, blockNum, blockData);
 		} else {
 		    ocall_printf("AUDIT SUCCESS!", 15, 0);
 		}
