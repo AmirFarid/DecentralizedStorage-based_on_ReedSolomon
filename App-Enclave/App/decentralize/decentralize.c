@@ -47,8 +47,8 @@ typedef struct {
     int node_id;
     int node_port;
     char node_ip[16];
-    uint8_t fileNum;
-    uint8_t blockNum;
+    int fileNum;
+    int blockNum;
     uint8_t *output_code_word_buffer;
     pthread_mutex_t lock;
     uint8_t *output_index_list;
@@ -115,124 +115,6 @@ static void prng_init(uint32_t seed)
 
 // ------------------------------------------------------------------------------
 //                                 helper functions
-
-void* broadcast_request_data_from_node(void* arg){
-
-    printf("Requesting data from node %d\n", arg->node_id);
-
-    int client_socket = socket(AF_INET, SOCK_STREAM, 0);
-
-
-    int sock = socket(AF_INET, SOCK_STREAM, 0);
-    if (sock < 0) {
-        perror("Socket creation failed");
-        return NULL;
-    }
-
-
-    // 3. Connect to the ith node
-    struct sockaddr_in server_addr = {
-        .sin_family = AF_INET,
-        .sin_port = htons(arg->node_port)
-    };
-
-    printf("server_addr.sin_addr: %s\n", arg->node_ip);
-    printf("server_addr.sin_port: %d\n", arg->node_port);
-
-    inet_pton(AF_INET, arg->node_ip, &server_addr.sin_addr);
-
-    if (connect(sock, (struct sockaddr*)&server_addr, sizeof(server_addr)) < 0) {
-        perror("Connection to server failed");
-        close(sock);
-        return NULL;
-    }
-    
-
-
-    // send the request type
-    secure_send(sock, BLOCK , sizeof(RequestType));
-
-    secure_send(sock, &arg->fileNum, sizeof(uint8_t));
-    secure_send(sock, &arg->blockNum, sizeof(uint8_t));
-
-    uint8_t status;
-    uint8_t index;
-    // receive the block
-    secure_recv(sock, &status, sizeof(uint8_t));
-    secure_recv(sock, &index, sizeof(uint8_t));
-
-
-    if (status == 1){
-        uint8_t *buffer = malloc(BLOCK_SIZE * sizeof(uint8_t));
-        secure_recv(sock, buffer, BLOCK_SIZE * sizeof(uint8_t));
-
-        // receive the block
-        pthread_mutex_lock(&arg->lock);
-        memcpy(arg->output_code_word_buffer + index * BLOCK_SIZE, buffer, BLOCK_SIZE * sizeof(uint8_t));
-        memcpy(arg->output_index_list + index, 1, sizeof(uint8_t));
-        pthread_mutex_unlock(&arg->lock);
-
-        free(buffer);
-    }
-
-    
-    close(sock);
-    return NULL;
-}
-
-void ocall_broadcast_block(int fileNum, int blockNum, uint8_t *code_word, int *code_word_index, NodeInfo *nodes){
-
-    int k = K;
-    int n = N;
-    int symSize = 16;
-    int m = n - k;
-
-    pthread_t threads[NUM_NODES];
-
-    TransferThreadArgs args;
-
-    args.fileNum = (uint8_t)fileNum;
-    args.blockNum = (uint8_t)blockNum;
-    args.output_code_word_buffer = malloc(N * BLOCK_SIZE * sizeof(uint8_t));
-    args.output_index_list = malloc(N * sizeof(uint8_t));
-    memset(args.output_index_list, 0, N * sizeof(uint8_t));
-
-    pthread_mutex_init(&args.lock, NULL);
-    
-    for (int i = 1; i < NUM_NODES; i++) {
-        args.socket_fd = nodes[i].socket_fd;
-        args.node_ip = nodes[i].ip;
-        args.node_port = nodes[i].port;
-
-        pthread_create(&threads[i], NULL, broadcast_request_data_from_node, &args);
-    }
-
-    for (int i = 0; i < NUM_NODES; i++) {
-        pthread_join(threads[i], NULL);
-    }
-
-    if (NUM_NODES < N){
-        // we should read them from the file
-    }
-
-    // Reconstruct the block
-    uint8_t *reconstructed_block = malloc(BLOCK_SIZE * sizeof(uint8_t));
-    
-
-
-    free(args.output_buffer);
-    free(args.output_id_list);
-    free(threads);
-    return;
-}
-
-void ocall_get_rs_matrix(int k, int m, int symSize, int *matrix){
-
-    int *rs_matrix = reed_sol_vandermonde_coding_matrix(k, m, symSize);
-    memcpy(matrix, rs_matrix, sizeof(int) * m * k);
-    free(rs_matrix);
-}
-
 void init_keys(){
 
     uint32_t seed;
@@ -725,9 +607,10 @@ void handle_block_retrival_request(sgx_enclave_id_t eid, int client_socket){
     secure_recv(client_socket, &file_id, sizeof(file_id));
     secure_recv(client_socket, &block_id, sizeof(block_id));
 
-    ecall_check_block(eid, file_id, block_id, status, recovered_block);
+    ecall_check_block(eid, file_id, block_id, status, recovered_block, BLOCK_SIZE);
 
     secure_send(client_socket, &status, sizeof(status));
+
 
     if (status == 1){
         // send the chunk id so the clinet can retrive the data by reed solomon
@@ -798,6 +681,170 @@ void handle_client(sgx_enclave_id_t eid, int client_socket) {
 
 // ------------------------------------------------------------------------------
 //                                 Sender functions
+
+
+
+void* broadcast_request_data_from_node(void* arg){
+
+    TransferThreadArgs *args = (TransferThreadArgs*)arg;
+
+    printf("Requesting data from node %d\n", args->node_id);
+
+    int sock = socket(AF_INET, SOCK_STREAM, 0);
+    if (sock < 0) {
+        perror("Socket creation failed");
+        return NULL;
+    }
+
+
+    // 3. Connect to the ith node
+    struct sockaddr_in server_addr = {
+        .sin_family = AF_INET,
+        .sin_port = htons(args->node_port)
+    };
+
+    printf("server_addr.sin_addr: %s\n", args->node_ip);
+    printf("server_addr.sin_port: %d\n", args->node_port);
+
+    inet_pton(AF_INET, args->node_ip, &server_addr.sin_addr);
+
+    if (connect(sock, (struct sockaddr*)&server_addr, sizeof(server_addr)) < 0) {
+        perror("Connection to server failed");
+        close(sock);
+        return NULL;
+    }
+    
+
+
+    // send the request type
+    secure_send(sock, BLOCK , sizeof(RequestType));
+
+    secure_send(sock, &args->fileNum, sizeof(int));
+    secure_send(sock, &args->blockNum, sizeof(int));
+
+    uint8_t status;
+    int index;
+    // receive the block
+    secure_recv(sock, &status, sizeof(uint8_t));
+
+
+    if (status == 1){
+        secure_recv(sock, &index, sizeof(int));
+
+        uint8_t *buffer = malloc(BLOCK_SIZE * sizeof(uint8_t));
+        secure_recv(sock, buffer, BLOCK_SIZE * sizeof(uint8_t));
+
+        // receive the block
+        pthread_mutex_lock(&args->lock);
+        memcpy(args->output_code_word_buffer + index * BLOCK_SIZE, buffer, BLOCK_SIZE * sizeof(uint8_t));
+        memcpy(args->output_index_list + index, 1, sizeof(uint8_t));
+        pthread_mutex_unlock(&args->lock);
+
+        free(buffer);
+    }
+    // else{
+    //     printf("Node %d does not have the block %d\n", args->node_id, index);
+    //     pthread_mutex_lock(&args->lock);
+    //     memcpy(args->output_index_list + index, 0, sizeof(uint8_t));
+    //     pthread_mutex_unlock(&args->lock);
+    // }
+
+    
+    close(sock);
+    return NULL;
+}
+
+void ocall_broadcast_block(int fileNum, int blockNum, uint8_t *code_word, int *code_word_index, NodeInfo *nodes, int cw_size, int cw_index_size){
+
+    int k = K;
+    int n = N;
+    int symSize = 16;
+    int m = n - k;
+
+    pthread_t threads[N];
+
+    TransferThreadArgs args;
+
+
+    args.fileNum = fileNum;
+    args.blockNum = blockNum;
+    args.output_code_word_buffer = malloc(N * BLOCK_SIZE * sizeof(uint8_t));
+    args.output_index_list = malloc(N * sizeof(uint8_t));
+    memset(args.output_index_list, 0, N * sizeof(uint8_t));
+
+    pthread_mutex_init(&args.lock, NULL);
+
+    int i;
+    
+    for (i = 1; i < NUM_NODES; i++) {
+        args.node_id = nodes[i].chunk_id;
+        memcpy(args.node_ip, nodes[i].ip, 16);
+        args.node_port = nodes[i].port;
+
+        pthread_create(&threads[i], NULL, broadcast_request_data_from_node, &args);
+    }
+
+    // for the rest of the nodes we use first node as provider
+    // if (NUM_NODES < N){
+    //     for (int j = i; j < N; j++){
+        // args.node_id = nodes[0].chunk_id;
+        // args.node_port = nodes[0].port;
+        // args.node_ip = nodes[0].ip;
+        // pthread_create(&threads[j], NULL, broadcast_request_data_from_node, &args);
+    //     }
+    // }
+
+    for (int i = 0; i < NUM_NODES; i++) {
+        pthread_join(threads[i], NULL);
+    }
+
+    printf("========== testing the output before reading from file ==========\n");
+    for (int i = 0; i < N; i++){
+        printf("index %d: %d\n", i, args.output_index_list[i]);
+    }
+    printf("========== ========== ========== ========== ========== ==========\n");
+
+    // for testing purposes
+    if (NUM_NODES < N){
+        for (int j = i; j < N; j++){
+            char chunk_path[100];
+
+            sprintf(chunk_path, CHUNK_PATH_FORMAT, j);
+
+            FILE *fp = fopen(chunk_path, "rb");
+
+            fread(args.output_code_word_buffer + (j * BLOCK_SIZE), 1, BLOCK_SIZE, fp);
+
+            memcpy(args.output_index_list + j, 1, sizeof(uint8_t));
+
+            fclose(fp);
+
+        }
+
+    }
+
+    
+
+    memcpy(code_word, args.output_code_word_buffer, N * BLOCK_SIZE * sizeof(uint8_t));
+    memcpy(code_word_index, args.output_index_list, N * sizeof(uint8_t));
+    
+
+
+    free(args.output_code_word_buffer);
+    free(args.output_index_list);
+    free(threads);
+    return;
+}
+
+void ocall_get_rs_matrix(int k, int m, int symSize, int *matrix, int matrix_size){
+
+    int *rs_matrix = reed_sol_vandermonde_coding_matrix(k, m, symSize);
+    memcpy(matrix, rs_matrix, sizeof(int) * matrix_size);
+    free(rs_matrix);
+}
+
+
+
 
 /**
  * @brief this function divides the file into K chunks and generates N - K parity chunks. 

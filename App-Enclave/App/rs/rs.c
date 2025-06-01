@@ -3,8 +3,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <gf_rand.h>
-#include "jerasure.h"
-#include "jerasure/reed_sol.h"
+// #include "jerasure.h"
+// #include "jerasure/reed_sol.h"
 #include <math.h>
 #include <assert.h>
 

@@ -16,6 +16,7 @@ enclave {
 		public void ecall_peer_init([in, count=64] uint8_t *current_pubKey, [out,count=64] uint8_t *sender_pubKey, [in, string] const char *ip, [out] int *socket_fd, int current_id);
 		public void ecall_compare();
 		public void ecall_small_corruption([in, string] const char *fileName, int blockNum);
+		public void ecall_check_block(int fileNum, int blockNum, uint8_t stat, [out, size=recovered_block_size] uint8_t *recovered_block, int recovered_block_size);
 	};
 
 	untrusted {
@@ -48,6 +49,9 @@ enclave {
 
 		void ocall_get_shuffle_key([out, size=16] uint8_t *shuffle_key, [in, size=64] uint8_t *Kexchange_PUB_KEY, [out, size=64] uint8_t *Kexchange_DataOwner_PUB_KEY, [out, size=32] uint8_t *parity_aes_key, [in, string] char *owner_ip, int owner_port);
 
+		void ocall_broadcast_block(int fileNum, int blockNum, [out, size=cw_size] uint8_t *code_word, [out, size=cw_index_size] int *code_word_index, [in, size=cw_index_size] NodeInfo *nodes, int cw_size, int cw_index_size);
+	
+		void ocall_get_rs_matrix(int k, int m, int symSize, [out, size=matrix_size] int *matrix, int matrix_size);
 	};
 };
 

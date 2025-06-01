@@ -22,7 +22,7 @@
 #include "hmac.h"
 #include "aes.h"
 #include "prp.h"
-#include "rs.h";
+#include "rs.h"
 
 
 
@@ -2086,6 +2086,165 @@ ocall_printf("tagSegNum2", 10, 0);
 
 }
 
+void ecall_check_block(int fileNum, int blockNum,  uint8_t status, uint8_t *recovered_block, int recovered_block_size){
+
+	ocall_printf("Checking block", 15, 0);
+
+
+	int numBlocks = files[fileNum].numBlocks;
+    int numPages = numBlocks * PAGE_PER_BLOCK;
+	// int numGroups = files[0].numGroups;
+    int numBits = (int)ceil(log2(numPages)) + 1;
+
+	ocall_printf("numBlocks:", 10, 0);
+	ocall_printint(&numBlocks);
+	ocall_printf("numBits:", 10, 0);
+	ocall_printint(&numBits);
+
+
+
+	ocall_init_parity(numBits);
+
+	uint8_t keyNonce[KEY_SIZE];
+	uint8_t sharedKey[KEY_SIZE] = {0};
+
+	sgx_read_rand(keyNonce, KEY_SIZE);
+
+
+	ocall_send_nonce(keyNonce);
+
+	size_t len = KEY_SIZE;
+	hmac_sha1(dh_sharedKey, ECC_PUB_KEY_SIZE, keyNonce, KEY_SIZE, sharedKey, &len);
+
+
+	// int blockNum = 0;
+	uint8_t segData[SEGMENT_SIZE];
+	uint8_t data[BLOCK_SIZE];
+
+
+
+	// uint8_t data2[BLOCK_SIZE];
+
+	for (int i = 0; i < 2; i++)
+	{
+		int pageNum = (blockNum * PAGE_PER_BLOCK) + i;
+		int permutedPageNum = feistel_network_prp(sharedKey, pageNum, numBits);
+
+		for (int j = 0; j < 4; j++)
+		{
+			int segNum = (permutedPageNum * SEGMENT_PER_PAGE) + j;
+			ocall_get_segment(files[fileNum].fileName, segNum, segData, 0);
+			DecryptData((uint32_t *)sharedKey, segData, SEGMENT_SIZE);
+			// memcpy(newData, data + ((i+1) * j)* SEGMENT_SIZE), 512);
+			memcpy(data + ((i * 4 + j) * SEGMENT_SIZE), segData, SEGMENT_SIZE);
+
+		}
+	}
+					
+
+
+	const int totalSegments = (files[fileNum].numBlocks * SEGMENT_PER_BLOCK);
+	int sigPerSeg = floor((double)SEGMENT_SIZE / ((double)PRIME_LENGTH / 8));
+	int tagSegNum = totalSegments + ceil((double)files[fileNum].numBlocks /(double) sigPerSeg);
+	int tagPageNum = floor(tagSegNum / SEGMENT_PER_PAGE);
+	// ocall_printf("totalSegments:", 10, 0);
+	// ocall_printint(&totalSegments);
+	// ocall_printf("sigPerSeg:", 10, 0);
+	// ocall_printint(&sigPerSeg);
+	// ocall_printf("tagSegNum:", 10, 0);
+	// ocall_printint(&tagSegNum);
+	// ocall_printf("tagPageNum:", 10, 0);
+	// ocall_printint(&tagPageNum);
+
+
+
+	int permutedPageNum = feistel_network_prp(sharedKey, tagPageNum, numBits);
+	tagSegNum = (permutedPageNum * SEGMENT_PER_PAGE) + (tagSegNum % tagPageNum); // note, the tag is after the file, 
+																					// so numBits may be wrong
+	// ocall_printf("tagSegNum2", 10, 0);
+	// ocall_printint(&tagSegNum);
+		ocall_get_segment(files[fileNum].fileName, tagSegNum, segData, 0);
+
+
+		DecryptData((uint32_t *)sharedKey, segData, SEGMENT_SIZE); 
+
+		Tag *tag = (Tag *)malloc(sizeof(Tag));
+	    memcpy(tag, segData, sizeof(Tag));
+	    decrypt_tag(tag, porSK);
+
+		// Get sigmas
+		BIGNUM *sigmas[1];
+
+
+		// getgetsigma(sigmas, 1, sharedKey, &blockNum, files[0].fileName);
+
+		// uint8_t sigs[PRIME_LENGTH / 8];
+		// BN_bn2bin(sigmas[0], sigs);
+		// ocall_printf("SIGMA (1 and 2): ", 18, 0);
+
+		// for(int i = 0; i < 1; i++) {
+		// sigma retrieval starts here
+ 		sigmas[0] = BN_new();
+		BN_zero(sigmas[0]);
+
+		int startSeg = totalSegments;
+		int sigSegNum = floor(blockNum/ sigPerSeg) + startSeg;
+		int sigPageNum = floor(sigSegNum / SEGMENT_PER_PAGE);
+			
+			// ocall_printf("startSeg:", 10, 0);
+			// ocall_printint(&startSeg);
+			// ocall_printf("sigSegNum:", 10, 0);
+			// ocall_printint(&sigSegNum);
+			// ocall_printf("sigPageNum:", 10, 0);
+			// ocall_printint(&sigPageNum);
+
+		    // Permute sigPageNum
+		permutedPageNum = feistel_network_prp(sharedKey, sigPageNum, numBits);
+		int permutedSigSegNum = (permutedPageNum * SEGMENT_PER_PAGE) + (sigSegNum % SEGMENT_PER_PAGE);
+
+			// ocall_printf("permutedPageNum:", 10, 0);
+			// ocall_printint(&permutedPageNum);
+			// ocall_printf("permutedSigSegNum:", 10, 0);
+			// ocall_printint(&permutedSigSegNum);
+
+
+		uint8_t sigData[SEGMENT_SIZE];
+		ocall_get_segment(files[fileNum].fileName, permutedSigSegNum, sigData, 0);
+		DecryptData((uint32_t *)sharedKey, sigData, SEGMENT_SIZE);
+		int segIndex = blockNum% sigPerSeg;
+		//ocall_printf("sigData:", 10, 0);
+		//ocall_printf(sigData, SEGMENT_SIZE, 1);
+		//ocall_printf("-------------------------------------------------", 30, 0);
+		//ocall_printf("segIndex:", 10, 0);
+		//ocall_printint(&segIndex);
+		BN_bin2bn(sigData + (segIndex * (PRIME_LENGTH / 8)), PRIME_LENGTH / 8, sigmas[0]);
+	
+		// sigma retrieval finished
+
+		int indices[1];
+		indices[0] = blockNum;
+		// getgetsigma(sigmas, 1, sharedKey, indices, files[0].fileName);
+
+		ocall_printf("sigmas[0]:", 10, 0);
+		ocall_printf(sigmas[0], PRIME_LENGTH / 8, 1);
+		ocall_printf("tag:", 10, 0);
+		ocall_printf(tag, sizeof(Tag), 1);
+
+
+
+	if (audit_block_group(0, 1, indices, sigmas, tag, data) != 0) {
+			status = 1;
+		    ocall_printf("AUDIT FAILED!!", 15, 0);
+		} else {
+			status = 0;
+		    ocall_printf("AUDIT SUCCESS!", 15, 0);
+			memcpy(recovered_block, data, BLOCK_SIZE);
+		}
+
+	ocall_init_parity(numBits);
+
+}
+
 
 void recover_block(int fileNum, int blockNum, uint8_t *blockData){
 
@@ -2093,37 +2252,38 @@ void recover_block(int fileNum, int blockNum, uint8_t *blockData){
 	int n = files[fileNum].n;
 	int symSize = 16;
 	int m = n - k;
-	
-	uint8_t code_word = (uint8_t *)malloc(k * BLOCK_SIZE);
-	uint8_t recovered_block = (uint8_t *)malloc(BLOCK_SIZE);
-	int code_word_index[k];
-
-	ocall_broadcast_block(fileNum, blockNum, code_word, code_word_index);
-
 
     int *matrix = (int *)malloc(sizeof(int) * m * k);
 
-	ocall_get_rs_matrix(k, m, symSize, matrix);
+	// the recovered block
+    uint16_t *recovered_data = talloc(uint16_t, BLOCK_SIZE);
 
 
+	
+	uint8_t code_word = (uint8_t *)malloc(n * BLOCK_SIZE);
+	uint8_t recovered_block = (uint8_t *)malloc(BLOCK_SIZE);
+	int code_word_index[n];
 
-	rs.decode(BLOCK_SIZE, code_word_index, recovered_block, code_word, matrix);
+	NodeInfo nodes[n];
+	memcpy(nodes, files[fileNum].nodes, n * sizeof(NodeInfo));
+	memset(nodes->dh_sharedKey_peer2peer, 0, 64);
+	ocall_broadcast_block(fileNum, blockNum, code_word, code_word_index, nodes, n*BLOCK_SIZE, n);
 
 
-	sleep(10);
+	ocall_get_rs_matrix(k, m, symSize, matrix, m*k);
+
+	
+
+	decode(BLOCK_SIZE, code_word_index, recovered_block, code_word, matrix, files[fileNum].current_chunk_id, recovered_block);
+
+	// store the recovered block
 
 	ocall_printf("Recovered block", 15, 0);
 
 
 }
 
-void ecall_check_block(int fileNum, int blockNum,  uint8_t status, uint8_t *recovered_block){
 
-	ocall_printf("Checking block", 15, 0);
-
-	recover_block(fileNum, blockNum, blockData);
-
-}
 
 void ecall_small_corruption(const char *fileName, int blockNum) {
 

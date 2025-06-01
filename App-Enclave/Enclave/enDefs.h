@@ -46,6 +46,8 @@ typedef struct File {
 	// this is the file id for support of multiple files
 	char File_ID[30];
 
+	int current_chunk_id;
+
 	uint8_t is_parity_peer;
 	NodeInfo *nodes;
 	// keys

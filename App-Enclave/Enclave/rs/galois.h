@@ -40,7 +40,16 @@
 #pragma once
 
 #include <stdint.h>
-#include <gf_complete.h>
+#include "gf_complete.h"
+
+typedef struct my_gf {
+  gf_func_a_b    multiply;
+  gf_func_a_b    divide;
+  gf_func_a      inverse;
+  gf_region      multiply_region;
+  gf_extract     extract_word;
+  void           *scratch;
+} my_gf_t;
 
 #ifdef __cplusplus
 extern "C" {
@@ -48,7 +57,7 @@ extern "C" {
 
 extern int galois_init_default_field(int w);
 extern int galois_uninit_field(int w);
-extern void galois_change_technique(gf_t *gf, int w);
+extern void galois_change_technique(my_gf_t *my_gf, int w);
 
 extern int galois_single_multiply(int a, int b, int w);
 extern int galois_single_divide(int a, int b, int w);
@@ -82,7 +91,7 @@ void galois_w32_region_multiply(char *region,       /* Region to multiply */
                                                        Otherwise region is overwritten */
                                   int add);         /* If (r2 != NULL && add) the produce is XOR'd with r2 */
 
-gf_t* galois_init_field(int w,
+my_gf_t* galois_init_field(int w,
                              int mult_type,
                              int region_type,
                              int divide_type,
@@ -90,13 +99,13 @@ gf_t* galois_init_field(int w,
                              int arg1,
                              int arg2);
 
-gf_t* galois_init_composite_field(int w,
+my_gf_t* galois_init_composite_field(int w,
                                 int region_type,
                                 int divide_type,
                                 int degree,
-                                gf_t* base_gf);
+                                my_gf_t* base_my_gf);
 
-gf_t * galois_get_field_ptr(int w);
+my_gf_t * galois_get_field_ptr(int w);
 
 #ifdef __cplusplus
 }

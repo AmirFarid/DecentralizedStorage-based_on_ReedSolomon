@@ -3,8 +3,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <gf_rand.h>
-#include "jerasure.h"
-#include "jerasure/reed_sol.h"
+// #include "jerasure.h"
+// #include "jerasure/reed_sol.h"
 #include <math.h>
 #include "galois.h"
 #define BLOCK_SIZE 4096
@@ -26,118 +26,117 @@ long fileSize;
 int K;
 int N;
 
-void get_file_size(FILE *file){
-    fseek(file, 0 ,SEEK_END);
-    long size = ftell(file);
-    rewind(file);
-    fileSize = size;
+// void get_file_size(FILE *file){
+//     fseek(file, 0 ,SEEK_END);
+//     long size = ftell(file);
+//     rewind(file);
+//     fileSize = size;
 
-}
+// }
 
-void write_file(uint16_t *chunks, int n, int chunk_size){
-        for (int i = 0; i < n; i++) {
-        char filename[20];
-        sprintf(filename, "../decentralize/chunks/data_%d.dat", i);
-        FILE *file = fopen(filename, "wb");
-        fwrite(&chunks[i *chunk_size], sizeof(uint16_t), chunk_size, file);
-        fclose(file);
-    }
-}
+// void write_file(uint16_t *chunks, int n, int chunk_size){
+//         for (int i = 0; i < n; i++) {
+//         char filename[20];
+//         sprintf(filename, "../decentralize/chunks/data_%d.dat", i);
+//         FILE *file = fopen(filename, "wb");
+//         fwrite(&chunks[i *chunk_size], sizeof(uint16_t), chunk_size, file);
+//         fclose(file);
+//     }
+// }
 
+// void recover(int chunk_size, int padding_size) {
+//     FILE *output_file = fopen("recovered.dat", "wb");
+//     if (output_file == NULL) {
+//         fprintf(stderr, "Failed to open output file\n");
+//         return;
+//     }
 
-void recover(int chunk_size, int padding_size) {
-    FILE *output_file = fopen("recovered.dat", "wb");
-    if (output_file == NULL) {
-        fprintf(stderr, "Failed to open output file\n");
-        return;
-    }
+//     size_t total_written = 0;
+//     size_t target_size = fileSize;  // Use the global fileSize to know when to stop
 
-    size_t total_written = 0;
-    size_t target_size = fileSize;  // Use the global fileSize to know when to stop
+//     for (int i = 0; i < K; i++) {
+//         uint16_t *buffer = (uint16_t *)malloc(chunk_size * sizeof(uint16_t));
+//         if (buffer == NULL) {
+//             fprintf(stderr, "Memory allocation failed\n");
+//             fclose(output_file);
+//             return;
+//         }
 
-    for (int i = 0; i < K; i++) {
-        uint16_t *buffer = (uint16_t *)malloc(chunk_size * sizeof(uint16_t));
-        if (buffer == NULL) {
-            fprintf(stderr, "Memory allocation failed\n");
-            fclose(output_file);
-            return;
-        }
+//         char filename[20];
+//         sprintf(filename, "data_%d.dat", i);
+//         FILE *file = fopen(filename, "rb");
+//         if (file == NULL) {
+//             fprintf(stderr, "Failed to open %s\n", filename);
+//             free(buffer);
+//             continue;
+//         }
 
-        char filename[20];
-        sprintf(filename, "data_%d.dat", i);
-        FILE *file = fopen(filename, "rb");
-        if (file == NULL) {
-            fprintf(stderr, "Failed to open %s\n", filename);
-            free(buffer);
-            continue;
-        }
-
-        size_t read_bytes = fread(buffer, sizeof(uint16_t), chunk_size, file);
+//         size_t read_bytes = fread(buffer, sizeof(uint16_t), chunk_size, file);
         
-        // Calculate how many bytes to write
-        size_t bytes_to_write;
-        if (i == K - 1) {
-            // For the last chunk, only write what's needed to reach the original file size
-            bytes_to_write = (target_size - total_written) / sizeof(uint16_t);
-            if (bytes_to_write > chunk_size) {
-                bytes_to_write = chunk_size;
-            }
-        } else {
-            bytes_to_write = chunk_size;
-        }
+//         // Calculate how many bytes to write
+//         size_t bytes_to_write;
+//         if (i == K - 1) {
+//             // For the last chunk, only write what's needed to reach the original file size
+//             bytes_to_write = (target_size - total_written) / sizeof(uint16_t);
+//             if (bytes_to_write > chunk_size) {
+//                 bytes_to_write = chunk_size;
+//             }
+//         } else {
+//             bytes_to_write = chunk_size;
+//         }
 
-        fwrite(buffer, sizeof(uint16_t), bytes_to_write, output_file);
-        total_written += bytes_to_write * sizeof(uint16_t);
+//         fwrite(buffer, sizeof(uint16_t), bytes_to_write, output_file);
+//         total_written += bytes_to_write * sizeof(uint16_t);
 
-        fclose(file);
-        free(buffer);
-    }
+//         fclose(file);
+//         free(buffer);
+//     }
 
-    fclose(output_file);
-}
+//     fclose(output_file);
+// }
 
-void encode(uint16_t *chunks, int n, int chunk_size) {
-    int symSize = 16;
-    int *matrix = reed_sol_vandermonde_coding_matrix(K, N-K, symSize);
-    if (matrix == NULL) {
-        fprintf(stderr, "Failed to create coding matrix\n");
-        return;
-    }
+// void encode(uint16_t *chunks, int n, int chunk_size) {
+//     int symSize = 16;
+//     int *matrix = reed_sol_vandermonde_coding_matrix(K, N-K, symSize);
+//     if (matrix == NULL) {
+//         fprintf(stderr, "Failed to create coding matrix\n");
+//         return;
+//     }
 
-    for (int s = 0; s < chunk_size; s++) {
-        char **data_ptrs = malloc(sizeof(char *) * K);
-        char **coding_ptrs = malloc(sizeof(char *) * (N-K));
+//     for (int s = 0; s < chunk_size; s++) {
+//         char **data_ptrs = malloc(sizeof(char *) * K);
+//         char **coding_ptrs = malloc(sizeof(char *) * (N-K));
 
-        // Allocate and initialize data pointers
-        for (int i = 0; i < K; i++) {
-            data_ptrs[i] = malloc(sizeof(uint16_t));
-            *((uint16_t *)data_ptrs[i]) = chunks[i * chunk_size + s];
-        }
+//         // Allocate and initialize data pointers
+//         for (int i = 0; i < K; i++) {
+//             data_ptrs[i] = malloc(sizeof(uint16_t));
+//             *((uint16_t *)data_ptrs[i]) = chunks[i * chunk_size + s];
+//         }
         
-        // Allocate coding pointers
-        for (int i = 0; i < N-K; i++) {
-            coding_ptrs[i] = malloc(sizeof(uint16_t));
-            memset(coding_ptrs[i], 0, sizeof(uint16_t));
-        }
+//         // Allocate coding pointers
+//         for (int i = 0; i < N-K; i++) {
+//             coding_ptrs[i] = malloc(sizeof(uint16_t));
+//             memset(coding_ptrs[i], 0, sizeof(uint16_t));
+//         }
 
-        // Encode
-        jerasure_matrix_encode(K, N-K, symSize, matrix, data_ptrs, coding_ptrs, sizeof(uint16_t));
+//         // Encode
+//         jerasure_matrix_encode(K, N-K, symSize, matrix, data_ptrs, coding_ptrs, sizeof(uint16_t));
 
-        // Store results
-        for (int i = K; i < N; i++) {
-            chunks[i * chunk_size + s] = *((uint16_t *)coding_ptrs[i-K]);
-        }
+//         // Store results
+//         for (int i = K; i < N; i++) {
+//             chunks[i * chunk_size + s] = *((uint16_t *)coding_ptrs[i-K]);
+//         }
 
-        // Cleanup
-        for (int i = 0; i < K; i++) free(data_ptrs[i]);
-        for (int i = 0; i < N-K; i++) free(coding_ptrs[i]);
-        free(data_ptrs);
-        free(coding_ptrs);
-    }
+//         // Cleanup
+//         for (int i = 0; i < K; i++) free(data_ptrs[i]);
+//         for (int i = 0; i < N-K; i++) free(coding_ptrs[i]);
+//         free(data_ptrs);
+//         free(coding_ptrs);
+//     }
 
-    write_file(chunks, N, chunk_size);
-    free(matrix);
-}
+//     write_file(chunks, N, chunk_size);
+//     free(matrix);
+// }
 
 
 
@@ -305,8 +304,8 @@ void matrix_dotprod(int k, int w, int *matrix_row,
   int i;
 
   if (w != 1 && w != 8 && w != 16 && w != 32) {
-    fprintf(stderr, "ERROR: jerasure_matrix_dotprod() called and w is not 1, 8, 16 or 32\n");
-    assert(0);
+    // fprintf(stderr, "ERROR: jerasure_matrix_dotprod() called and w is not 1, 8, 16 or 32\n");
+    // assert(0);
   }
 
   init = 0;
@@ -574,7 +573,8 @@ void decode(int chunk_size, int *erasures, int *code_word, int *code_word_index,
                 // fclose(file);
             // }
         } else {
-            fprintf(stderr, "Decoding failed for symbol %d\n", s);
+	          ocall_printf("Decoding failed for symbol", 28, 0);
+            ocall_printint(s);
         }
     }
 
@@ -590,128 +590,128 @@ void decode(int chunk_size, int *erasures, int *code_word, int *code_word_index,
     free(matrix);
 }
 
-void read_file(const char *filename, uint16_t **chunks, int *chunk_size, int *padding_size) {
+// void read_file(const char *filename, uint16_t **chunks, int *chunk_size, int *padding_size) {
     
     
-    FILE *file = fopen(filename, "rb");
-    if (file == NULL) {
-        fprintf(stderr, "Failed to open input file\n");
-        return;
-    }
+//     FILE *file = fopen(filename, "rb");
+//     if (file == NULL) {
+//         fprintf(stderr, "Failed to open input file\n");
+//         return;
+//     }
 
-    get_file_size(file);
+//     get_file_size(file);
 
-    // Calculate chunk size
-    int temp = (((fileSize + K - 1) / K + 2) & ~1) / sizeof(uint16_t);
-    *chunk_size = ((temp + PAGE_SIZE - 1) / PAGE_SIZE) * PAGE_SIZE;
+//     // Calculate chunk size
+//     int temp = (((fileSize + K - 1) / K + 2) & ~1) / sizeof(uint16_t);
+//     *chunk_size = ((temp + PAGE_SIZE - 1) / PAGE_SIZE) * PAGE_SIZE;
     
-    // Calculate padding
-    *padding_size = (K * (*chunk_size) * sizeof(uint16_t)) - fileSize;
-    if (*padding_size == (*chunk_size) * sizeof(uint16_t)) {
-        *padding_size = 0;
-    }
+//     // Calculate padding
+//     *padding_size = (K * (*chunk_size) * sizeof(uint16_t)) - fileSize;
+//     if (*padding_size == (*chunk_size) * sizeof(uint16_t)) {
+//         *padding_size = 0;
+//     }
 
-    // Allocate memory
-    *chunks = (uint16_t *)calloc(N * (*chunk_size), sizeof(uint16_t));
-    if (*chunks == NULL) {
-        fprintf(stderr, "Memory allocation failed\n");
-        fclose(file);
-        return;
-    }
+//     // Allocate memory
+//     *chunks = (uint16_t *)calloc(N * (*chunk_size), sizeof(uint16_t));
+//     if (*chunks == NULL) {
+//         fprintf(stderr, "Memory allocation failed\n");
+//         fclose(file);
+//         return;
+//     }
 
-    // Read data
-    for (int i = 0; i < K; i++) {
-        size_t read_bytes = fread(&(*chunks)[i * (*chunk_size)], sizeof(uint16_t), *chunk_size, file);
+//     // Read data
+//     for (int i = 0; i < K; i++) {
+//         size_t read_bytes = fread(&(*chunks)[i * (*chunk_size)], sizeof(uint16_t), *chunk_size, file);
         
-        // Handle padding for last chunk
-        if (i == K - 1 && *padding_size > 0) {
-            memset((uint8_t *)&(*chunks)[i * (*chunk_size)] + read_bytes * sizeof(uint16_t), 
-                   0, *padding_size);
-        }
-    }
+//         // Handle padding for last chunk
+//         if (i == K - 1 && *padding_size > 0) {
+//             memset((uint8_t *)&(*chunks)[i * (*chunk_size)] + read_bytes * sizeof(uint16_t), 
+//                    0, *padding_size);
+//         }
+//     }
 
     
-    encode(*chunks, N, *chunk_size);
-    fclose(file);
-}
+//     encode(*chunks, N, *chunk_size);
+//     fclose(file);
+// }
 
-void remove_file(int index) {
-    char filename[20];
-    sprintf(filename, "data_%d.dat", index);
+// void remove_file(int index) {
+//     char filename[20];
+//     sprintf(filename, "data_%d.dat", index);
     
-    if (remove(filename) == 0) {
-        printf("File %s successfully removed\n", filename);
-    } else {
-        fprintf(stderr, "Error removing file %s\n", filename);
-    }
-}
+//     if (remove(filename) == 0) {
+//         printf("File %s successfully removed\n", filename);
+//     } else {
+//         fprintf(stderr, "Error removing file %s\n", filename);
+//     }
+// }
 
-// And a function to remove multiple files:
-void remove_files(int *indices) {
-    for (int i = 0; indices[i] != -1; i++) {
-        remove_file(indices[i]);
-    }
-}
+// // And a function to remove multiple files:
+// void remove_files(int *indices) {
+//     for (int i = 0; indices[i] != -1; i++) {
+//         remove_file(indices[i]);
+//     }
+// }
 
-int compare_files(const char *file1, const char *file2) {
-    FILE *f1 = fopen(file1, "rb");
-    FILE *f2 = fopen(file2, "rb");
+// int compare_files(const char *file1, const char *file2) {
+//     FILE *f1 = fopen(file1, "rb");
+//     FILE *f2 = fopen(file2, "rb");
     
-    if (f1 == NULL || f2 == NULL) {
-        fprintf(stderr, "Error opening files for comparison\n");
-        if (f1) fclose(f1);
-        if (f2) fclose(f2);
-        return -1;
-    }
+//     if (f1 == NULL || f2 == NULL) {
+//         fprintf(stderr, "Error opening files for comparison\n");
+//         if (f1) fclose(f1);
+//         if (f2) fclose(f2);
+//         return -1;
+//     }
 
-    int result = 0;
-    size_t bytes_read1, bytes_read2;
-    unsigned char buf1[4096], buf2[4096];
-    size_t position = 0;
+//     int result = 0;
+//     size_t bytes_read1, bytes_read2;
+//     unsigned char buf1[4096], buf2[4096];
+//     size_t position = 0;
 
-    while (1) {
-        bytes_read1 = fread(buf1, 1, sizeof(buf1), f1);
-        bytes_read2 = fread(buf2, 1, sizeof(buf2), f2);
+//     while (1) {
+//         bytes_read1 = fread(buf1, 1, sizeof(buf1), f1);
+//         bytes_read2 = fread(buf2, 1, sizeof(buf2), f2);
 
-        if (bytes_read1 != bytes_read2) {
-            printf("Files have different sizes\n");
-            result = -1;
-            break;
-        }
+//         if (bytes_read1 != bytes_read2) {
+//             printf("Files have different sizes\n");
+//             result = -1;
+//             break;
+//         }
 
-        if (bytes_read1 == 0) {
-            break;  // Reached end of both files
-        }
+//         if (bytes_read1 == 0) {
+//             break;  // Reached end of both files
+//         }
 
-        for (size_t i = 0; i < bytes_read1; i++) {
-            if (buf1[i] != buf2[i]) {
-                printf("Files differ at position %zu: %02X != %02X\n", 
-                       position + i, buf1[i], buf2[i]);
-                result = -1;
-                goto end;  // Exit both loops
-            }
-        }
-        position += bytes_read1;
-    }
- end:
-    fclose(f1);
-    fclose(f2);
+//         for (size_t i = 0; i < bytes_read1; i++) {
+//             if (buf1[i] != buf2[i]) {
+//                 printf("Files differ at position %zu: %02X != %02X\n", 
+//                        position + i, buf1[i], buf2[i]);
+//                 result = -1;
+//                 goto end;  // Exit both loops
+//             }
+//         }
+//         position += bytes_read1;
+//     }
+//  end:
+//     fclose(f1);
+//     fclose(f2);
     
-    if (result == 0) {
-        printf("Files are identical\n");
-    }
-    return result;
-}   
+//     if (result == 0) {
+//         printf("Files are identical\n");
+//     }
+//     return result;
+// }   
 
 
-void initiate_rs(const char *original_file, int k, int n){
-    N = n;
-    K = k;
-    uint16_t *chunks;
-    int padding_size;
-    int chunk_size;
-    read_file(original_file, &chunks, &chunk_size, &padding_size);
-}
+// void initiate_rs(const char *original_file, int k, int n){
+//     N = n;
+//     K = k;
+//     uint16_t *chunks;
+//     int padding_size;
+//     int chunk_size;
+//     read_file(original_file, &chunks, &chunk_size, &padding_size);
+// }
 
 
 // int main(){
