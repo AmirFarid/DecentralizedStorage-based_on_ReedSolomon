@@ -3,8 +3,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <gf_rand.h>
-// #include "jerasure.h"
-// #include "jerasure/reed_sol.h"
+#include "jerasure.h"
+#include "jerasure/reed_sol.h"
 #include <math.h>
 #include <assert.h>
 
@@ -126,7 +126,6 @@ void encode(uint16_t *chunks, int n, int chunk_size) {
         fprintf(stderr, "Failed to create coding matrix\n");
         return;
     }
-
     for (int s = 0; s < chunk_size; s++) {
         char **data_ptrs = malloc(sizeof(char *) * K);
         char **coding_ptrs = malloc(sizeof(char *) * (N-K));
@@ -136,28 +135,24 @@ void encode(uint16_t *chunks, int n, int chunk_size) {
             data_ptrs[i] = malloc(sizeof(uint16_t));
             *((uint16_t *)data_ptrs[i]) = chunks[i * chunk_size + s];
         }
-        
         // Allocate coding pointers
         for (int i = 0; i < N-K; i++) {
             coding_ptrs[i] = malloc(sizeof(uint16_t));
             memset(coding_ptrs[i], 0, sizeof(uint16_t));
         }
-
         // Encode
         jerasure_matrix_encode(K, N-K, symSize, matrix, data_ptrs, coding_ptrs, sizeof(uint16_t));
-
+        printf("rs encode symbol %d\n", s);
         // Store results
         for (int i = K; i < N; i++) {
             chunks[i * chunk_size + s] = *((uint16_t *)coding_ptrs[i-K]);
         }
-
         // Cleanup
         for (int i = 0; i < K; i++) free(data_ptrs[i]);
         for (int i = 0; i < N-K; i++) free(coding_ptrs[i]);
         free(data_ptrs);
         free(coding_ptrs);
     }
-
     write_file(chunks, N, chunk_size);
     free(matrix);
 }

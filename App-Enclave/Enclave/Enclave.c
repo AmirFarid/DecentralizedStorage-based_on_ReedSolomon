@@ -1321,7 +1321,27 @@ int ecall_file_init(Tag *tag, uint8_t *sigma, FileDataTransfer *fileDataTransfer
 
 	// Amir MM Farid
 
-	files[i].nodes = fileDataTransfer->nodes;
+	files[i].nodes = (NodeInfo *)malloc(NUM_NODES * sizeof(NodeInfo));
+	for (int j = 0; j < NUM_NODES; j++) {
+
+		memset(files[i].nodes[j].ip, 0, 30);
+		for (int k = 0; k < 16; k++) {
+			ocall_printf("Debug 0", 7, 0);
+
+			files[i].nodes[j].ip[k] = fileDataTransfer->nodes[j].ip[k];
+		}
+		// files[i].nodes[j].ip[15] = '\0';  // Ensure null-termination
+		ocall_printf("Debug 1", 7, 0);
+		files[i].nodes[j].port = fileDataTransfer->nodes[j].port;
+		ocall_printf("Debug 2", 7, 0);
+		files[i].nodes[j].chunk_id = fileDataTransfer->nodes[j].chunk_id;
+		ocall_printf("Debug 3", 7, 0);
+		files[i].nodes[j].is_parity_peer = fileDataTransfer->nodes[j].is_parity_peer;
+		ocall_printf("Debug 4", 7, 0);
+		files[i].nodes[j].socket_fd = fileDataTransfer->nodes[j].socket_fd;
+	}
+
+
 	files[i].n = fileDataTransfer->n;
 	files[i].k = fileDataTransfer->k;
 	files[i].is_parity_peer = (fileDataTransfer->current_id > files[i].k)? 1 : 0;
@@ -1332,6 +1352,23 @@ int ecall_file_init(Tag *tag, uint8_t *sigma, FileDataTransfer *fileDataTransfer
 	files[i].owner_port = fileDataTransfer->owner_port;
 	// files[i].parity_shuffleKey_AES = fileDataTransfer->parity_shuffleKey_AES;
 	// files[i].dh_sharedKey = fileDataTransfer->dh_sharedKey;
+
+
+	ocall_printf("==================Encalve file init info======================", 64, 0);
+	ocall_printf("the file num is ", 17, 0);
+	ocall_printint(&i);
+	ocall_printf("the file name is ", 17, 0);
+	ocall_printf(files[i].fileName, 20, 0);
+	ocall_printf("the num blocks is ", 17, 0);
+	ocall_printint(&files[i].numBlocks);
+	ocall_printf("the n is ", 17, 0);
+	ocall_printint(&files[i].n);
+	ocall_printf("the ip is ", 17, 0);
+	ocall_printf(files[i].nodes[0].ip, 16, 0);
+	ocall_printf("the port is ", 17, 0);
+	ocall_printint(&files[i].nodes[0].port);
+	
+	ocall_printf("========================================", 42, 0);
 
 	// get keys from data owner
 	if (files[i].is_parity_peer) {
@@ -1378,19 +1415,19 @@ int ecall_file_init(Tag *tag, uint8_t *sigma, FileDataTransfer *fileDataTransfer
 		ecdh_generate_keys(current_pubKey, current_privKey);
 
 		int *socket_fd = 0;
-		
 
 		// ocall_peer_init(current_pubKey, peer_i_pubKey, files[i].nodes[j].ip, files[i].nodes[j].port, socket_fd, current_id);
 
 		// files[i].nodes[j].socket_fd = *socket_fd;    	
 		
 		
-		// ocall_send_nonce(keyNonce);
-
-    	// size_t len = KEY_SIZE;
-    	// hmac_sha1(dh_sharedKey, ECC_PUB_KEY_SIZE, keyNonce, KEY_SIZE, sharedKey, &len);
+    	// // size_t len = KEY_SIZE;
+    	// // hmac_sha1(dh_sharedKey, ECC_PUB_KEY_SIZE, keyNonce, KEY_SIZE, sharedKey, &len);
 
 		// ecdh_shared_secret(current_privKey, peer_i_pubKey, files[i].nodes[j].dh_sharedKey_peer2peer);
+
+		// ocall_printf("dh_sharedKey_peer2peer", 25, 0);
+		// ocall_printf(files[i].nodes[j].dh_sharedKey_peer2peer, 46, 1);
 
 
 	}
@@ -2086,7 +2123,7 @@ ocall_printf("tagSegNum2", 10, 0);
 
 }
 
-void ecall_check_block(int fileNum, int blockNum,  uint8_t status, uint8_t *recovered_block, int recovered_block_size){
+void ecall_check_block(int fileNum, int blockNum,  uint8_t *status, uint8_t *recovered_block, int recovered_block_size){
 
 	ocall_printf("Checking block", 15, 0);
 
@@ -2233,12 +2270,19 @@ void ecall_check_block(int fileNum, int blockNum,  uint8_t status, uint8_t *reco
 
 
 	if (audit_block_group(0, 1, indices, sigmas, tag, data) != 0) {
-			status = 1;
+			*status = 1;
 		    ocall_printf("AUDIT FAILED!!", 15, 0);
 		} else {
-			status = 0;
+			*status = 0;
 		    ocall_printf("AUDIT SUCCESS!", 15, 0);
-			memcpy(recovered_block, data, BLOCK_SIZE);
+			// memcpy(recovered_block, data, BLOCK_SIZE);
+			for (int i = 0; i < BLOCK_SIZE; i++)
+			{
+				recovered_block[i] = data[i];
+			}
+			ocall_printf("recovered block: ", 18, 0);
+			ocall_printf(recovered_block, BLOCK_SIZE, 1);
+			
 		}
 
 	ocall_init_parity(numBits);
@@ -2256,28 +2300,141 @@ void recover_block(int fileNum, int blockNum, uint8_t *blockData){
     int *matrix = (int *)malloc(sizeof(int) * m * k);
 
 	// the recovered block
-    uint16_t *recovered_data = talloc(uint16_t, BLOCK_SIZE);
+    uint16_t *recovered_data = (uint16_t *)malloc(sizeof(uint16_t) * BLOCK_SIZE);
 
 
+	uint8_t *code_word = (uint8_t *)malloc(n * BLOCK_SIZE);
+	uint8_t *recovered_block = (uint8_t *)malloc(BLOCK_SIZE);
+
+	if (!matrix || !recovered_data || !code_word || !recovered_block) {
+    	ocall_printf("Memory allocation failed", 8, 0);
+    	return;
+	}
+
+
+
+	// ocall_printf("------------info recover block ------------", 42, 0);
+	// ocall_printf("fileNum:", 8, 0);
+	// ocall_printint(&fileNum);
+	// ocall_printf("blockNum:", 8, 0);
+	// ocall_printint(&blockNum);
+	// ocall_printf("n:", 2, 0);
+	// ocall_printint(&n);
+	// ocall_printf("k:", 2, 0);
+	// ocall_printint(&k);
+	// ocall_printf("m:", 2, 0);
+	// ocall_printint(&m);
+	// ocall_printf("symSize:", 8, 0);
+	// ocall_printint(&symSize);
+	// ocall_printf("------------info recover block ------------", 42, 0);
 	
-	uint8_t code_word = (uint8_t *)malloc(n * BLOCK_SIZE);
-	uint8_t recovered_block = (uint8_t *)malloc(BLOCK_SIZE);
+
+
 	int code_word_index[n];
+	memset(code_word_index, 0, n * sizeof(int));
 
-	NodeInfo nodes[n];
-	memcpy(nodes, files[fileNum].nodes, n * sizeof(NodeInfo));
-	memset(nodes->dh_sharedKey_peer2peer, 0, 64);
-	ocall_broadcast_block(fileNum, blockNum, code_word, code_word_index, nodes, n*BLOCK_SIZE, n);
 
+	// ocall_printf("==================Encalve file info2======================", 60, 0);
+	// ocall_printf("the file num is", 17, 0);
+	// ocall_printint(&fileNum);
+	// ocall_printf("the file name is", 17, 0);
+	// ocall_printf(files[fileNum].fileName, 20, 0);
+	// ocall_printf("the num blocks is ", 17, 0);
+	// ocall_printint(&files[fileNum].numBlocks);
+	// ocall_printf("the n is ", 17, 0);
+	// ocall_printint(&files[fileNum].n);
+	// ocall_printf("the ip is ", 17, 0);
+	// ocall_printf(files[fileNum].nodes[0].ip, 16, 0);
+	// ocall_printf("the port is ", 17, 0);
+	// ocall_printint(&files[fileNum].nodes[0].port);
+	
+	// ocall_printf("========================================", 42, 0);
+	
+	
+	NodeInfo *nodes = (NodeInfo *)malloc(NUM_NODES * sizeof(NodeInfo));
+	for (int i = 0; i < 2; i++) {
+
+
+		for (int j = 0; j < 16; j++) {
+			nodes[i].ip[j] = files[fileNum].nodes[i].ip[j];
+		}
+		ocall_printf("the file num is", 15, 0);
+		ocall_printint(&fileNum);
+		ocall_printf("the i is", 8, 0);
+		ocall_printint(&i);
+		ocall_printf("the IP is", 9, 0);
+		ocall_printf(files[fileNum].nodes[i].ip, 16, 0);
+		ocall_printf(nodes[i].ip, 16, 0);
+
+		nodes[i].port = files[fileNum].nodes[i].port;
+		ocall_printf("the port is", 9, 0);
+		ocall_printint(&nodes[i].port);
+
+		nodes[i].chunk_id = files[fileNum].nodes[i].chunk_id;
+		ocall_printf("the chunk id is", 12, 0);
+		ocall_printint(&nodes[i].chunk_id);
+
+
+		nodes[i].is_parity_peer = files[fileNum].nodes[i].is_parity_peer;
+		ocall_printf("the is parity peer is", 16, 0);
+		ocall_printint(&nodes[i].is_parity_peer);
+
+		nodes[i].socket_fd = files[fileNum].nodes[i].socket_fd;
+		ocall_printf("the socket fd is", 13, 0);
+		ocall_printint(&nodes[i].socket_fd);
+		
+
+
+	}
+	
+	
+	int cw_size = n*BLOCK_SIZE;
+	int cw_count = n;
+
+	sgx_status_t ocall_ret = ocall_broadcast_block(fileNum, blockNum, code_word, code_word_index, nodes, cw_size, cw_count, sizeof(NodeInfo));
+	
+	
+	if (ocall_ret == SGX_SUCCESS) {
+		ocall_printf("ocall_printf failed", 10, 0);
+	}else if (ocall_ret == SGX_ERROR_INVALID_PARAMETER)
+	{
+		ocall_printf("invalid parameter", 10, 0);
+	}else if (ocall_ret == SGX_ERROR_OUT_OF_MEMORY)
+	{
+		ocall_printf("out of memory", 10, 0);
+	}else if (ocall_ret == SGX_ERROR_ENCLAVE_LOST)
+	{
+		ocall_printf("enclave lost", 10, 0);
+	}else if (ocall_ret == SGX_ERROR_OUT_OF_EPC){
+		ocall_printf("out of epc", 10, 0);
+	}else if (ocall_ret == SGX_ERROR_ENCLAVE_CRASHED){
+		ocall_printf("enclave crashed", 10, 0);
+	}else if (ocall_ret == SGX_ERROR_INVALID_STATE){
+		ocall_printf("invalid state", 10, 0);
+	}else if (ocall_ret == SGX_ERROR_UNEXPECTED){
+		ocall_printf("unexpected error", 10, 0);
+	}
+	
+	ocall_printf("debug 10", 8, 0);
 
 	ocall_get_rs_matrix(k, m, symSize, matrix, m*k);
-
 	
+	ocall_printf("matrix: ", 8, 0);
+	for (int i = 0; i < m; i++) {
+		for (int j = 0; j < k; j++) {
+			ocall_printint(&matrix[i*k + j]);
+		}
+	}
 
-	decode(BLOCK_SIZE, code_word_index, recovered_block, code_word, matrix, files[fileNum].current_chunk_id, recovered_block);
+	ocall_printf("debug 11", 8, 0);
 
+	int erasures[] = {0,-1};
+
+	// decode(BLOCK_SIZE, code_word_index, recovered_block, code_word, matrix, files[fileNum].current_chunk_id, recovered_block);
+	decode(BLOCK_SIZE, erasures, recovered_block, code_word, matrix, files[fileNum].current_chunk_id, recovered_block);
+	
 	// store the recovered block
-
+	// memcpy(blockData, recovered_block, BLOCK_SIZE);
 	ocall_printf("Recovered block", 15, 0);
 
 
@@ -2297,7 +2454,7 @@ void ecall_small_corruption(const char *fileName, int blockNum) {
 
 	int numBlocks = files[fileNum].numBlocks;
     int numPages = numBlocks * PAGE_PER_BLOCK;
-    int numBits = (int)ceil(log2(numPages));
+    int numBits = (int)ceil(log2(numPages)) + 1;
 
 
 
@@ -2398,14 +2555,23 @@ void ecall_small_corruption(const char *fileName, int blockNum) {
 		    BN_bin2bn(sigData + (segIndex * (PRIME_LENGTH / 8)), PRIME_LENGTH / 8, sigmas[i]);
 		}
 
-
-
-
-
+	uint8_t Datatest[BLOCK_SIZE];
+	memcpy(Datatest, blockData, BLOCK_SIZE);
+	if (blockNum == 0) {
+		blockData[0] = 0x00;
+		blockData[1] = 0x00;
+	}
 	if (audit_block_group(fileNum, 1, &blockNum, sigmas, tag, blockData) != 0) {
 		    ocall_printf("AUDIT FAILED!!", 15, 0);
-
+		    ocall_printf("==================================================", 50, 0);
+		    ocall_printf("recovering block", 15, 0);
 			recover_block(fileNum, blockNum, blockData);
+			if (memcmp(Datatest, blockData, BLOCK_SIZE) == 0) {
+				ocall_printf("Everything is working correctly!", 31, 0);
+			} else {
+				ocall_printf("Data mismatch in first 512 bytes!", 31, 0);
+			}
+
 		} else {
 		    ocall_printf("AUDIT SUCCESS!", 15, 0);
 		}
@@ -2423,7 +2589,10 @@ void ecall_small_corruption(const char *fileName, int blockNum) {
 
 	// ocall_write_partition(numBits);
 	// ocall_printf("HERE4", 6, 0);
-	}
+
+	ocall_init_parity(numBits);
+
+}
 
 
 

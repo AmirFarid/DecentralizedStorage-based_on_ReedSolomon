@@ -36,12 +36,18 @@ typedef enum {
 
 NodeInfo nodes[NUM_NODES] = {
     {"192.168.1.1", 8080, -1, 0}, // This is the host node do not count it as a node
-    {"10.50.18.251", 8080, -1, 0},
+    {"141.219.250.6", 8080, -1, 0},
     // {"141.219.210.172", 8080, -1, 0},
 
     // {"192.168.1.2", 8081, -1, 0},
     // {"192.168.1.3", 8082, -1, 0}
 };
+
+typedef struct {  
+    uint8_t *output_code_word_buffer;
+    pthread_mutex_t lock;
+    uint8_t *output_index_list;
+} ThreadSharedArgs;
 
 typedef struct {
     int node_id;
@@ -49,10 +55,8 @@ typedef struct {
     char node_ip[16];
     int fileNum;
     int blockNum;
-    uint8_t *output_code_word_buffer;
-    pthread_mutex_t lock;
-    uint8_t *output_index_list;
-} TransferThreadArgs;
+    ThreadSharedArgs *shared_args;
+} ThreadWrapperArgs;
 
 typedef struct {
     uint8_t *current_pubKey;
@@ -249,7 +253,9 @@ ssize_t secure_send(int sock, const void *buf, size_t len) {
 }
 
 
-void* listener_thread_func(sgx_enclave_id_t eid) {
+void* listener_thread_func(void *eid_ptr) {
+
+    sgx_enclave_id_t eid = *(sgx_enclave_id_t*)eid_ptr;
     int server_socket = setup_server_socket();
     if (server_socket < 0) {
         printf("Failed to setup server socket\n");
@@ -298,8 +304,8 @@ char* store_received_file(int client_socket, char* save_path) {
 
     // receive the file type and size
     secure_recv(client_socket, &chunk_id, sizeof(int));
-    secure_recv(client_socket, &file_type, sizeof(file_type));
-    secure_recv(client_socket, &file_size, sizeof(file_size));
+    secure_recv(client_socket, &file_type, sizeof(u_int32_t));
+    secure_recv(client_socket, &file_size, sizeof(u_int32_t));
 
     Current_Chunk_ID = chunk_id;
     // while ((len = recv(client_socket, buffer, sizeof(buffer), 0)) > 0) {
@@ -601,25 +607,35 @@ void handle_block_retrival_request(sgx_enclave_id_t eid, int client_socket){
 
     int block_id;
     int file_id;
-     uint8_t status;
-     uint8_t *recovered_block;
+     uint8_t *status = malloc(sizeof(uint8_t));
+     uint8_t *recovered_block = malloc(BLOCK_SIZE);
 
-    secure_recv(client_socket, &file_id, sizeof(file_id));
-    secure_recv(client_socket, &block_id, sizeof(block_id));
+    secure_recv(client_socket, &file_id, sizeof(int));
+    secure_recv(client_socket, &block_id, sizeof(int));
 
     ecall_check_block(eid, file_id, block_id, status, recovered_block, BLOCK_SIZE);
 
-    secure_send(client_socket, &status, sizeof(status));
+    printf("the recovered block is: ");
+    for (int i = 0; i < BLOCK_SIZE; i++)
+    {
+        printf("%X", recovered_block[i]);
+    }
+    printf("\n");
+    
+
+    secure_send(client_socket, status, sizeof(uint8_t));
 
 
-    if (status == 1){
+    if (*status == 1){
         // send the chunk id so the clinet can retrive the data by reed solomon
-        secure_send(client_socket, &Current_Chunk_ID, sizeof(Current_Chunk_ID));
+        secure_send(client_socket, &Current_Chunk_ID, sizeof(int));
         // send the recovered block
         secure_send(client_socket, recovered_block, BLOCK_SIZE);
     }else{
         secure_send(client_socket, NULL, 0);
     }
+
+    printf("successfully sent the status and the chunk id\n");
 
 }
 
@@ -686,7 +702,11 @@ void handle_client(sgx_enclave_id_t eid, int client_socket) {
 
 void* broadcast_request_data_from_node(void* arg){
 
-    TransferThreadArgs *args = (TransferThreadArgs*)arg;
+    printf("the arg is:\n");
+
+    ThreadWrapperArgs *args = (ThreadWrapperArgs*)arg;
+
+    ThreadSharedArgs *shared_args = args->shared_args;
 
     printf("Requesting data from node %d\n", args->node_id);
 
@@ -717,29 +737,54 @@ void* broadcast_request_data_from_node(void* arg){
 
 
     // send the request type
-    secure_send(sock, BLOCK , sizeof(RequestType));
+    RequestType request_type = BLOCK;
+    secure_send(sock, &request_type, sizeof(RequestType));
 
     secure_send(sock, &args->fileNum, sizeof(int));
     secure_send(sock, &args->blockNum, sizeof(int));
 
+    printf("the file num is: %d\n", args->fileNum);
+    printf("the block num is: %d\n", args->blockNum);
+    printf("successfully sent the file num and block num\n");
+
     uint8_t status;
-    int index;
     // receive the block
     secure_recv(sock, &status, sizeof(uint8_t));
 
+    printf("Status received\n");
+    printf("the status is: %d\n", status);
+
+
 
     if (status == 1){
+        int index;
         secure_recv(sock, &index, sizeof(int));
 
-        uint8_t *buffer = malloc(BLOCK_SIZE * sizeof(uint8_t));
-        secure_recv(sock, buffer, BLOCK_SIZE * sizeof(uint8_t));
+        
+        printf("the index is: %d\n", index);
+
+        printf("-------- ---------------- ------------------ ----------------\n");
+
+        uint8_t *buffer = malloc(BLOCK_SIZE);
+        printf("Buffer allocated\n");
+        secure_recv(sock, buffer, BLOCK_SIZE);
+
+            printf("the buffer is: ");
+        for (int i = 0; i < BLOCK_SIZE; i++){
+            printf("%X", buffer[i]);
+        }
+        printf("\n");
 
         // receive the block
-        pthread_mutex_lock(&args->lock);
-        memcpy(args->output_code_word_buffer + index * BLOCK_SIZE, buffer, BLOCK_SIZE * sizeof(uint8_t));
-        memcpy(args->output_index_list + index, 1, sizeof(uint8_t));
-        pthread_mutex_unlock(&args->lock);
+        pthread_mutex_lock(&shared_args->lock);
+        printf("Hello from critical section\n");
+        memcpy(shared_args->output_code_word_buffer + index * BLOCK_SIZE, buffer, BLOCK_SIZE);
+        printf("Hello from critical section 2\n");
+        // memcpy(args->output_index_list + index, 1, sizeof(uint8_t));
+        shared_args->output_index_list[index] = 1;
+        pthread_mutex_unlock(&shared_args->lock);
 
+        printf("successfully copied the block to the output buffer\n");
         free(buffer);
     }
     // else{
@@ -749,13 +794,14 @@ void* broadcast_request_data_from_node(void* arg){
     //     pthread_mutex_unlock(&args->lock);
     // }
 
-    
+    free(args);
     close(sock);
     return NULL;
 }
 
-void ocall_broadcast_block(int fileNum, int blockNum, uint8_t *code_word, int *code_word_index, NodeInfo *nodes, int cw_size, int cw_index_size){
+void ocall_broadcast_block(int fileNum, int blockNum, uint8_t *code_word, int *code_word_index, NodeInfo *nodes, int cw_size, int cw_count, int node_size){
 
+    printf("here is the broadcast block\n");
     int k = K;
     int n = N;
     int symSize = 16;
@@ -763,11 +809,24 @@ void ocall_broadcast_block(int fileNum, int blockNum, uint8_t *code_word, int *c
 
     pthread_t threads[N];
 
-    TransferThreadArgs args;
+//     typedef struct {  
+//     uint8_t *output_code_word_buffer;
+//     pthread_mutex_t lock;
+//     uint8_t *output_index_list;
+// } ThreadSharedArgs;
+
+// typedef struct {
+//     int node_id;
+//     int node_port;
+//     char node_ip[16];
+//     int fileNum;
+//     int blockNum;
+//     ThreadSharedArgs *shared_args;
+// } ThreadWrapperArgs;
+
+    ThreadSharedArgs args;
 
 
-    args.fileNum = fileNum;
-    args.blockNum = blockNum;
     args.output_code_word_buffer = malloc(N * BLOCK_SIZE * sizeof(uint8_t));
     args.output_index_list = malloc(N * sizeof(uint8_t));
     memset(args.output_index_list, 0, N * sizeof(uint8_t));
@@ -777,11 +836,18 @@ void ocall_broadcast_block(int fileNum, int blockNum, uint8_t *code_word, int *c
     int i;
     
     for (i = 1; i < NUM_NODES; i++) {
-        args.node_id = nodes[i].chunk_id;
-        memcpy(args.node_ip, nodes[i].ip, 16);
-        args.node_port = nodes[i].port;
+        ThreadWrapperArgs *wrapper_args = malloc(sizeof(ThreadWrapperArgs));;
 
-        pthread_create(&threads[i], NULL, broadcast_request_data_from_node, &args);
+        wrapper_args->fileNum = fileNum;
+        wrapper_args->blockNum = blockNum;
+        wrapper_args->node_id = nodes[i].chunk_id;
+        memcpy(wrapper_args->node_ip, nodes[i].ip, 16);
+        wrapper_args->node_port = nodes[i].port;
+        wrapper_args->shared_args = &args;
+        printf("this is the node ip: %s\n", nodes[i].ip);
+        printf("this is the node port: %d\n", nodes[i].port);
+        printf("this is the thread CREATTION OF : %d\n", i);
+        pthread_create(&threads[i], NULL, broadcast_request_data_from_node, wrapper_args);
     }
 
     // for the rest of the nodes we use first node as provider
@@ -812,10 +878,19 @@ void ocall_broadcast_block(int fileNum, int blockNum, uint8_t *code_word, int *c
             sprintf(chunk_path, CHUNK_PATH_FORMAT, j);
 
             FILE *fp = fopen(chunk_path, "rb");
+            if (!fp) {
+                perror("fopen failed");
+                continue;  // or return/error handling
+            }
 
-            fread(args.output_code_word_buffer + (j * BLOCK_SIZE), 1, BLOCK_SIZE, fp);
+            size_t read_bytes = fread(args.output_code_word_buffer + (j * BLOCK_SIZE), 1, BLOCK_SIZE, fp);
+            if (read_bytes != BLOCK_SIZE) {
+                fprintf(stderr, "Error: read %zu bytes instead of %d\n", read_bytes, BLOCK_SIZE);
+                fclose(fp);
+                continue;
+            }
 
-            memcpy(args.output_index_list + j, 1, sizeof(uint8_t));
+            args.output_index_list[j] = 1;
 
             fclose(fp);
 
@@ -825,14 +900,25 @@ void ocall_broadcast_block(int fileNum, int blockNum, uint8_t *code_word, int *c
 
     
 
-    memcpy(code_word, args.output_code_word_buffer, N * BLOCK_SIZE * sizeof(uint8_t));
-    memcpy(code_word_index, args.output_index_list, N * sizeof(uint8_t));
-    
+    memcpy(code_word, args.output_code_word_buffer, N * BLOCK_SIZE);
+    memcpy(code_word_index, args.output_index_list, N);
 
+    printf("========== testing the output after reading from file ==========\n");
+    for (int i = 0; i < N; i++){
+        printf("index %d: %d\n", i, args.output_index_list[i]);
+    }
+    for (int i = 0; i < N; i++){
+        printf("Block %d: ", i);
+        for (int j = 0; j < BLOCK_SIZE; j++){
+            printf("%X", args.output_code_word_buffer[i * BLOCK_SIZE + j]);
+        }
+        printf("\n");
+    }
+    printf("========== ========== ========== ========== ========== ==========\n");
+    printf("successfully copied the code word and code word index\n");
 
     free(args.output_code_word_buffer);
     free(args.output_index_list);
-    free(threads);
     return;
 }
 
@@ -859,7 +945,7 @@ void initiate_Chunks(char* fileChunkName, char* current_file) {
     // divide the file into K chunks and generate N - K parity chunks. generated parities are stored in decentralize/chunks/chunk_i.bin
     initiate_rs(fileChunkName, K, N);
 
-
+    printf("debug 1\n");
 
     for (int i = 0; i < NUM_NODES ; i++) {
 
@@ -1181,10 +1267,24 @@ void* transfer_chunk_thread_func(void *args_ptr) {
 
 // ------------------------------------------------------------------------------
 //                                 main functions
+#include <errno.h>
 
 void preprocessing(sgx_enclave_id_t eid, int mode,  char* fileChunkName, FileDataTransfer *fileDataTransfer) {
 
     init_keys();
+
+    // make the directory for the chunks
+    if (mkdir("App/decentralize/chunks", 0755) == 0) {
+        printf("Folder created successfully.\n");
+    } else {
+        if (errno == EEXIST) {
+            printf("Folder already exists.\n");
+        } else {
+            fprintf(stderr, "mkdir failed: %s\n", strerror(errno));
+        }
+    }
+
+
     // the stored file name for local peer
     char *current_file = "App/decentralize/chunks/current_file.bin";
 

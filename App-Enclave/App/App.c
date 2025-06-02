@@ -475,6 +475,7 @@ int main(void)
     printf("  n = %d, k = %d, current_id = %d\n",fileDataTransfer->n, fileDataTransfer->k, fileDataTransfer->current_id);
     printf("--------------------------\n");
 
+    printf("Press enter to continue <enter>\n");
 
     getchar();
 
@@ -516,12 +517,23 @@ int main(void)
     //waittime = 24;
     //cpu_time_used = (end_time.tv_sec - start_time.tv_sec) + (end_time.tv_usec - start_time.tv_usec) / 1000000.0;
 
-    printf("Call compare\n");
+    
+    
+    // printf("Press enter to continue <enter>\n");
 
-    ecall_compare(eid);
+    // getchar();
+
+    // ecall_compare(eid);
 
     // the block number is 0 for the first block if you are on mode 
+    printf("==== SMALL CORRUPTION ====\n");
+    printf("==== Block 0 ====\n");
     ecall_small_corruption(eid, fileName, 0);
+
+    printf("==== Block 1 ====\n");
+    ecall_small_corruption(eid, fileName, 1);
+
+    printf("Press enter to continue <enter>\n");
 
     getchar();
 
@@ -536,12 +548,12 @@ int main(void)
     //cpu_time_used = (end_time.tv_sec - start_time.tv_sec) + (end_time.tv_usec - start_time.tv_usec) / 1000000.0;
     //printf("AUDIT TIME: %f with %d wait Time\n", cpu_time_used, waittime);
 
-    printf("Press enter to repair <enter>\n");
+    printf("Press enter to continue <enter>\n");
 
     getchar();
 
-    printf("Call decode partition\n");
-    ecall_decode_partition(eid, fileName, 3);
+    // printf("Call decode partition\n");
+    // ecall_decode_partition(eid, fileName, 3);
 
     if(status == 0) {
         printf("SUCCESS!!!\n");

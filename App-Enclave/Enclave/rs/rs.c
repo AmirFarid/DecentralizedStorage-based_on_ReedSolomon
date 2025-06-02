@@ -1,8 +1,8 @@
 #include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
+// #include <stdio.h>
+// #include <stdlib.h>
 #include <string.h>
-#include <gf_rand.h>
+// #include <gf_rand.h>
 // #include "jerasure.h"
 // #include "jerasure/reed_sol.h"
 #include <math.h>
@@ -474,7 +474,7 @@ void decode(int chunk_size, int *erasures, int *code_word, int *code_word_index,
     
     // Create the original coding matrix
     // int *matrix = reed_sol_vandermonde_coding_matrix(K, N-K, symSize);
-    
+    ocall_printf("debug ECC 1", 12, 0);
     // Allocate and read data from files
     char **data_ptrs = (char **)malloc(sizeof(char *) * K);
     char **coding_ptrs = (char **)malloc(sizeof(char *) * (N-K));
@@ -507,7 +507,7 @@ void decode(int chunk_size, int *erasures, int *code_word, int *code_word_index,
                     break;
                 }
             }
-            
+            ocall_printf("debug ECC 2", 12, 0);
             if (!is_erased) {
                 // FILE *file = fopen(filename, "rb");
                 // if (file == NULL) continue;
@@ -544,13 +544,15 @@ void decode(int chunk_size, int *erasures, int *code_word, int *code_word_index,
                 } 
             }
         }
-
+        ocall_printf("debug ECC 3", 12, 0);
         // Decode
         // int ret = jerasure_matrix_decode(K, N-K, symSize, matrix, 1, erasures, data_ptrs, coding_ptrs, sizeof(uint16_t));
         int ret = matrix_decode(K, N-K, symSize, matrix, erasures, data_ptrs, coding_ptrs, sizeof(uint16_t));
-
+        ocall_printf("debug ECC 4", 12, 0);
         
         if (ret == 0) {
+        ocall_printf("debug ECC ret", 14, 0);
+
             // Write recovered data
             // for (int i = 0; erasures[i] != -1; i++) {
             //     int idx = erasures[i];
@@ -577,7 +579,7 @@ void decode(int chunk_size, int *erasures, int *code_word, int *code_word_index,
             ocall_printint(s);
         }
     }
-
+    ocall_printf("debug ECC 5", 12, 0);
     // Cleanup
     for (int i = 0; i < K; i++) {
         free(data_ptrs[i]);
