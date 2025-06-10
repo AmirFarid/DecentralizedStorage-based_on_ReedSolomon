@@ -33,11 +33,20 @@
 
 // Amir MM Farid
 // Number of nodes also needs to be changed in Enclave.edl for the function ecall_init
-#define NUM_NODES 2
+#define NUM_NODES 4
 #define OWNER_IP "127.0.0.1"
 #define OWNER_PORT 8080
 
+// char current_ip[30];
 
+typedef struct recoverable_block_indicies{
+	int node_index;
+	int internal_block_index;
+	int code_word_number;
+	int total_blocks_index;
+	int is_corrupted;
+	int is_local;
+}recoverable_block_indicies;
 
 typedef struct {
     char ip[30];

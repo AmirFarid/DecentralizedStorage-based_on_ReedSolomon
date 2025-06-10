@@ -51,6 +51,7 @@ typedef struct File {
 	uint8_t is_parity_peer;
 	NodeInfo *nodes;
 	// keys
+	uint8_t file_Shuffle_key[KEY_SIZE];
 	uint8_t AES_Parity_Key[KEY_SIZE];
 	uint8_t parity_shuffel_key[KEY_SIZE];
 	// owner info

@@ -147,19 +147,27 @@ int N;
 
 int *erasures_to_erased(int k, int m, int *erasures)
 {
+  ocall_printf("erasures_2", 11, 0);
+
   int td;
   int t_non_erased;
   int *erased;
   int i;
+  ocall_printf("erasures_3", 11, 0);
 
   td = k+m;
   erased = talloc(int, td);
   if (erased == NULL) return NULL;
   t_non_erased = td;
+  ocall_printf("erasures_4", 11, 0);
 
   for (i = 0; i < td; i++) erased[i] = 0;
+  ocall_printf("erasures_5", 11, 0);
 
   for (i = 0; erasures[i] != -1; i++) {
+    ocall_printf("erasures_6", 11, 0);
+      ocall_printint(&i);
+    ocall_printint(&erasures[i]);
     // If the drive is erased, set it to 1
     if (erased[erasures[i]] == 0) {
       erased[erasures[i]] = 1;
@@ -171,6 +179,7 @@ int *erasures_to_erased(int k, int m, int *erasures)
       }
     }
   }
+  ocall_printf("erasures_7", 11, 0);
   return erased;
 }
 
@@ -315,28 +324,40 @@ void matrix_dotprod(int k, int w, int *matrix_row,
   /* First copy or xor any data that does not need to be multiplied by a factor */
 
   for (i = 0; i < k; i++) {
+    ocall_printf("matrix_decode1", 16, 0);
     if (matrix_row[i] == 1) {
       if (src_ids == NULL) {
+      ocall_printf("matrix_decode20", 16, 0);
         sptr = data_ptrs[i];
       } else if (src_ids[i] < k) {
+      ocall_printf("matrix_decode21", 16, 0);
+
         sptr = data_ptrs[src_ids[i]];
       } else {
+      ocall_printf("matrix_decode22", 16, 0);
+
         sptr = coding_ptrs[src_ids[i]-k];
       }
+      ocall_printf("matrix_decode23", 16, 0);
+
       if (init == 0) {
         memcpy(dptr, sptr, size);
+      ocall_printf("matrix_decode24", 16, 0);
         total_memcpy_bytes += size;
         init = 1;
       } else {
+      ocall_printf("matrix_decode25", 16, 0);
         galois_region_xor(sptr, dptr, size);
         total_xor_bytes += size;
       }
     }
   }
+  ocall_printf("matrix_decode26", 16, 0);
 
   /* Now do the data that needs to be multiplied by a factor */
 
   for (i = 0; i < k; i++) {
+
     if (matrix_row[i] != 0 && matrix_row[i] != 1) {
       if (src_ids == NULL) {
         sptr = data_ptrs[i];
@@ -369,7 +390,7 @@ void matrix_dotprod(int k, int w, int *matrix_row,
  * @param size the size of the symbol
  * @return int | 0 if success, -1 if failed
  */
-int matrix_decode(int k, int m, int w, int *matrix, int *erasures, int *data_ptrs, int *coding_ptrs, int size) {
+int matrix_decode(int k, int m, int w, int *matrix, int *erasures, char **data_ptrs, char **coding_ptrs, int size) {
     int i, edd, lastdrive;
     int *tmpids;
     int *erased, *decoding_matrix, *dm_ids;
@@ -377,8 +398,11 @@ int matrix_decode(int k, int m, int w, int *matrix, int *erasures, int *data_ptr
 
     if (w != 8 && w != 16 && w != 32) return -1;
 
+    
+
     erased = erasures_to_erased(k, m, erasures);
     if (erased == NULL) return -1;
+
 
     /* Find the number of data drives failed */
 
@@ -403,6 +427,7 @@ int matrix_decode(int k, int m, int w, int *matrix, int *erasures, int *data_ptr
           return -1;
         }
 
+
         decoding_matrix = talloc(int, k*k);
         if (decoding_matrix == NULL) {
           free(erased);
@@ -418,6 +443,7 @@ int matrix_decode(int k, int m, int w, int *matrix, int *erasures, int *data_ptr
         }
       }
 
+
       /* Decode the data drives.  
          If row_k_ones is true and coding device 0 is intact, then only decode edd-1 drives.
          This is done by stopping at lastdrive.
@@ -430,6 +456,7 @@ int matrix_decode(int k, int m, int w, int *matrix, int *erasures, int *data_ptr
           edd--;
         }
       }
+
 
       /* Then if necessary, decode drive lastdrive */
 
@@ -444,10 +471,12 @@ int matrix_decode(int k, int m, int w, int *matrix, int *erasures, int *data_ptr
         for (i = 0; i < k; i++) {
           tmpids[i] = (i < lastdrive) ? i : i+1;
         }
+
         matrix_dotprod(k, w, matrix, tmpids, lastdrive, data_ptrs, coding_ptrs, size);
         free(tmpids);
       }
-    
+
+
       /* Finally, re-encode any erased coding devices */
 
       for (i = 0; i < m; i++) {
@@ -460,6 +489,7 @@ int matrix_decode(int k, int m, int w, int *matrix, int *erasures, int *data_ptr
       if (dm_ids != NULL) free(dm_ids);
       if (decoding_matrix != NULL) free(decoding_matrix);
 
+      ocall_printf("matrix_decode6", 16, 0);
       return 0;
 }
 
@@ -469,7 +499,7 @@ int matrix_decode(int k, int m, int w, int *matrix, int *erasures, int *data_ptr
 
 
 
-void decode(int chunk_size, int *erasures, int *code_word, int *code_word_index, int *matrix, int current_chunk_id, uint16_t *recovered_data) {
+void decode(int chunk_size, int *erasures, uint16_t *code_word, int *code_word_index, int *matrix, int current_chunk_id, uint16_t *recovered_data) {
     int symSize = 16;
     
     // Create the original coding matrix
@@ -479,27 +509,21 @@ void decode(int chunk_size, int *erasures, int *code_word, int *code_word_index,
     char **data_ptrs = (char **)malloc(sizeof(char *) * K);
     char **coding_ptrs = (char **)malloc(sizeof(char *) * (N-K));
     
-    // Allocate memory for each data and coding pointer
-    // for (int i = 0; i < N; i++){
-    //     if (i < K){
-    //         data_ptrs[i] = (char *)malloc(sizeof(uint16_t));
-    //         memcpy(data_ptrs[i], code_word + i * chunk_size, chunk_size);
-    //     }else{
-    //         coding_ptrs[i-K] = (char *)malloc(sizeof(uint16_t));
-    //         memcpy(coding_ptrs[i-K], code_word + i * chunk_size, chunk_size);
-    //     }
-    // }
+    for (int i = 0; i < K; i++) {
+        data_ptrs[i] = (char *)malloc(sizeof(uint16_t));
+    }
+    for (int i = 0; i < N-K; i++) {
+        coding_ptrs[i] = (char *)malloc(sizeof(uint16_t));
+    }
+    
     size_t offset = 0;
     // uint16_t *recovered_data = talloc(uint16_t, chunk_size);
 
     // Process each symbol
-    for (int s = 0; s < chunk_size; s++) {
+    for (int s = 0; s < 2048; s++) {
         // Read available chunks
         for (int i = 0; i < N; i++) {
-            // char filename[20];
-            // sprintf(filename, "data_%d.dat", i);
-            
-            // Skip if this chunk is in erasures
+
             int is_erased = 0;
             for (int j = 0; erasures[j] != -1; j++) {
                 if (erasures[j] == i) {
@@ -507,40 +531,14 @@ void decode(int chunk_size, int *erasures, int *code_word, int *code_word_index,
                     break;
                 }
             }
-            ocall_printf("debug ECC 2", 12, 0);
+            // ocall_printf("debug ECC 2", 12, 0);
             if (!is_erased) {
-                // FILE *file = fopen(filename, "rb");
-                // if (file == NULL) continue;
-                
-                // uint16_t value;
-                // fseek(file, s * sizeof(uint16_t), SEEK_SET);
-                // fread(&value, sizeof(uint16_t), 1, file);
-                // fclose(file);
-                
 
-                // if (i < K) {      
-                //     data_ptrs[i] = (char *)malloc(sizeof(uint16_t));
-                //     memcpy(data_ptrs[i], code_word + i * chunk_size, chunk_size);
-                // }else{
-                //     coding_ptrs[i-K] = (char *)malloc(sizeof(uint16_t));
-                //     memcpy(coding_ptrs[i-K], code_word + i * chunk_size, chunk_size);
-                // } 
-                // if (i < K) {
-                //     *((uint16_t *)data_ptrs[i]) = value;
-                // } else {
-                //     *((uint16_t *)coding_ptrs[i-K]) = value;
-                // } 
 
                 if (i < K) {      
-                    data_ptrs[i] = (char *)malloc(sizeof(uint16_t));
-                    // Convert and assign directly
-                    uint16_t value = *(uint16_t *)(code_word + i * chunk_size);
-                    *((uint16_t *)data_ptrs[i]) = value;
-                } else {
-                    coding_ptrs[i-K] = (char *)malloc(sizeof(uint16_t));
-                    // Convert and assign directly
-                    uint16_t value = *(uint16_t *)(code_word + i * chunk_size);
-                    *((uint16_t *)coding_ptrs[i-K]) = value;
+                    *((uint16_t *)data_ptrs[i]) = code_word [ (i * 2048) + s];
+                } else {                  
+                    *((uint16_t *)coding_ptrs[i-K]) = code_word [ i * 2048 + s];
                 } 
             }
         }
@@ -556,24 +554,25 @@ void decode(int chunk_size, int *erasures, int *code_word, int *code_word_index,
             // Write recovered data
             // for (int i = 0; erasures[i] != -1; i++) {
             //     int idx = erasures[i];
-            //     char filename[20];
-            //     sprintf(filename, "data_%d.dat", idx);
-            //     FILE *file = fopen(filename, "r+b");
-            //     if (file == NULL) {
-            //         file = fopen(filename, "wb");
-            //     }
                 
-                // uint16_t value;
-                if (current_chunk_id < K) {
-                    memcpy(recovered_data + offset, (uint16_t *)data_ptrs[current_chunk_id], 16);
-                } else {
-                    memcpy(recovered_data + offset, (uint16_t *)coding_ptrs[current_chunk_id-K], 16);
-                }
-                offset += 16;
-                // fseek(file, s * sizeof(uint16_t), SEEK_SET);
-                // fwrite(&value, sizeof(uint16_t), 1, file);
-                // fclose(file);
+            //     // uint16_t value;
+            //     if (idx < K) {
+            //         recovered_data[i] = *((uint16_t *)data_ptrs[idx * 2048 + s]);
+            //     } else {
+            //         recovered_data[i] = *((uint16_t *)coding_ptrs[(idx-K) * 2048 + s]);
+            //     }
             // }
+            for (int i = 0; erasures[i] != -1; i++) {
+                int idx = erasures[i];
+                if (idx < K) {
+                    recovered_data[s] = *((uint16_t *)data_ptrs[idx]);
+                    code_word[(i * 2048) + s] = recovered_data[s];
+                } else {
+                    recovered_data[s] = *((uint16_t *)coding_ptrs[idx-K]);
+                    code_word[(i * 2048) +s] = recovered_data[s];
+                }
+            }
+
         } else {
 	          ocall_printf("Decoding failed for symbol", 28, 0);
             ocall_printint(s);
@@ -591,6 +590,8 @@ void decode(int chunk_size, int *erasures, int *code_word, int *code_word_index,
     free(coding_ptrs);
     free(matrix);
 }
+
+
 
 // void read_file(const char *filename, uint16_t **chunks, int *chunk_size, int *padding_size) {
     

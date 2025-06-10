@@ -297,7 +297,7 @@ printf("sigma_mem size = %zu\n", numBlocks * (PRIME_LENGTH / 8) * sizeof(uint8_t
 
 	//printf("call ecall\n");
 	int fileNum = 0;
-    status = ecall_file_init(eid, &fileNum, tag, *sigma, fileDataTransfer, numBlocks); // make sure the change to returning fileNum works properly.
+    status = ecall_file_init(eid, &fileNum, tag, *sigma, fileDataTransfer, numBlocks, sizeof(FileDataTransfer)); // make sure the change to returning fileNum works properly.
     if (status != SGX_SUCCESS) {
         printf("Error calling enclave function: %d\n", status);
         return;
@@ -414,6 +414,7 @@ printf("sigma_mem size = %zu\n", numBlocks * (PRIME_LENGTH / 8) * sizeof(uint8_t
 int main(void) 
 {
 
+
     // uint8_t key[16];
     // RAND_bytes(key, 16);
     // printf("key: %s\n", key);
@@ -447,6 +448,58 @@ int main(void)
         return 1;
     }
 
+// ---------------------------------------------------------------------------------
+
+
+
+    int k = 2;
+    int n = 4;
+    int m = n - k;
+    // int *erasures = malloc(sizeof(int) * n);
+    int erasures[2];
+    erasures[0] = 1;
+    erasures[1] = -1;
+
+    for (int i = 0; i < 2; i++) {
+        printf("erasures[%d]: %d\n", i, erasures[i]);
+    }
+
+    char *data = malloc(sizeof(char) * n);
+    for (int i = 0; i < k; i++) {
+        data[i] = 1;
+    }
+    for (int i = k ; i < n; i++) {
+        data[i] = 0;
+    }
+
+    test_rs(data, k, n);
+
+    int *matrix = malloc(sizeof(int) * m * k);
+
+    ocall_get_rs_matrix(k, m, 16, matrix, m * k);
+
+    jerasure_print_matrix(matrix, k, m, 16);
+
+    getchar();
+
+    data[1] = 23;
+    for (int i = 0; i < n; i++) {
+        printf("data[%d]: %d\n", i, data[i]);
+    }
+
+    ecall_test_rs(eid, data, k, n, erasures);
+
+
+    printf("Fiiiiiiniiiiished\n");
+
+    getchar();
+    getchar();
+
+
+
+// ---------------------------------------------------------------------------------
+
+
 
     char fileName[512];
     strcpy(fileName, "/home/amoghad1/f/Decentralized-Cloud-Storage-Self-Audit-Repair/App-Enclave/testFile");
@@ -459,8 +512,13 @@ int main(void)
 
 
     FileDataTransfer *fileDataTransfer =  malloc(sizeof(FileDataTransfer));
+    int mode = 2;
+    preprocessing(eid, mode, fileName, fileDataTransfer);
+
+    if (mode == 2) {
+        load_file_data(fileName, fileDataTransfer);
+    }
     
-    preprocessing(eid, 2, fileName, fileDataTransfer);
 
     strcpy(fileName, fileDataTransfer->fileName);
 
@@ -477,14 +535,17 @@ int main(void)
 
     printf("Press enter to continue <enter>\n");
 
+    printf("File data transfer size: %d\n", sizeof(FileDataTransfer));
+
     getchar();
 
     // Call Enclave initialization function.
     //int result;
 
+
     //gettimeofday(&start_time, NULL);
     printf("Call FTL init\n");
-    ret = ecall_init(eid, fileDataTransfer);
+    ret = ecall_init(eid, fileDataTransfer, sizeof(FileDataTransfer));
 
 
 
@@ -521,9 +582,9 @@ int main(void)
     
     // printf("Press enter to continue <enter>\n");
 
-    // getchar();
 
-    // ecall_compare(eid);
+    ecall_compare(eid);
+    getchar();
 
     // the block number is 0 for the first block if you are on mode 
     printf("==== SMALL CORRUPTION ====\n");
