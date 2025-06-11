@@ -20,13 +20,15 @@
 
 #include "../rs/rs.h"
 #include "../aes/aes.h"
-#define N 5
-#define K 3
+
 int Number_Of_Blocks;
 int Current_Chunk_ID;
 
 uint8_t *ALL_DATA;
-
+int N;
+int K;
+// #define N 5
+// #define K 3
 // define all the types that reciver can accept
 typedef enum
 {
@@ -40,8 +42,8 @@ typedef enum
 NodeInfo nodes[NUM_NODES] = {
     {"192.168.1.1", 8080, -1, 0}, // This is the host node do not count it as a node
     {"141.219.210.172", 8080, -1, 0},
-    {"141.219.249.254", 8080, -1, 0},
-    {"141.219.250.6", 8080, -1, 0},
+    // {"141.219.249.254", 8080, -1, 0},
+    // {"141.219.250.6", 8080, -1, 0},
     // for the parity node I have to retrive it from the first node while if the parity was required in the first node I have to fake it from the second node and 
     {"192.168.1.1", 8080, -1, 0}, // This is the host node do not count it as a node
 
@@ -78,6 +80,13 @@ typedef struct
     int *socket_fd;
     int current_id;
 } ThreadArgs;
+
+
+typedef struct{
+    int client_socket;
+    sgx_enclave_id_t eid;
+    pthread_mutex_t lock;
+}server_args;
 
 #define CHUNK_PATH_FORMAT "App/decentralize/chunks/data_%d.dat"
 #define CHUNK_BUFFER_SIZE 1024
@@ -276,36 +285,7 @@ ssize_t secure_send(int sock, const void *buf, size_t len)
     return total_sent; // All data sent successfully
 }
 
-void *listener_thread_func(void *eid_ptr)
-{
 
-    sgx_enclave_id_t eid = *(sgx_enclave_id_t *)eid_ptr;
-    int server_socket = setup_server_socket();
-    if (server_socket < 0)
-    {
-        printf("Failed to setup server socket\n");
-        return NULL;
-    }
-
-    while (1)
-    {
-
-        printf("Waiting for client connection...\n");
-        struct sockaddr_in client_addr;
-        socklen_t addr_len = sizeof(client_addr);
-        int client_socket = accept(server_socket, (struct sockaddr *)&client_addr, &addr_len);
-
-        if (client_socket < 0)
-        {
-            perror("Accept failed");
-            continue;
-        }
-
-        handle_client(eid, client_socket); // or create another thread for each client
-    }
-
-    return NULL;
-}
 
 /**
  * @brief this functin recieve first the file type and then the file size and then the file data
@@ -327,9 +307,16 @@ char *store_received_file(int client_socket, char *save_path)
         return NULL;
     }
 
-    uint8_t buffer[1024];
     ssize_t len;
 
+    int n;
+    int k;
+
+    secure_recv(client_socket, &n, sizeof(int));
+    secure_recv(client_socket, &k, sizeof(int));
+
+    N = n;
+    K = k;
     // receive the file type and size
     secure_recv(client_socket, &chunk_id, sizeof(int));
     secure_recv(client_socket, &file_type, sizeof(u_int32_t));
@@ -338,18 +325,31 @@ char *store_received_file(int client_socket, char *save_path)
     Current_Chunk_ID = chunk_id;
     // while ((len = recv(client_socket, buffer, sizeof(buffer), 0)) > 0) {
     // while ((len = secure_recv(client_socket, buffer, file_size)) > 0) {
-    for (size_t i = 0; i < file_size / CHUNK_BUFFER_SIZE; i++)
-    {
-        len = secure_recv(client_socket, buffer, CHUNK_BUFFER_SIZE);
-        printf("this is the %d th len: %d\n", i, len);
-        fwrite(buffer, 1, len, fp);
-    }
 
     Number_Of_Blocks = file_size / BLOCK_SIZE;
+    if(file_type == 1){
+        uint8_t buffer[CHUNK_BUFFER_SIZE];
+        for (size_t i = 0; i < file_size / CHUNK_BUFFER_SIZE; i++)
+    {
+        len = secure_recv(client_socket, buffer, CHUNK_BUFFER_SIZE);
+            printf("this is the %d th len: %d\n", i, len);
+            fwrite(buffer, 1, len, fp);
+        }
+    }
+    else{
+        uint8_t buffer[BLOCK_SIZE];
+        for (size_t i = 0; i < Number_Of_Blocks; i++)
+        {
+            len = secure_recv(client_socket, buffer, BLOCK_SIZE);
+            if(chunk_id < K){
+                printf("this is the %d th block stored\n", chunk_id);
+                fwrite(buffer, 1, len, fp);
+            }else{
+                printf("Just Fake for %d peer\n", chunk_id);
+            }
+        }
+    }
 
-    // if (file_type == 2) {
-    //     secure_recv(client_socket, PC_KEY_received, 16);
-    // }
 
     fclose(fp);
 
@@ -445,7 +445,7 @@ int rename_file(const char *old_name, const char *new_name)
 // ------------------------------------------------------------------------------
 //                                 Receiver functions
 
-void ocall_get_shuffle_key(u_int8_t *Shuffle_key, u_int8_t *Kexchange_PUB_KEY, u_int8_t *Kexchange_DataOwner_PUB_KEY, u_int8_t *PARITY_AES_KEY, char *owner_ip, int owner_port)
+void ocall_get_shuffle_key(u_int8_t *Sh_key, u_int8_t *Kexchange_PUB_KEY, u_int8_t *Kexchange_DataOwner_PUB_KEY, u_int8_t *PARITY_AES_KEY, char *owner_ip, int owner_port)
 {
     // printf("Shuffle key: %s\n", Shuffle_key);
     printf("Owner IP: %s\n", owner_ip);
@@ -471,7 +471,9 @@ void ocall_get_shuffle_key(u_int8_t *Shuffle_key, u_int8_t *Kexchange_PUB_KEY, u
         return;
     }
 
-    secure_send(client_socket, PARITY_KEY, sizeof(RequestType));
+    RequestType type = PARITY_KEY;
+
+    secure_send(client_socket, &type, sizeof(RequestType));
 
     // ------------------------------------------------------------
     // |             need to be done for attestation               |
@@ -485,7 +487,7 @@ void ocall_get_shuffle_key(u_int8_t *Shuffle_key, u_int8_t *Kexchange_PUB_KEY, u
 
     secure_recv(client_socket, Kexchange_DataOwner_PUB_KEY, 64);
 
-    secure_recv(client_socket, Shuffle_key, KEY_SIZE);
+    secure_recv(client_socket, Sh_key, KEY_SIZE);
 
     secure_recv(client_socket, PARITY_AES_KEY, 64);
 
@@ -583,8 +585,6 @@ void handle_key_exchange(sgx_enclave_id_t eid, int client_socket)
 
     ecdh_generate_keys(Kexchange_DataOwner_PUB_KEY, Kexchange_DataOwner_prv_KEY);
 
-    char owner_ip[INET_ADDRSTRLEN];
-    int owner_port;
 
     // ------------------------------------------------------------
     // |             need to be done for attestation               |
@@ -696,12 +696,15 @@ void handle_code_word_retrival_request(sgx_enclave_id_t eid, int client_socket)
 
 }
 
-void handle_client(sgx_enclave_id_t eid, int client_socket)
+void *handle_client(void *args_ptr)
 {
+    server_args *args = (server_args *)args_ptr;
+    sgx_enclave_id_t eid = args->eid;
+    int client_socket = args->client_socket;
 
     // Reciever side
     printf("Client connected\n");
-
+    pthread_mutex_lock(&args->lock);
     while (1)
     {
 
@@ -761,10 +764,55 @@ void handle_client(sgx_enclave_id_t eid, int client_socket)
             break;
         }
     }
-
+    pthread_mutex_unlock(&args->lock);
     close(client_socket);
 }
 
+void *listener_thread_func(void *eid_ptr)
+{
+
+    sgx_enclave_id_t eid = *(sgx_enclave_id_t *)eid_ptr;
+    int server_socket = setup_server_socket();
+    if (server_socket < 0)
+    {
+        printf("Failed to setup server socket\n");
+        return NULL;
+    }
+
+    while (1)
+    {
+
+        printf("Waiting for client connection...\n");
+        struct sockaddr_in client_addr;
+        socklen_t addr_len = sizeof(client_addr);
+        int client_socket = accept(server_socket, (struct sockaddr *)&client_addr, &addr_len);
+
+        if (client_socket < 0)
+        {
+            perror("Accept failed");
+            continue;
+        }
+        
+
+
+        server_args *args = malloc(sizeof(server_args));
+        args->client_socket = client_socket;
+        args->eid = eid;
+        pthread_mutex_init(&args->lock, NULL);
+
+
+        pthread_t handler_thread;
+        if (pthread_create(&handler_thread, NULL, handle_client, args) != 0) {
+            perror("Failed to create client thread");
+            close(client_socket);
+            continue;
+        }
+
+        // handle_client(eid, client_socket); // or create another thread for each client
+    }
+
+    return NULL;
+}
 // ------------------------------------------------------------------------------
 //                                 Sender functions
 void *get_code_word(void *arg)
@@ -1010,7 +1058,6 @@ void ocall_retrieve_block(int fileNum, void *rb_indicies_ptr, NodeInfo *nodes, u
 {
     recoverable_block_indicies *rb_indicies = (recoverable_block_indicies *)rb_indicies_ptr;
 
-    printf("here is the broadcast block\n");
     int k = K;
     int n = N;
     int symSize = 16;
@@ -1042,11 +1089,27 @@ void ocall_retrieve_block(int fileNum, void *rb_indicies_ptr, NodeInfo *nodes, u
             printf("this is the node ip: %s\n", nodes[i].ip);
             printf("this is the node port: %d\n", nodes[i].port);
             printf("this is the thread CREATTION OF : %d\n", i);
-            pthread_create(&threads[i], NULL, broadcast_request_data_from_node, wrapper_args);
+            pthread_create(&threads[0], NULL, broadcast_request_data_from_node, wrapper_args);
             
+            free(wrapper_args);
+            break;
         }
-        free(wrapper_args);
-        break;
+
+    }
+
+    if (rb_indicies->node_index > NUM_NODES) {
+        ThreadWrapperArgs *wrapper_args = malloc(sizeof(ThreadWrapperArgs));
+        wrapper_args->fileNum = fileNum;
+        wrapper_args->blockNum = 0;
+        wrapper_args->node_id = 1;
+        memcpy(wrapper_args->node_ip, nodes[1].ip, 16);
+        wrapper_args->node_port = nodes[1].port;
+        wrapper_args->shared_args = args;
+        printf("this is the node ip: %s\n", nodes[1].ip);
+        printf("this is the node port: %d\n", nodes[1].port);
+        printf("this is the thread CREATTION OF : %d\n", 1);
+
+        pthread_create(&threads[0], NULL, broadcast_request_data_from_node, wrapper_args);
 
     }
     
@@ -1206,7 +1269,7 @@ void ocall_get_rs_matrix(int k, int m, int symSize, int *matrix, int matrix_size
  * shares the key with the nodes securely. --Also it renames the file chunk0 to the current file name--
  * @param fileChunkName
  */
-void initiate_Chunks(char *fileChunkName, char *current_file)
+void initiate_Chunks(char *fileChunkName, char *current_file, int n, int k)
 {
 
     char path[256];
@@ -1216,7 +1279,7 @@ void initiate_Chunks(char *fileChunkName, char *current_file)
 
     printf("debug 1\n");
 
-    for (int i = 0; i < NUM_NODES; i++)
+    for (int i = 0; i < n; i++)
     {
 
         // 1. Open the file chunk_i.bin
@@ -1232,6 +1295,8 @@ void initiate_Chunks(char *fileChunkName, char *current_file)
 
         if (i == 0)
         {
+            N = n;
+            K = k;
             // if (strcmp(nodes[i].ip, current_ip) == 0) {
 
             Current_Chunk_ID = i;
@@ -1245,13 +1310,12 @@ void initiate_Chunks(char *fileChunkName, char *current_file)
             continue;
         }
 
-        break;
+        // break;
 
         uint32_t chunk_type = 1; // 1 for data chunk, 2 for parity chunk
         uint32_t chunk_len;
 
-        if (i > K)
-            chunk_type = 2;
+        if (i > K) chunk_type = 2;
 
         // get the size of the file
         chunk_len = get_file_size(fp);
@@ -1287,6 +1351,11 @@ void initiate_Chunks(char *fileChunkName, char *current_file)
 
         // 4. Send the chunk type and length
 
+        secure_send(sock, &N, sizeof(N));
+        printf("N: %d\n", N);
+        secure_send(sock, &K, sizeof(K));
+        printf("K: %d\n", K);
+
         // send the chunk id
         secure_send(sock, &i, sizeof(int));
 
@@ -1300,31 +1369,33 @@ void initiate_Chunks(char *fileChunkName, char *current_file)
         // 4. Send file in chunks
         uint8_t *complete_buffer = malloc(chunk_len * sizeof(uint8_t));
         memset(complete_buffer, 0, chunk_len);
-        uint8_t buffer[CHUNK_BUFFER_SIZE];
         size_t bytes_read;
 
 
         if (i > K)
         { // parity chunks
+            uint8_t buffer[BLOCK_SIZE];
 
             // shuffle the file
             int num_bits = ceil(log2(Number_Of_Blocks));
             for (int j = 0; j < Number_Of_Blocks; j++)
             {
-                // we need to generate key for shuffle
-                uint64_t j2 = feistel_network_prp(Shuffle_key, j, num_bits);
-                bytes_read = fread(buffer, 1, 4096, fp);
-                memcpy(complete_buffer + (j2 * 4096), buffer, bytes_read);
+                uint64_t permuted_index = feistel_network_prp(Shuffle_key, j, num_bits);
+                while(permuted_index >= Number_Of_Blocks){
+                    permuted_index = feistel_network_prp(Shuffle_key, permuted_index, num_bits);
+                }
+                bytes_read = fread(buffer, 1, BLOCK_SIZE, fp);
+                memcpy(complete_buffer + (permuted_index * BLOCK_SIZE), buffer, bytes_read);
                 // offset += bytes_read;
             }
 
-            for (int i = 0; i < Number_Of_Blocks * 4; i++)
+            for (int i = 0; i < Number_Of_Blocks; i++)
             {
-                memcpy(buffer, complete_buffer + (i * CHUNK_BUFFER_SIZE), CHUNK_BUFFER_SIZE);
+                memcpy(buffer, complete_buffer + (i * BLOCK_SIZE), BLOCK_SIZE);
 
-                EncryptData(PC_KEY, buffer, bytes_read);
+                EncryptData(PC_KEY, buffer, BLOCK_SIZE);
 
-                ssize_t sent = secure_send(sock, buffer, bytes_read);
+                ssize_t sent = secure_send(sock, buffer, BLOCK_SIZE);
                 if (sent < 0)
                 {
                     perror("Send failed");
@@ -1334,6 +1405,7 @@ void initiate_Chunks(char *fileChunkName, char *current_file)
         }
         else
         { // data chunks
+            uint8_t buffer[CHUNK_BUFFER_SIZE];
             while ((bytes_read = fread(buffer, 1, CHUNK_BUFFER_SIZE, fp)) > 0)
             {
                 ssize_t sent = secure_send(sock, buffer, bytes_read);
@@ -1505,7 +1577,35 @@ void* transfer_chunk_thread_func(void *args_ptr) {
 //                                 main functions
 #include <errno.h>
 
-void preprocessing(sgx_enclave_id_t eid, int mode, char *fileChunkName, FileDataTransfer *fileDataTransfer)
+
+void get_my_ip(char *ip) {
+    int sock = socket(AF_INET, SOCK_DGRAM, 0);
+    if (sock < 0) {
+        perror("socket creation failed");
+        return;
+    }
+
+    struct sockaddr_in addr;
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(53);  // arbitrary port
+    inet_pton(AF_INET, "8.8.8.8", &addr.sin_addr);
+
+    connect(sock, (struct sockaddr *)&addr, sizeof(addr));
+
+    struct sockaddr_in local_addr;
+    socklen_t addr_len = sizeof(local_addr);
+    getsockname(sock, (struct sockaddr *)&local_addr, &addr_len);
+
+    // Now fill the caller's buffer (not a new local one!)
+    inet_ntop(AF_INET, &local_addr.sin_addr, ip, INET_ADDRSTRLEN);
+
+    close(sock);
+}
+
+
+
+
+void preprocessing(sgx_enclave_id_t eid, int mode, char *fileChunkName, FileDataTransfer *fileDataTransfer, int n, int k)
 {
 
     init_keys();
@@ -1542,10 +1642,7 @@ void preprocessing(sgx_enclave_id_t eid, int mode, char *fileChunkName, FileData
     {
         // performer mode
         printf("+++mode 2 started+++\n");
-        if (RAND_bytes((unsigned char *)PC_KEY, 16) != 1)
-        {
-        }
-        initiate_Chunks(fileChunkName, current_file);
+        initiate_Chunks(fileChunkName, current_file, n, k);
         printf("+++mode 2 finished+++\n");
     }
 
@@ -1561,6 +1658,26 @@ void preprocessing(sgx_enclave_id_t eid, int mode, char *fileChunkName, FileData
     //    strcpy(fileDataTransfer->fileName, current_file);
     //    fileDataTransfer->fileName = current_file;
     fileDataTransfer->current_id = Current_Chunk_ID;
+
+
+
+    char current_ip[INET_ADDRSTRLEN];
+    int current_port = 8080;
+
+    get_my_ip(current_ip);
+
+    strncpy(fileDataTransfer->current_ip, current_ip, INET_ADDRSTRLEN);
+    fileDataTransfer->current_ip[INET_ADDRSTRLEN - 1] = '\0';  // ensure null-termination
+
+    fileDataTransfer->current_port = current_port;
+
+
+
+    strncpy(fileDataTransfer->owner_ip, nodes[0].ip, INET_ADDRSTRLEN);
+    fileDataTransfer->owner_ip[INET_ADDRSTRLEN - 1] = '\0';  // ensure null-termination
+
+    fileDataTransfer->owner_port = nodes[0].port;
+    
 
     //    strcpy(fileChunkName, current_file);
     //    fileChunkName = current_file;
@@ -1587,7 +1704,7 @@ void preprocessing(sgx_enclave_id_t eid, int mode, char *fileChunkName, FileData
     //     for (int j = 0; j < N; j++) {
 }
 
-void load_file_data(char *file_name, FileDataTransfer *fileDataTransfer, int num_blocks) {
+void load_file_data(char *file_name, int num_blocks) {
 
     int chunk_size = num_blocks * BLOCK_SIZE;
 
@@ -1609,7 +1726,7 @@ void load_file_data(char *file_name, FileDataTransfer *fileDataTransfer, int num
 
     fclose(file);
 
-    for(int i = 1; i < N; i++) {
+    for(int i = 1; i < K; i++) {
         char chunk_path[256];  // allocate space
         snprintf(chunk_path, sizeof(chunk_path), CHUNK_PATH_FORMAT, i);
         FILE *chunk_file = fopen(chunk_path, "rb");
@@ -1624,6 +1741,41 @@ void load_file_data(char *file_name, FileDataTransfer *fileDataTransfer, int num
             free(ALL_DATA);
             return;
         }
+        fclose(chunk_file);
+
+    }
+
+    for(int i = K; i < N; i++) {
+        char chunk_path[256];  // allocate space
+        snprintf(chunk_path, sizeof(chunk_path), CHUNK_PATH_FORMAT, i);
+        FILE *chunk_file = fopen(chunk_path, "rb");
+        if (!chunk_file) {
+            perror("Failed to open chunk file");
+            free(ALL_DATA);
+            return;
+        }
+        int num_bits = ceil(log2(Number_Of_Blocks));
+        for (int j = 0; j < Number_Of_Blocks; j++)
+        {
+            uint8_t buffer[BLOCK_SIZE];
+            uint64_t permuted_index = feistel_network_prp(Shuffle_key, j, num_bits);
+            while(permuted_index >= Number_Of_Blocks){
+                permuted_index = feistel_network_prp(Shuffle_key, permuted_index, num_bits);
+            }
+            ssize_t bytes_read = fread(buffer, 1, BLOCK_SIZE, chunk_file);
+
+            EncryptData(PC_KEY, buffer, BLOCK_SIZE);
+
+            memcpy(ALL_DATA + (K * chunk_size) + (permuted_index * BLOCK_SIZE), buffer, bytes_read);
+        }
+        
+        
+        // if(fread(ALL_DATA + i * chunk_size, 1, chunk_size, chunk_file) != chunk_size) {
+        //     perror("Failed to read chunk file");
+        //     fclose(chunk_file);
+        //     free(ALL_DATA);
+        //     return;
+        // }
         fclose(chunk_file);
 
     }

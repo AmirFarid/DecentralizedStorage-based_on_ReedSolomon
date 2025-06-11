@@ -28,8 +28,8 @@ static double total_memcpy_bytes = 0;
 static double total_xor_bytes = 0;
 static double total_gf_bytes = 0;
 long fileSize;
-int K;
-int N;
+int rs_K;
+int rs_N;
 
 void get_file_size(FILE *file){
     fseek(file, 0 ,SEEK_END);
@@ -79,7 +79,7 @@ void recover(int chunk_size, int padding_size) {
     size_t total_written = 0;
     size_t target_size = fileSize;  // Use the global fileSize to know when to stop
 
-    for (int i = 0; i < K; i++) {
+    for (int i = 0; i < rs_K; i++) {
         uint16_t *buffer = (uint16_t *)malloc(chunk_size * sizeof(uint16_t));
         if (buffer == NULL) {
             fprintf(stderr, "Memory allocation failed\n");
@@ -100,7 +100,7 @@ void recover(int chunk_size, int padding_size) {
         
         // Calculate how many bytes to write
         size_t bytes_to_write;
-        if (i == K - 1) {
+        if (i == rs_K - 1) {
             // For the last chunk, only write what's needed to reach the original file size
             bytes_to_write = (target_size - total_written) / sizeof(uint16_t);
             if (bytes_to_write > chunk_size) {
@@ -122,48 +122,48 @@ void recover(int chunk_size, int padding_size) {
 
 // void encode(uint16_t *chunks, int n, int chunk_size) {
 //     int symSize = 16;
-//     int *matrix = reed_sol_vandermonde_coding_matrix(K, N-K, symSize);
+//     int *matrix = reed_sol_vandermonde_coding_matrix(rs_K, rs_N-rs_K, symSize);
 //     if (matrix == NULL) {
 //         fprintf(stderr, "Failed to create coding matrix\n");
 //         return;
 //     }
 //     for (int s = 0; s < chunk_size; s++) {
-//         char **data_ptrs = malloc(sizeof(char *) * K);
-//         char **coding_ptrs = malloc(sizeof(char *) * (N-K));
+//         char **data_ptrs = malloc(sizeof(char *) * rs_K);
+//         char **coding_ptrs = malloc(sizeof(char *) * (rs_N-rs_K));
 
 //         // Allocate and initialize data pointers
-//         for (int i = 0; i < K; i++) {
+//         for (int i = 0; i < rs_K; i++) {
 //             data_ptrs[i] = malloc(sizeof(uint16_t));
 //             // instead of chunk_size use 2048 
 //             *((uint16_t *)data_ptrs[i]) = chunks[i * chunk_size + s];
 //         }
 //         // Allocate coding pointers
-//         for (int i = 0; i < N-K; i++) {
+//         for (int i = 0; i < rs_N-rs_K; i++) {
 //             coding_ptrs[i] = malloc(sizeof(uint16_t));
 //             memset(coding_ptrs[i], 0, sizeof(uint16_t));
 //         }
 //         // Encode
-//         jerasure_matrix_encode(K, N-K, symSize, matrix, data_ptrs, coding_ptrs, sizeof(uint16_t));
+//         jerasure_matrix_encode(rs_K, rs_N - rs_K, symSize, matrix, data_ptrs, coding_ptrs, sizeof(uint16_t));
 //         // printf("rs encode symbol %d\n", s);
 //         // Store results
-//         for (int i = K; i < N; i++) {
-//             chunks[i * chunk_size + s] = *((uint16_t *)coding_ptrs[i-K]);
+//         for (int i = rs_K; i < rs_N; i++) {
+//             chunks[i * chunk_size + s] = *((uint16_t *)coding_ptrs[i-rs_K]);
 //         }
 //         // Cleanup
-//         for (int i = 0; i < K; i++) free(data_ptrs[i]);
-//         for (int i = 0; i < N-K; i++) free(coding_ptrs[i]);
+//         for (int i = 0; i < rs_K; i++) free(data_ptrs[i]);
+//         for (int i = 0; i < rs_N-rs_K; i++) free(coding_ptrs[i]);
 //         free(data_ptrs);
 //         free(coding_ptrs);
 //     }
 //     // only write the parity chunks
-//     write_file(chunks, N, chunk_size);
+//     write_file(chunks, rs_N, chunk_size);
 //     free(matrix);
 // }
 
 
 void encode(uint16_t *chunks, int n, int chunk_size) {
     int symSize = 16;
-    int *matrix = reed_sol_vandermonde_coding_matrix(K, N-K, symSize);
+    int *matrix = reed_sol_vandermonde_coding_matrix(rs_K, rs_N-rs_K, symSize);
     if (matrix == NULL) {
         fprintf(stderr, "Failed to create coding matrix\n");
         return;
@@ -176,39 +176,39 @@ void encode(uint16_t *chunks, int n, int chunk_size) {
     {
     
     for (int s = 0; s < 2048; s++) {
-        char **data_ptrs = malloc(sizeof(char *) * K);
-        char **coding_ptrs = malloc(sizeof(char *) * (N-K));
+        char **data_ptrs = malloc(sizeof(char *) * rs_K);
+        char **coding_ptrs = malloc(sizeof(char *) * (rs_N-rs_K));
 
         // Allocate and initialize data pointers
-        for (int i = 0; i < K; i++) {
+        for (int i = 0; i < rs_K; i++) {
             data_ptrs[i] = malloc(sizeof(uint16_t));
             // instead of chunk_size use 2048 
-            *((uint16_t *)data_ptrs[i]) = chunks[(j * 2048 * K) + (i * 2048) + s];
+            *((uint16_t *)data_ptrs[i]) = chunks[(j * 2048 * rs_K) + (i * 2048) + s];
         }
         // Allocate coding pointers
-        for (int i = 0; i < N-K; i++) {
+        for (int i = 0; i < rs_N-rs_K; i++) {
             coding_ptrs[i] = malloc(sizeof(uint16_t));
             memset(coding_ptrs[i], 0, sizeof(uint16_t));
         }
         // Encode
-        jerasure_matrix_encode(K, N-K, symSize, matrix, data_ptrs, coding_ptrs, sizeof(uint16_t));
+        jerasure_matrix_encode(rs_K, rs_N-rs_K, symSize, matrix, data_ptrs, coding_ptrs, sizeof(uint16_t));
         // printf("rs encode symbol %d\n", s);
         // Store results
-        for (int i = K; i < N; i++) {
+        for (int i = rs_K; i < rs_N; i++) {
           // I am pretty sure tomorrow I will regret this
-            chunks[(num_blocks * 2048 * K) + (j *2048) + ((i-K) * num_blocks * 2048) + s] = *((uint16_t *)coding_ptrs[i-K]);
+            chunks[(num_blocks * 2048 * rs_K) + (j *2048) + ((i-rs_K) * num_blocks * 2048) + s] = *((uint16_t *)coding_ptrs[i-rs_K]);
 
-            // chunks[(num_blocks * 2048 * K) + ((i-K) * num_blocks * 2048) + s] = *((uint16_t *)coding_ptrs[i-K]);
+            // chunks[(num_blocks * 2048 * rs_K) + ((i-rs_K) * num_blocks * 2048) + s] = *((uint16_t *)coding_ptrs[i-rs_K]);
         }
         // Cleanup
-        for (int i = 0; i < K; i++) free(data_ptrs[i]);
-        for (int i = 0; i < N-K; i++) free(coding_ptrs[i]);
+        for (int i = 0; i < rs_K; i++) free(data_ptrs[i]);
+        for (int i = 0; i < rs_N-rs_K; i++) free(coding_ptrs[i]);
         free(data_ptrs);
         free(coding_ptrs);
     }
     }
     // only write the parity chunks
-    write_file(chunks, N, chunk_size);
+    write_file(chunks, rs_N, chunk_size);
     free(matrix);
 }
 
@@ -216,31 +216,31 @@ void encode(uint16_t *chunks, int n, int chunk_size) {
 void test_rs(char *data, int k, int n){
 
   
-    char **data_ptrs = malloc(sizeof(char *) * k);
-    char **coding_ptrs = malloc(sizeof(char *) * (n-k));
+    char **data_ptrs = malloc(sizeof(char *) * rs_K);
+    char **coding_ptrs = malloc(sizeof(char *) * (rs_N-rs_K));
 
 
 
-    for (int i = 0; i < k; i++) {
+    for (int i = 0; i < rs_K; i++) {
         data_ptrs[i] = malloc(sizeof(char));
         memcpy(data_ptrs[i], &data[i], sizeof(char));
     }
-    for (int i = 0; i < n-k; i++) {
+    for (int i = 0; i < rs_N-rs_K; i++) {
         coding_ptrs[i] = malloc(sizeof(char));
         memset(coding_ptrs[i], 0, sizeof(char));
         // *((uint16_t *)coding_ptrs[i]) = *((uint16_t *)data[i+k]);
     }
-    int *matrix = reed_sol_vandermonde_coding_matrix(k, n-k, 8);
+    int *matrix = reed_sol_vandermonde_coding_matrix(rs_K, rs_N-rs_K, 8);
     printf("matrix: %p\n", matrix);
     printf("data_ptrs: %p\n", data_ptrs);
     printf("coding_ptrs: %p\n", coding_ptrs);
-    jerasure_matrix_encode(k, n-k, 8, matrix, data_ptrs, coding_ptrs, sizeof(char));
+    jerasure_matrix_encode(rs_K, rs_N-rs_K, 8, matrix, data_ptrs, coding_ptrs, sizeof(char));
     printf("encoded\n");
 
 
 
-    for (int i = 0 ; i < n - k; i++) {
-            memcpy(&data[(k + i)], coding_ptrs[i], sizeof(char));
+    for (int i = 0 ; i < rs_N - rs_K; i++) {
+            memcpy(&data[(rs_K + i)], coding_ptrs[i], sizeof(char));
         }
 
 }
@@ -580,24 +580,24 @@ void decode(int chunk_size, int *erasures) {
     int symSize = 16;
     
     // Create the original coding matrix
-    int *matrix = reed_sol_vandermonde_coding_matrix(K, N-K, symSize);
+    int *matrix = reed_sol_vandermonde_coding_matrix(rs_K, rs_N-rs_K, symSize);
     
     // Allocate and read data from files
-    char **data_ptrs = (char **)malloc(sizeof(char *) * K);
-    char **coding_ptrs = (char **)malloc(sizeof(char *) * (N-K));
+    char **data_ptrs = (char **)malloc(sizeof(char *) * rs_K);
+    char **coding_ptrs = (char **)malloc(sizeof(char *) * (rs_N-rs_K));
     
     // Allocate memory for each data and coding pointer
-    for (int i = 0; i < K; i++) {
+    for (int i = 0; i < rs_K; i++) {
         data_ptrs[i] = (char *)malloc(sizeof(uint16_t));
     }
-    for (int i = 0; i < N-K; i++) {
+    for (int i = 0; i < rs_N-rs_K; i++) {
         coding_ptrs[i] = (char *)malloc(sizeof(uint16_t));
     }
 
     // Process each symbol
     for (int s = 0; s < chunk_size; s++) {
         // Read available chunks
-        for (int i = 0; i < N; i++) {
+        for (int i = 0; i < rs_N; i++) {
             char filename[20];
             sprintf(filename, "data_%d.dat", i);
             
@@ -619,16 +619,16 @@ void decode(int chunk_size, int *erasures) {
                 fread(&value, sizeof(uint16_t), 1, file);
                 fclose(file);
                 
-                if (i < K) {
+                if (i < rs_K) {
                     *((uint16_t *)data_ptrs[i]) = value;
                 } else {
-                    *((uint16_t *)coding_ptrs[i-K]) = value;
+                    *((uint16_t *)coding_ptrs[i-rs_K]) = value;
                 } 
             }
         }
 
         // Decode
-        int ret = jerasure_matrix_decode(K, N-K, symSize, matrix, 1, erasures, 
+        int ret = jerasure_matrix_decode(rs_K, rs_N-rs_K, symSize, matrix, 1, erasures, 
                                        data_ptrs, coding_ptrs, sizeof(uint16_t));
         
         if (ret == 0) {
@@ -643,10 +643,10 @@ void decode(int chunk_size, int *erasures) {
                 }
                 
                 uint16_t value;
-                if (idx < K) {
+                if (idx < rs_K) {
                     value = *((uint16_t *)data_ptrs[idx]);
                 } else {
-                    value = *((uint16_t *)coding_ptrs[idx-K]);
+                    value = *((uint16_t *)coding_ptrs[idx-rs_K]);
                 }
                 
                 fseek(file, s * sizeof(uint16_t), SEEK_SET);
@@ -659,10 +659,10 @@ void decode(int chunk_size, int *erasures) {
     }
 
     // Cleanup
-    for (int i = 0; i < K; i++) {
+    for (int i = 0; i < rs_K; i++) {
         free(data_ptrs[i]);
     }
-    for (int i = 0; i < N-K; i++) {
+    for (int i = 0; i < rs_N-rs_K; i++) {
         free(coding_ptrs[i]);
     }
     free(data_ptrs);
@@ -681,17 +681,17 @@ void read_file(const char *filename, uint16_t **chunks, int *chunk_size, int *pa
     get_file_size(file);
 
     // Calculate chunk size
-    int temp = (((fileSize + K - 1) / K + 2) & ~1) / sizeof(uint16_t);
+    int temp = (((fileSize + rs_K - 1) / rs_K + 2) & ~1) / sizeof(uint16_t);
     *chunk_size = ((temp + PAGE_SIZE - 1) / PAGE_SIZE) * PAGE_SIZE;
     
     // Calculate padding
-    *padding_size = (K * (*chunk_size) * sizeof(uint16_t)) - fileSize;
+    *padding_size = (rs_K * (*chunk_size) * sizeof(uint16_t)) - fileSize;
     if (*padding_size == (*chunk_size) * sizeof(uint16_t)) {
         *padding_size = 0;
     }
 
     // Allocate memory
-    *chunks = (uint16_t *)calloc(N * (*chunk_size), sizeof(uint16_t));
+    *chunks = (uint16_t *)calloc(rs_N * (*chunk_size), sizeof(uint16_t));
     if (*chunks == NULL) {
         fprintf(stderr, "Memory allocation failed\n");
         fclose(file);
@@ -699,40 +699,40 @@ void read_file(const char *filename, uint16_t **chunks, int *chunk_size, int *pa
     }
 
     // Read data
-    for (int i = 0; i < K; i++) {
+    for (int i = 0; i < rs_K; i++) {
         size_t read_bytes = fread(&(*chunks)[i * (*chunk_size)], sizeof(uint16_t), *chunk_size, file);
         
         // Handle padding for last chunk
-        if (i == K - 1 && *padding_size > 0) {
+        if (i == rs_K - 1 && *padding_size > 0) {
             memset((uint8_t *)&(*chunks)[i * (*chunk_size)] + read_bytes * sizeof(uint16_t), 
                    0, *padding_size);
         }
     }
 
     // // calculate the number of block=4096 in the file
-    int num_blocks = (*chunk_size / 2048) * K;
+    int num_blocks = (*chunk_size / 2048) * rs_K;
     int numBits = (int)ceil(log2(num_blocks));
 
-    printf("N: %d\n", N);
-    printf("K: %d\n", K);
+    printf("N: %d\n", rs_N);
+    printf("K: %d\n", rs_K);
 
     printf("num_blocks: %d\n", num_blocks);
     printf("numBits: %d\n", numBits);
     printf("chunk_size: %d\n", *chunk_size);
 
 
-    // printf("size %d\n", K * (*chunk_size));
+    // printf("size %d\n", rs_K * (*chunk_size));
     // // sleep(10);
         // printf("chunks[%d]: %d\n", i, (*chunks)[i]);
-    // for (int i = 0; i < K * (*chunk_size); i++) {
-    // for (int i = 0; i < (*chunk_size) * K; i++) {
+    // for (int i = 0; i < rs_K * (*chunk_size); i++) {
+    // for (int i = 0; i < (*chunk_size) * rs_K; i++) {
       // printf("fffffff");
         // printf("chunks[%d]: %d\n", i, (*chunks)[i]);
         // printf("chunks[%d]: %d\n", i, (int *)(*chunks)[i]);
 
     // }
 
-    uint16_t *chunks_shuffled = (uint16_t *)calloc(N * (*chunk_size), sizeof(uint16_t));
+    uint16_t *chunks_shuffled = (uint16_t *)calloc(rs_N * (*chunk_size), sizeof(uint16_t));
 
     int permuted_index;
 
@@ -786,7 +786,7 @@ void read_file(const char *filename, uint16_t **chunks, int *chunk_size, int *pa
 
 
 	// claculate block number in the file
-	int total_blocks = 4 * K;
+	int total_blocks = 4 * rs_K;
 	int blockNumInFile = (4 * 1) + 2;
     int numBits2 = (int)ceil(log2(total_blocks));
 
@@ -804,7 +804,7 @@ void read_file(const char *filename, uint16_t **chunks, int *chunk_size, int *pa
 	int count = 0;
 
 	for (int i = 0; i < total_blocks; i++) {
-		if (i % K == 0 && i != 0){
+		if (i % rs_K == 0 && i != 0){
 			count++;
 		}
 		int tmp_index = feistel_network_prp(Shuffle_key, i, numBits2);
@@ -818,9 +818,9 @@ void read_file(const char *filename, uint16_t **chunks, int *chunk_size, int *pa
 	}
 
 	int code_word_index = 0;
-	for (int i = 0; i < K; i++) {
+	for (int i = 0; i < rs_K; i++) {
     printf("count: %d\n", count);
-		code_word_index = count * K + i;
+		code_word_index = count * rs_K + i;
 		int tmp_index = feistel_network_prp(Shuffle_key, code_word_index, numBits);
 		while (tmp_index >= total_blocks) {
 			tmp_index = feistel_network_prp(Shuffle_key, tmp_index, numBits);
@@ -847,7 +847,7 @@ void read_file(const char *filename, uint16_t **chunks, int *chunk_size, int *pa
     // printf("enter to continue\n");
 
     getchar();
-    encode(*chunks, N, *chunk_size);
+    encode(*chunks, rs_N, *chunk_size);
     fclose(file);
 }
 
@@ -921,8 +921,8 @@ int compare_files(const char *file1, const char *file2) {
 
 
 int initiate_rs(const char *original_file, int k, int n, uint8_t *Shuffle_key){
-    N = n;
-    K = k;
+    rs_N = n;
+    rs_K = k;
     uint16_t *chunks;
     int padding_size;
     int chunk_size;

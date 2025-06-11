@@ -47,13 +47,16 @@ typedef struct File {
 	char File_ID[30];
 
 	int current_chunk_id;
+	char current_ip[30];
+	int current_port;
 
 	uint8_t is_parity_peer;
 	NodeInfo *nodes;
 	// keys
-	uint8_t file_Shuffle_key[KEY_SIZE];
-	uint8_t AES_Parity_Key[KEY_SIZE];
-	uint8_t parity_shuffel_key[KEY_SIZE];
+	uint8_t shuffel_key[KEY_SIZE];
+	// uint8_t AES_Parity_Key[KEY_SIZE];
+	// uint8_t parity_shuffel_key[32];
+	uint8_t PC_Key[32];
 	// owner info
 	uint8_t dh_sharedKey_DataOwner[64];
 	char owner_ip[30];

@@ -452,48 +452,48 @@ int main(void)
 
 
 
-    int k = 2;
-    int n = 4;
-    int m = n - k;
+    // int k = 2;
+    // int n = 4;
+    // int m = n - k;
     // int *erasures = malloc(sizeof(int) * n);
-    int erasures[2];
-    erasures[0] = 1;
-    erasures[1] = -1;
+    // int erasures[2];
+    // erasures[0] = 1;
+    // erasures[1] = -1;
 
-    for (int i = 0; i < 2; i++) {
-        printf("erasures[%d]: %d\n", i, erasures[i]);
-    }
+    // for (int i = 0; i < 2; i++) {
+    //     printf("erasures[%d]: %d\n", i, erasures[i]);
+    // }
 
-    char *data = malloc(sizeof(char) * n);
-    for (int i = 0; i < k; i++) {
-        data[i] = 1;
-    }
-    for (int i = k ; i < n; i++) {
-        data[i] = 0;
-    }
+    // char *data = malloc(sizeof(char) * n);
+    // for (int i = 0; i < k; i++) {
+    //     data[i] = 1;
+    // }
+    // for (int i = k ; i < n; i++) {
+    //     data[i] = 0;
+    // }
 
-    test_rs(data, k, n);
+    // test_rs(data, k, n);
 
-    int *matrix = malloc(sizeof(int) * m * k);
+    // int *matrix = malloc(sizeof(int) * m * k);
 
-    ocall_get_rs_matrix(k, m, 16, matrix, m * k);
+    // ocall_get_rs_matrix(k, m, 16, matrix, m * k);
 
-    jerasure_print_matrix(matrix, k, m, 16);
+    // jerasure_print_matrix(matrix, k, m, 16);
 
-    getchar();
+    // getchar();
 
-    data[1] = 23;
-    for (int i = 0; i < n; i++) {
-        printf("data[%d]: %d\n", i, data[i]);
-    }
+    // data[1] = 23;
+    // for (int i = 0; i < n; i++) {
+    //     printf("data[%d]: %d\n", i, data[i]);
+    // }
 
-    ecall_test_rs(eid, data, k, n, erasures);
+    // ecall_test_rs(eid, data, k, n, erasures);
 
 
-    printf("Fiiiiiiniiiiished\n");
+    // printf("Fiiiiiiniiiiished\n");
 
-    getchar();
-    getchar();
+    // getchar();
+    // getchar();
 
 
 
@@ -509,14 +509,16 @@ int main(void)
 
     NodeInfo nodes[NUM_NODES];
 
-
+    int n = 5;
+    int k = 3;
+    int mode = 2;
 
     FileDataTransfer *fileDataTransfer =  malloc(sizeof(FileDataTransfer));
-    int mode = 2;
-    preprocessing(eid, mode, fileName, fileDataTransfer);
+    // ------------------------------------ Pre processing ------------------------------------
+    preprocessing(eid, mode, fileName, fileDataTransfer , n, k);
 
     if (mode == 2) {
-        load_file_data(fileName, fileDataTransfer);
+        load_file_data(fileName, fileDataTransfer->numBlocks);
     }
     
 
@@ -533,16 +535,15 @@ int main(void)
     printf("  n = %d, k = %d, current_id = %d\n",fileDataTransfer->n, fileDataTransfer->k, fileDataTransfer->current_id);
     printf("--------------------------\n");
 
-    printf("Press enter to continue <enter>\n");
 
     printf("File data transfer size: %d\n", sizeof(FileDataTransfer));
-
+    printf("Press enter to continue for initialization\n");
     getchar();
 
     // Call Enclave initialization function.
     //int result;
 
-
+    // ------------------------------------  initialization ------------------------------------
     //gettimeofday(&start_time, NULL);
     printf("Call FTL init\n");
     ret = ecall_init(eid, fileDataTransfer, sizeof(FileDataTransfer));
@@ -582,13 +583,15 @@ int main(void)
     
     // printf("Press enter to continue <enter>\n");
 
-
+    // ------------------------------------ this is for testing ------------------------------------
     ecall_compare(eid);
+    printf("Press enter to continue for small corruption\n");
     getchar();
 
     // the block number is 0 for the first block if you are on mode 
     printf("==== SMALL CORRUPTION ====\n");
     printf("==== Block 0 ====\n");
+    // ------------------------------------ small corruption ------------------------------------
     ecall_small_corruption(eid, fileName, 0);
 
     printf("==== Block 1 ====\n");

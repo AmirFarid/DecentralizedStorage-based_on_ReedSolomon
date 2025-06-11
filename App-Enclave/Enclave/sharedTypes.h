@@ -33,7 +33,7 @@
 
 // Amir MM Farid
 // Number of nodes also needs to be changed in Enclave.edl for the function ecall_init
-#define NUM_NODES 4
+#define NUM_NODES 2
 #define OWNER_IP "127.0.0.1"
 #define OWNER_PORT 8080
 
@@ -66,6 +66,8 @@ typedef struct {
     int n;
     int k;
     int current_id;
+    char current_ip[16];
+    int current_port;
     char fileName[256];
     int numBlocks;
     char owner_ip[16];
@@ -79,5 +81,6 @@ typedef struct Tag {
 	uint8_t alpha[SEGMENT_PER_BLOCK][PRIME_LENGTH / 8];
 	uint8_t MAC[MAC_SIZE];
 } Tag;
+
 
 #endif

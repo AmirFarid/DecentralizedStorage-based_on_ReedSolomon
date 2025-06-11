@@ -1209,17 +1209,11 @@ for (int currentSymbol = 0; currentSymbol < nroots; currentSymbol++) {
 void ecall_init(FileDataTransfer *fileDataTransfer, int size) 
 {	
 
-	if(fileDataTransfer->numBlocks == 4){
-		ocall_printf("numBlocks is 4\n", 14, 0);
-	}
-
-
 	// Diffie hellman key exchange with FTL
 	uint8_t sgx_privKey[ECC_PRV_KEY_SIZE];
 	uint8_t sgx_pubKey[ECC_PUB_KEY_SIZE] = {0};
 	uint8_t ftl_pubKey[ECC_PUB_KEY_SIZE] = {0};
 
-    //	ocall_ftl_init(sgx_pubKey, ftl_pubKey);
 	// Generate random private key 
     prng_init((0xbad ^ 0xc0ffee ^ 42) | 0xcafebabe | 776);
 	for(int i = 0; i < ECC_PRV_KEY_SIZE; ++i) {
@@ -1272,8 +1266,8 @@ void ecall_init(FileDataTransfer *fileDataTransfer, int size)
 	// 	// ocall_printf(currentPeerPubKey, ECC_PUB_KEY_SIZE, 1);
 	// }
 	for(int i = 0; i < NUM_NODES; i++) {
-		// ocall_peer_init(nodes[i].ip, nodes[i].port, nodes[i].pubKey, currentPeerPubKey);
-
+		
+		ocall_printf("---------------Initialize Peers info---------------",51, 0);
 		ocall_printf("PEER", 5,0);
 		ocall_printint(&i);
 
@@ -1283,11 +1277,11 @@ void ecall_init(FileDataTransfer *fileDataTransfer, int size)
 		ocall_printf("PORT", 5, 0);
 		ocall_printint(&fileDataTransfer->nodes[i].port);
 
-
-		// ocall_printf("Peer %d: %s:%d\n", i, fileDataTransfer->nodes[i].ip, fileDataTransfer->nodes[i].port);
-		// ocall_printf("Peer %d Public Key: ", 20, 0);
-		// ocall_printf(currentPeerPubKey, ECC_PUB_KEY_SIZE, 1);
 	}
+		ocall_printf("---------------------------------------------------",51, 0);
+
+
+
 	porSK = por_init();
 	for(int i = 0; i < MAX_FILES; i++) {
 		files[i].inUse = 0;
@@ -1298,9 +1292,9 @@ void ecall_init(FileDataTransfer *fileDataTransfer, int size)
 
 
 // this function is called by the receiver-peer to initialize the connection with the sender-peer
-void ecall_peer_init(uint8_t *current_pubKey, uint8_t *sender_pubKey, const char *ip, int *socket_fd, int current_id) {
+void ecall_peer_init(uint8_t *current_pubKey, uint8_t *sender_pubKey, const char *ip, int *socket_fd, int sender_id) {
 
-	int8_t current_privKey[ECC_PRV_KEY_SIZE];
+	uint8_t current_privKey[ECC_PRV_KEY_SIZE];
 
 	// TODO: a golobal file ID should be defined for multi-file support
 	// this should be send to the receiver-peer for multi-file support
@@ -1328,9 +1322,10 @@ void ecall_peer_init(uint8_t *current_pubKey, uint8_t *sender_pubKey, const char
 		    }
 		}
 		if (equal) {
+			// files[fileNum].nodes[i].dh_sharedKey_peer2peer = malloc(ECC_PUB_KEY_SIZE * sizeof(uint8_t));
 		    ecdh_shared_secret(current_privKey, sender_pubKey, files[fileNum].nodes[i].dh_sharedKey_peer2peer);
 			files[fileNum].nodes[i].socket_fd = *socket_fd;
-			files[fileNum].nodes[i].chunk_id = current_id;
+			files[fileNum].nodes[i].chunk_id = sender_id;
 		}
 	}
 
@@ -1365,66 +1360,108 @@ int ecall_file_init(Tag *tag, uint8_t *sigma, FileDataTransfer *fileDataTransfer
         }
     } // TODO: rename i to fileNum
 	// files[i].numBlocks = fileDataTransfer->numBlocks;
-	files[i].numGroups = 2; // TODO: Come up with some function to determine this value for a given file. For now, it is hardcoded.
+	int fileNum = i;
+	files[fileNum].numGroups = 2; // TODO: Come up with some function to determine this value for a given file. For now, it is hardcoded.
 
 	// Amir MM Farid
 
-	files[i].nodes = (NodeInfo *)malloc(NUM_NODES * sizeof(NodeInfo));
-	for (int j = 0; j < NUM_NODES; j++) {
+	files[fileNum].nodes = (NodeInfo *)malloc(NUM_NODES * sizeof(NodeInfo));
+	for (j = 0; j < NUM_NODES; j++) {
 
-		memset(files[i].nodes[j].ip, 0, 30);
+		memset(files[fileNum].nodes[j].ip, 0, 30);
 		for (int k = 0; k < 16; k++) {
 			ocall_printf("Debug 0", 7, 0);
 
-			files[i].nodes[j].ip[k] = fileDataTransfer->nodes[j].ip[k];
+			files[fileNum].nodes[j].ip[k] = fileDataTransfer->nodes[j].ip[k];
 		}
 		// files[i].nodes[j].ip[15] = '\0';  // Ensure null-termination
 		ocall_printf("Debug 1", 7, 0);
-		files[i].nodes[j].port = fileDataTransfer->nodes[j].port;
+		files[fileNum].nodes[j].port = fileDataTransfer->nodes[j].port;
 		ocall_printf("Debug 2", 7, 0);
-		files[i].nodes[j].chunk_id = fileDataTransfer->current_id;
+		files[fileNum].nodes[j].chunk_id = fileDataTransfer->current_id;
 		ocall_printf("Debug 3", 7, 0);
-		files[i].nodes[j].is_parity_peer = fileDataTransfer->nodes[j].is_parity_peer;
+		files[fileNum].nodes[j].is_parity_peer = fileDataTransfer->nodes[j].is_parity_peer;
 		ocall_printf("Debug 4", 7, 0);
-		files[i].nodes[j].socket_fd = fileDataTransfer->nodes[j].socket_fd;
+		files[fileNum].nodes[j].socket_fd = fileDataTransfer->nodes[j].socket_fd;
 	}
 
 
-	files[i].n = fileDataTransfer->n;
-	files[i].k = fileDataTransfer->k;
-	files[i].current_chunk_id = fileDataTransfer->current_id;
-	files[i].is_parity_peer = (fileDataTransfer->current_id > files[i].k)? 1 : 0;
-	files[i].numBlocks = fileDataTransfer->numBlocks;
-	memcpy(files[i].owner_ip, fileDataTransfer->owner_ip, sizeof(files[i].owner_ip));
-
-	// files[i].owner_ip = fileDataTransfer->owner_ip;
-	files[i].owner_port = fileDataTransfer->owner_port;
-	// files[i].parity_shuffleKey_AES = fileDataTransfer->parity_shuffleKey_AES;
-	// files[i].dh_sharedKey = fileDataTransfer->dh_sharedKey;
+	files[fileNum].n = fileDataTransfer->n;
+	files[fileNum].k = fileDataTransfer->k;
+	files[fileNum].current_chunk_id = fileDataTransfer->current_id;
+	files[fileNum].is_parity_peer = (fileDataTransfer->current_id > files[fileNum].k)? 1 : 0;
+	files[fileNum].numBlocks = fileDataTransfer->numBlocks;
+	memcpy(files[fileNum].owner_ip, fileDataTransfer->owner_ip, 16);
+	files[fileNum].owner_ip[15] = '\0';
+	files[fileNum].owner_port = fileDataTransfer->owner_port;
 
 
 	ocall_printf("==================Encalve file init info======================", 64, 0);
 	ocall_printf("the file num is ", 17, 0);
-	ocall_printint(&i);
+	ocall_printint(&fileNum);
 	ocall_printf("the file name is ", 17, 0);
-	ocall_printf(files[i].fileName, 20, 0);
+	ocall_printf(files[fileNum].fileName, 20, 0);
 	ocall_printf("the num blocks is ", 17, 0);
-	ocall_printint(&files[i].numBlocks);
+	ocall_printint(&files[fileNum].numBlocks);
 	ocall_printf("the n is ", 17, 0);
-	ocall_printint(&files[i].n);
+	ocall_printint(&files[fileNum].n);
 	ocall_printf("the ip is ", 17, 0);
-	ocall_printf(files[i].nodes[0].ip, 16, 0);
+	ocall_printf(files[fileNum].nodes[0].ip, 16, 0);
 	ocall_printf("the port is ", 17, 0);
-	ocall_printint(&files[i].nodes[0].port);
+	ocall_printint(&files[fileNum].nodes[0].port);
+	ocall_printf("the owner ip is ", 17, 0);
+	ocall_printf(files[fileNum].owner_ip, 16, 0);
+	ocall_printf("the owner port is ", 17, 0);
+	ocall_printint(&files[fileNum].owner_port);
 	
 	ocall_printf("========================================", 42, 0);
 
+
+// initialize the nodes keys for peer2peer communication
+	for (j = 0; j < NUM_NODES; j++) {
+
+		int is_empty = 1;
+		for (int i = 0; i < 64; i++) {
+    		if (files[fileNum].nodes[j].dh_sharedKey_peer2peer[i] != 0) {
+    		    is_empty = 0;
+    		    break;
+    		}
+		}
+
+		if (is_empty) {
+			// allocate memory for the dh_sharedKey_peer2peer
+			
+			uint8_t *current_privKey = malloc(ECC_PRV_KEY_SIZE * sizeof(uint8_t));
+			uint8_t *current_pubKey = malloc(ECC_PUB_KEY_SIZE * sizeof(uint8_t));
+			memset(current_pubKey, 0, ECC_PUB_KEY_SIZE);
+			uint8_t *peer_i_pubKey = malloc(ECC_PUB_KEY_SIZE * sizeof(uint8_t));
+			memset(peer_i_pubKey, 0, ECC_PUB_KEY_SIZE);
+			// generate random private key
+			for(int k = 0; k < ECC_PRV_KEY_SIZE; ++k) {
+				current_privKey[k] = prng_next();
+			}
+			ecdh_generate_keys(current_pubKey, current_privKey);
+			int *socket_fd = 0;
+			ocall_peer_init(current_pubKey, peer_i_pubKey, files[fileNum].nodes[j].ip, files[fileNum].nodes[j].port, socket_fd, files[fileNum].current_chunk_id);
+			ecdh_shared_secret(current_privKey, peer_i_pubKey, files[fileNum].nodes[j].dh_sharedKey_peer2peer);
+			// files[i].nodes[j].socket_fd = *socket_fd;    	
+    		// // size_t len = KEY_SIZE;
+    		// // hmac_sha1(dh_sharedKey, ECC_PUB_KEY_SIZE, keyNonce, KEY_SIZE, sharedKey, &len);
+			// ocall_printf("dh_sharedKey_peer2peer", 25, 0);
+			// ocall_printf(files[i].nodes[j].dh_sharedKey_peer2peer, 46, 1);
+			free(current_privKey);
+			free(current_pubKey);
+			free(peer_i_pubKey);
+		}	
+	}
+
 	// get keys from data owner
-	if (files[i].is_parity_peer) {
+	if (files[fileNum].is_parity_peer) {
 
 		// request to owner to send shuffle key
 		uint8_t Shuffle_key[16];
-		uint8_t PARITY_AES_KEY[32];
+		uint8_t PC_KEY[32];
+
 		uint8_t Kexchange_prv_KEY[ECC_PRV_KEY_SIZE];
 		uint8_t Kexchange_PUB_KEY[ECC_PUB_KEY_SIZE];
 		uint8_t Kexchange_DataOwner_PUB_KEY[ECC_PUB_KEY_SIZE];
@@ -1437,52 +1474,23 @@ int ecall_file_init(Tag *tag, uint8_t *sigma, FileDataTransfer *fileDataTransfer
 		// Generate ecc keypair
 		ecdh_generate_keys(Kexchange_PUB_KEY, Kexchange_prv_KEY);
 		
-		ocall_get_shuffle_key(Shuffle_key, Kexchange_PUB_KEY, Kexchange_DataOwner_PUB_KEY, PARITY_AES_KEY, files[i].owner_ip, files[i].owner_port);
+		ocall_get_shuffle_key(Shuffle_key, Kexchange_PUB_KEY, Kexchange_DataOwner_PUB_KEY, PC_KEY, files[fileNum].owner_ip, files[fileNum].owner_port);
 
-		ecdh_shared_secret(Kexchange_prv_KEY, Kexchange_DataOwner_PUB_KEY, files[i].dh_sharedKey_DataOwner);
+		uint8_t *dh_sharedKey_DataOwner = malloc(ECC_PUB_KEY_SIZE * sizeof(uint8_t));
+		ecdh_shared_secret(Kexchange_prv_KEY, Kexchange_DataOwner_PUB_KEY, dh_sharedKey_DataOwner);
 
-		DecryptData(files[i].dh_sharedKey_DataOwner, Shuffle_key, 16);
-		DecryptData(files[i].dh_sharedKey_DataOwner, PARITY_AES_KEY, 32);
+		DecryptData(dh_sharedKey_DataOwner, Shuffle_key, 16);
+		DecryptData(dh_sharedKey_DataOwner, PC_KEY, 32);
 
-		memcpy(files[i].parity_shuffel_key, Shuffle_key, 16);
-		memcpy(files[i].AES_Parity_Key, PARITY_AES_KEY, 32);
+		memcpy(files[fileNum].shuffel_key, Shuffle_key, 16);
+		memcpy(files[fileNum].PC_Key, PC_KEY, 32);
 
 
 		// sgx_read_rand(files[i].parity_shuffelKey_AES, KEY_SIZE);
 	}
 
-	// initialize the nodes keys for peer2peer communication
-	for (int j = 0; j < NUM_NODES; j++) {
-		uint8_t *current_privKey = malloc(ECC_PRV_KEY_SIZE * sizeof(uint8_t));
-		uint8_t *current_pubKey = malloc(ECC_PUB_KEY_SIZE * sizeof(uint8_t));
-		memset(current_pubKey, 0, ECC_PUB_KEY_SIZE);
-		uint8_t *peer_i_pubKey = malloc(ECC_PUB_KEY_SIZE * sizeof(uint8_t));
-		memset(peer_i_pubKey, 0, ECC_PUB_KEY_SIZE);
 
-		for(int i = 0; i < ECC_PRV_KEY_SIZE; ++i) {
-			current_privKey[i] = prng_next();
-		}
-
-		ecdh_generate_keys(current_pubKey, current_privKey);
-
-		int *socket_fd = 0;
-
-		ocall_peer_init(current_pubKey, peer_i_pubKey, files[i].nodes[j].ip, files[i].nodes[j].port, socket_fd, current_id);
-
-		ecdh_shared_secret(current_privKey, peer_i_pubKey, files[i].nodes[j].dh_sharedKey_peer2peer);
-
-		// files[i].nodes[j].socket_fd = *socket_fd;    	
-		
-		
-    	// // size_t len = KEY_SIZE;
-    	// // hmac_sha1(dh_sharedKey, ECC_PUB_KEY_SIZE, keyNonce, KEY_SIZE, sharedKey, &len);
-
-
-		// ocall_printf("dh_sharedKey_peer2peer", 25, 0);
-		// ocall_printf(files[i].nodes[j].dh_sharedKey_peer2peer, 46, 1);
-
-
-	}
+	
 	// end Amir MM Farid
 
 	// Generate prime number and key asssotiated with the file
@@ -2453,11 +2461,11 @@ void recover_block(int fileNum, int blockNum, uint8_t *blockData){
     int numBits = (int)ceil(log2(total_blocks));
 
 
-	int permuted_index = feistel_network_prp(files[fileNum].file_Shuffle_key, blockNumInFile, numBits);
+	int permuted_index = feistel_network_prp(files[fileNum].shuffel_key, blockNumInFile, numBits);
         // printf("i: %d, permuted_index: %d\n", i, permuted_index);
 
     while (permuted_index >= total_blocks) {
-      permuted_index = feistel_network_prp(files[fileNum].file_Shuffle_key, permuted_index, numBits);
+      permuted_index = feistel_network_prp(files[fileNum].shuffel_key, permuted_index, numBits);
     }
 
 
@@ -2493,9 +2501,9 @@ void recover_block(int fileNum, int blockNum, uint8_t *blockData){
 		if (i % files[fileNum].k == 0 && i != 0){
 			code_word_number++;
 		}
-		int tmp_index = feistel_network_prp(files[fileNum].file_Shuffle_key, i, numBits);
+		int tmp_index = feistel_network_prp(files[fileNum].shuffel_key, i, numBits);
 		while (tmp_index >= total_blocks) {
-			tmp_index = feistel_network_prp(files[fileNum].file_Shuffle_key, tmp_index, numBits);
+			tmp_index = feistel_network_prp(files[fileNum].shuffel_key, tmp_index, numBits);
 		}
 		if (tmp_index == blockNumInFile) {
 			// rb_indicies[tmp_index].total_blocks_index = 1;
@@ -2506,9 +2514,9 @@ void recover_block(int fileNum, int blockNum, uint8_t *blockData){
 	int cwrd_index = 0;
 	for (int i = 0; i < files[fileNum].k; i++) {
 		cwrd_index = code_word_number * files[fileNum].k + i;
-		int tmp_index = feistel_network_prp(files[fileNum].file_Shuffle_key, cwrd_index, numBits);
+		int tmp_index = feistel_network_prp(files[fileNum].shuffel_key, cwrd_index, numBits);
 		while (tmp_index >= total_blocks) {
-			tmp_index = feistel_network_prp(files[fileNum].file_Shuffle_key, tmp_index, numBits);
+			tmp_index = feistel_network_prp(files[fileNum].shuffel_key, tmp_index, numBits);
 		}
 		if (tmp_index == blockNumInFile) {
 			rb_indicies[i].is_corrupted = 1;
@@ -2641,7 +2649,7 @@ void ecall_small_corruption(const char *fileName, int blockNum) {
 	uint8_t blockData[BLOCK_SIZE];
 
 	if(files[fileNum].is_parity_peer) {
-		requestedBlock = feistel_network_prp(files[fileNum].parity_shuffel_key, blockNum, numBits);
+		requestedBlock = feistel_network_prp(files[fileNum].shuffel_key, blockNum, numBits);
 	}else{
 		requestedBlock = blockNum;
 	}
@@ -3065,9 +3073,9 @@ void ecall_local_code_words(int fileNum, int code_word_id, uint8_t *data, int cw
 	int indices[k_cached];
 
 	for (int i = 0; i < k_cached * numBlocks_cached; i++) {
-		int permuted_index = feistel_network_prp(files[fileNum].file_Shuffle_key, i, numBits);
+		int permuted_index = feistel_network_prp(files[fileNum].shuffel_key, i, numBits);
         while (permuted_index >= numBlocks_cached * k_cached) {
-			permuted_index = feistel_network_prp(files[fileNum].file_Shuffle_key, permuted_index, numBits);
+			permuted_index = feistel_network_prp(files[fileNum].shuffel_key, permuted_index, numBits);
 		}
 		indices[i] = permuted_index;
 	}
@@ -3102,9 +3110,9 @@ void retrieve_File(char *fileName) {
 	int *indices = (int *)malloc(sizeof(int) * k_cached * numBlocks_cached);
 
 	for (int i = 0; i < numBlocks_cached * k_cached; i++) {
-		int permuted_index = feistel_network_prp(files[fileNum].file_Shuffle_key, i, numBits);
+		int permuted_index = feistel_network_prp(files[fileNum].shuffel_key, i, numBits);
         while (permuted_index >= numBlocks_cached * k_cached) {
-			permuted_index = feistel_network_prp(files[fileNum].file_Shuffle_key, permuted_index, numBits);
+			permuted_index = feistel_network_prp(files[fileNum].shuffel_key, permuted_index, numBits);
 		}
 		indices[i] = permuted_index;
 	}
