@@ -721,6 +721,8 @@ void read_file(const char *filename, uint16_t **chunks, int *chunk_size, int *pa
     printf("chunk_size: %d\n", *chunk_size);
 
 
+    printf("enter to continue\n");
+    getchar();
     // printf("size %d\n", rs_K * (*chunk_size));
     // // sleep(10);
         // printf("chunks[%d]: %d\n", i, (*chunks)[i]);
@@ -784,11 +786,11 @@ void read_file(const char *filename, uint16_t **chunks, int *chunk_size, int *pa
         // }
     }
 
-
-	// claculate block number in the file
+  
+	// ----------------------------------- test -----------------------------------
 	int total_blocks = 4 * rs_K;
 	int blockNumInFile = (4 * 1) + 2;
-    int numBits2 = (int)ceil(log2(total_blocks));
+  int numBits2 = (int)ceil(log2(total_blocks));
 
 
 	// int permuted_index2 = feistel_network_prp(Shuffle_key, blockNumInFile, numBits2);
@@ -921,8 +923,10 @@ int compare_files(const char *file1, const char *file2) {
 
 
 int initiate_rs(const char *original_file, int k, int n, uint8_t *Shuffle_key){
+    printf("N: %d, K: %d\n", n, k);
     rs_N = n;
     rs_K = k;
+    printf("rs_N: %d, rs_K: %d\n", rs_N, rs_K);
     uint16_t *chunks;
     int padding_size;
     int chunk_size;

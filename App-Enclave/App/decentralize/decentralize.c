@@ -40,13 +40,14 @@ typedef enum
 } RequestType;
 
 NodeInfo nodes[NUM_NODES] = {
-    {"192.168.1.1", 8080, -1, 0}, // This is the host node do not count it as a node
-    {"141.219.210.172", 8080, -1, 0},
+    {"10.50.18.253", 8080, -1, 0}, // This is the host node do not count it as a node
+    // {"141.219.210.172", 8080, -1, 0},
+    {"10.50.18.252", 8080, -1, 0},
     // {"141.219.249.254", 8080, -1, 0},
     // {"141.219.250.6", 8080, -1, 0},
     // for the parity node I have to retrive it from the first node while if the parity was required in the first node I have to fake it from the second node and 
-    {"192.168.1.1", 8080, -1, 0}, // This is the host node do not count it as a node
-
+    // {"192.168.1.1", 8080, -1, 0}, // This is the host node do not count it as a node
+    {"10.50.18.253", 8080, -1, 0},
 
     // {"141.219.210.172", 8080, -1, 0},
 
@@ -194,6 +195,28 @@ ssize_t secure_recv(int sock, void *buf, size_t len)
 #define NUM1 (1 << 24)
 #define NUM2 (1 << 16)
 #define NUM3 (1 << 8)
+int DecryptData(uint32_t* KEY,void* buffer, int dataLen)
+{
+   //decrypt after read
+    AesCtx ctx;
+    unsigned char iv[] = "1234"; // Needs to be same between FTL and SGX
+    unsigned char key[16];
+    uint8_t i;
+    for(i=0;i<4;i++){    
+    	key[4*i]=(*(KEY+i))/NUM1;
+    	key[(4*i)+1]=((*(KEY+i))/NUM2)%NUM3;
+    	key[(4*i)+2]=(*(KEY+i)% NUM2)/NUM3;
+    	key[(4*i)+3]=(*(KEY+i)% NUM2)%NUM3;
+    }
+    
+   if( AesCtxIni(&ctx, iv, key, KEY128, EBC) < 0) return -1;
+
+   if (AesDecrypt(&ctx, (unsigned char *)buffer, (unsigned char *)buffer, dataLen) < 0) return -1;
+
+   return 0;
+}
+
+
 int EncryptData(uint32_t *KEY, void *buffer, int dataLen)
 {
     // encrypt before writing
@@ -473,7 +496,11 @@ void ocall_get_shuffle_key(u_int8_t *Sh_key, u_int8_t *Kexchange_PUB_KEY, u_int8
 
     RequestType type = PARITY_KEY;
 
-    secure_send(client_socket, &type, sizeof(RequestType));
+    printf("type: %d\n", type);
+    printf("type size: %d\n", sizeof(type));
+    printf("type size: %d\n", sizeof(RequestType));
+
+    secure_send(client_socket, &type, sizeof(type));
 
     // ------------------------------------------------------------
     // |             need to be done for attestation               |
@@ -483,14 +510,19 @@ void ocall_get_shuffle_key(u_int8_t *Sh_key, u_int8_t *Kexchange_PUB_KEY, u_int8
     // uint8_t quote[1024];
     // uint32_t quote_size;
 
-    secure_send(client_socket, Kexchange_PUB_KEY, 64);
+    // secure_send(client_socket, &type, sizeof(type));ma
 
-    secure_recv(client_socket, Kexchange_DataOwner_PUB_KEY, 64);
+
+    secure_send(client_socket, Kexchange_PUB_KEY, PUB_SIZE);
+
+    secure_recv(client_socket, Kexchange_DataOwner_PUB_KEY, PUB_SIZE);
 
     secure_recv(client_socket, Sh_key, KEY_SIZE);
 
-    secure_recv(client_socket, PARITY_AES_KEY, 64);
+    secure_recv(client_socket, PARITY_AES_KEY, 32);
+    printf("ACK1\n");
 
+    secure_send(client_socket, "ACK", 3);
     close(client_socket);
 }
 
@@ -555,6 +587,8 @@ void initialize_peer2peer_connection(sgx_enclave_id_t eid, int client_socket)
     printf("Client IP: %s\n", ip_str);
     printf("Client Port: %d\n", port);
 
+    // printf("pubkey: %d\n", current_pubKey);
+
     ecall_peer_init(eid, current_pubKey, sender_pubKey, ip_str, &client_socket, sender_id);
 
     secure_send(client_socket, current_pubKey, PUB_SIZE);
@@ -568,12 +602,14 @@ void initialize_peer2peer_connection(sgx_enclave_id_t eid, int client_socket)
 void handle_key_exchange(sgx_enclave_id_t eid, int client_socket)
 {
 
+    // Parity Key Exchange
+
     uint8_t Requester_PUB_KEY[PUB_SIZE];
 
     uint8_t Kexchange_DataOwner_PUB_KEY[64];
     uint8_t Kexchange_DataOwner_prv_KEY[32];
 
-    uint8_t sharedKey[32];
+    uint8_t sharedKey[64];
 
     uint32_t seed;
     RAND_bytes((unsigned char *)&seed, sizeof(seed)); // 32 bits of entropy
@@ -614,11 +650,17 @@ void handle_key_exchange(sgx_enclave_id_t eid, int client_socket)
 
     // enclave_attestation_send(eid, client_socket);
 
+    // RequestType type;
+    // secure_recv(client_socket, &type, sizeof(RequestType));
+
+
+
     secure_recv(client_socket, Requester_PUB_KEY, PUB_SIZE);
 
+    ecdh_shared_secret(Kexchange_DataOwner_prv_KEY, Requester_PUB_KEY, sharedKey);
+    
     secure_send(client_socket, Kexchange_DataOwner_PUB_KEY, PUB_SIZE);
 
-    ecdh_shared_secret(Kexchange_DataOwner_prv_KEY, Requester_PUB_KEY, sharedKey);
 
     uint8_t Shuffle_key_tmp[KEY_SIZE];
     uint8_t PC_KEY_tmp[32];
@@ -626,11 +668,31 @@ void handle_key_exchange(sgx_enclave_id_t eid, int client_socket)
     memcpy(Shuffle_key_tmp, Shuffle_key, KEY_SIZE);
     memcpy(PC_KEY_tmp, PC_KEY, 32);
 
+    printf("Shuffle_key_tmp: ");
+    for (int i = 0; i < KEY_SIZE; i++) {
+        printf("%X", Shuffle_key_tmp[i]);
+    }
+    printf("\n");   
+
+    printf("PC_KEY_tmp: ");
+    for (int i = 0; i < 32; i++) {
+        printf("%X", PC_KEY_tmp[i]);
+    }
+    printf("\n");
+    
+    
+
     EncryptData(sharedKey, Shuffle_key_tmp, KEY_SIZE);
     EncryptData(sharedKey, PC_KEY_tmp, 32);
 
     secure_send(client_socket, Shuffle_key_tmp, KEY_SIZE);
     secure_send(client_socket, PC_KEY_tmp, 32);
+
+
+    char ack_buf[4];
+    if (recv(client_socket, ack_buf, sizeof(ack_buf), 0) > 0) {
+        printf("Received ACK: %s\n", ack_buf);
+    }
 
     close(client_socket);
 }
@@ -708,10 +770,12 @@ void *handle_client(void *args_ptr)
     while (1)
     {
 
-        uint8_t type;
-        ssize_t len = recv(client_socket, &type, sizeof(type), 0);
+        // uint8_t type;
 
-        RequestType request = (RequestType)type;
+        RequestType request;
+        ssize_t len = recv(client_socket, &request, sizeof(RequestType), 0);
+
+        // RequestType request = (RequestType)type;
 
         if (len <= 0)
             break; // client disconnected
@@ -1275,7 +1339,8 @@ void initiate_Chunks(char *fileChunkName, char *current_file, int n, int k)
     char path[256];
 
     // divide the file into K chunks and generate N - K parity chunks. generated parities are stored in decentralize/chunks/chunk_i.bin
-    initiate_rs(fileChunkName, K, N, Shuffle_key);
+    initiate_rs(fileChunkName, k, n, Shuffle_key);
+
 
     printf("debug 1\n");
 
@@ -1310,7 +1375,7 @@ void initiate_Chunks(char *fileChunkName, char *current_file, int n, int k)
             continue;
         }
 
-        // break;
+        break;
 
         uint32_t chunk_type = 1; // 1 for data chunk, 2 for parity chunk
         uint32_t chunk_len;

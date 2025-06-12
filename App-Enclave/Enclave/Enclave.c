@@ -1370,18 +1370,18 @@ int ecall_file_init(Tag *tag, uint8_t *sigma, FileDataTransfer *fileDataTransfer
 
 		memset(files[fileNum].nodes[j].ip, 0, 30);
 		for (int k = 0; k < 16; k++) {
-			ocall_printf("Debug 0", 7, 0);
+			// ocall_printf("Debug 0", 7, 0);
 
 			files[fileNum].nodes[j].ip[k] = fileDataTransfer->nodes[j].ip[k];
 		}
 		// files[i].nodes[j].ip[15] = '\0';  // Ensure null-termination
-		ocall_printf("Debug 1", 7, 0);
+		// ocall_printf("Debug 1", 7, 0);
 		files[fileNum].nodes[j].port = fileDataTransfer->nodes[j].port;
-		ocall_printf("Debug 2", 7, 0);
+		// ocall_printf("Debug 2", 7, 0);
 		files[fileNum].nodes[j].chunk_id = fileDataTransfer->current_id;
-		ocall_printf("Debug 3", 7, 0);
+		// ocall_printf("Debug 3", 7, 0);
 		files[fileNum].nodes[j].is_parity_peer = fileDataTransfer->nodes[j].is_parity_peer;
-		ocall_printf("Debug 4", 7, 0);
+		// ocall_printf("Debug 4", 7, 0);
 		files[fileNum].nodes[j].socket_fd = fileDataTransfer->nodes[j].socket_fd;
 	}
 
@@ -1406,9 +1406,9 @@ int ecall_file_init(Tag *tag, uint8_t *sigma, FileDataTransfer *fileDataTransfer
 	ocall_printf("the n is ", 17, 0);
 	ocall_printint(&files[fileNum].n);
 	ocall_printf("the ip is ", 17, 0);
-	ocall_printf(files[fileNum].nodes[0].ip, 16, 0);
+	ocall_printf(files[fileNum].nodes[1].ip, 16, 0);
 	ocall_printf("the port is ", 17, 0);
-	ocall_printint(&files[fileNum].nodes[0].port);
+	ocall_printint(&files[fileNum].nodes[1].port);
 	ocall_printf("the owner ip is ", 17, 0);
 	ocall_printf(files[fileNum].owner_ip, 16, 0);
 	ocall_printf("the owner port is ", 17, 0);
@@ -1427,6 +1427,9 @@ int ecall_file_init(Tag *tag, uint8_t *sigma, FileDataTransfer *fileDataTransfer
     		    break;
     		}
 		}
+
+		ocall_printf("is_empty: ", 11, 0);
+		ocall_printint(&is_empty);
 
 		if (is_empty) {
 			// allocate memory for the dh_sharedKey_peer2peer
@@ -1456,9 +1459,11 @@ int ecall_file_init(Tag *tag, uint8_t *sigma, FileDataTransfer *fileDataTransfer
 	}
 
 	// get keys from data owner
-	if (files[fileNum].is_parity_peer) {
+	// if (files[fileNum].is_parity_peer) {
+	if (1 == 1) {
 
-		// request to owner to send shuffle key
+		ocall_printf("----------------------------------------", 42, 0);
+		ocall_printf("request to owner to send shuffle key", 40, 0);
 		uint8_t Shuffle_key[16];
 		uint8_t PC_KEY[32];
 
@@ -1473,20 +1478,32 @@ int ecall_file_init(Tag *tag, uint8_t *sigma, FileDataTransfer *fileDataTransfer
 
 		// Generate ecc keypair
 		ecdh_generate_keys(Kexchange_PUB_KEY, Kexchange_prv_KEY);
+
 		
 		ocall_get_shuffle_key(Shuffle_key, Kexchange_PUB_KEY, Kexchange_DataOwner_PUB_KEY, PC_KEY, files[fileNum].owner_ip, files[fileNum].owner_port);
 
-		uint8_t *dh_sharedKey_DataOwner = malloc(ECC_PUB_KEY_SIZE * sizeof(uint8_t));
+
+		uint8_t dh_sharedKey_DataOwner [ECC_PUB_KEY_SIZE];
 		ecdh_shared_secret(Kexchange_prv_KEY, Kexchange_DataOwner_PUB_KEY, dh_sharedKey_DataOwner);
+
+// 									 TEST
+		// ocall_printf("dh_sharedKey_DataOwner: ---------------", 43, 0);
+		// ocall_printf(dh_sharedKey_DataOwner, 64, 1);
+// 									END TEST
 
 		DecryptData(dh_sharedKey_DataOwner, Shuffle_key, 16);
 		DecryptData(dh_sharedKey_DataOwner, PC_KEY, 32);
 
+		ocall_printf("Shuffle_key: ", 17, 0);
+		ocall_printf(Shuffle_key, 16, 1);
+		ocall_printf("PC_KEY: ", 17, 0);
+		ocall_printf(PC_KEY, 32, 1);
+
+
 		memcpy(files[fileNum].shuffel_key, Shuffle_key, 16);
 		memcpy(files[fileNum].PC_Key, PC_KEY, 32);
+		ocall_printf("----------------------------------------", 42, 0);
 
-
-		// sgx_read_rand(files[i].parity_shuffelKey_AES, KEY_SIZE);
 	}
 
 

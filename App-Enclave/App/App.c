@@ -413,6 +413,49 @@ printf("sigma_mem size = %zu\n", numBlocks * (PRIME_LENGTH / 8) * sizeof(uint8_t
 
 int main(void) 
 {
+    // init_pork();
+    // uint8_t key[16];
+    // // RAND_bytes(key, 16);
+    // for (int i = 0; i < 16; i++) {
+    //     key[i] = i;
+    // }
+    // printf("key: ");
+    // for (int i = 0; i < 16; i++) {
+    //     printf("%X", key[i]);
+    // }
+    // printf("\n");
+
+    // printf("size of key: %d\n", sizeof(key));
+
+    // uint8_t test[30];
+    // for (int i = 0; i < 30; i++) {
+    //     test[i] = i;
+    // }
+
+    // EncryptData((uint32_t *)key, test, 30);
+
+    // printf("encrypted test: ");
+    // for (int i = 0; i < 30; i++) {
+    //     printf("%X", test[i]);
+    // }
+    // printf("\n");
+
+    // DecryptData((uint32_t *)key, test, 30);
+
+
+    // // DecryptData(key, test, 16);
+
+    // printf("decrypted test: ");
+    // for (int i = 0; i < 30; i++) {
+    //     printf("%X", test[i]);
+    // }
+    // printf("\n");
+
+
+
+
+
+    // getchar();
 
 
     // uint8_t key[16];
@@ -584,9 +627,9 @@ int main(void)
     // printf("Press enter to continue <enter>\n");
 
     // ------------------------------------ this is for testing ------------------------------------
-    ecall_compare(eid);
     printf("Press enter to continue for small corruption\n");
     getchar();
+    ecall_compare(eid);
 
     // the block number is 0 for the first block if you are on mode 
     printf("==== SMALL CORRUPTION ====\n");
