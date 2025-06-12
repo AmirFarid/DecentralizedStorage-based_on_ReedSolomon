@@ -40,14 +40,14 @@ typedef enum
 } RequestType;
 
 NodeInfo nodes[NUM_NODES] = {
-    {"10.50.18.253", 8080, -1, 0}, // This is the host node do not count it as a node
+    {"141.219.209.11", 8080, -1, 0}, // This is the host node do not count it as a node
     // {"141.219.210.172", 8080, -1, 0},
-    {"10.50.18.252", 8080, -1, 0},
+    {"141.219.249.254", 8080, -1, 0},
     // {"141.219.249.254", 8080, -1, 0},
     // {"141.219.250.6", 8080, -1, 0},
     // for the parity node I have to retrive it from the first node while if the parity was required in the first node I have to fake it from the second node and 
     // {"192.168.1.1", 8080, -1, 0}, // This is the host node do not count it as a node
-    {"10.50.18.253", 8080, -1, 0},
+    {"141.219.209.11", 8080, -1, 0},
 
     // {"141.219.210.172", 8080, -1, 0},
 
@@ -134,7 +134,8 @@ static void prng_init(uint32_t seed)
 }
 
 // ------------------------------------------------------------------------------
-//                                 helper functions
+//                            helper functions  
+                               
 void init_keys()
 {
 
@@ -308,7 +309,19 @@ ssize_t secure_send(int sock, const void *buf, size_t len)
     return total_sent; // All data sent successfully
 }
 
+void ack_recv(int client_socket)
+{
+    char ack_buf[4];
+    if (recv(client_socket, ack_buf, sizeof(ack_buf), 0) > 0) {
+        printf("Received ACK: %s\n", ack_buf);
+    }
+}
 
+void ack_send(int client_socket)
+{
+    secure_send(client_socket, "ACK", 3);
+
+}
 
 /**
  * @brief this functin recieve first the file type and then the file size and then the file data
@@ -520,9 +533,9 @@ void ocall_get_shuffle_key(u_int8_t *Sh_key, u_int8_t *Kexchange_PUB_KEY, u_int8
     secure_recv(client_socket, Sh_key, KEY_SIZE);
 
     secure_recv(client_socket, PARITY_AES_KEY, 32);
-    printf("ACK1\n");
 
-    secure_send(client_socket, "ACK", 3);
+    ack_send(client_socket);
+
     close(client_socket);
 }
 
@@ -567,6 +580,7 @@ void initialize_peer2peer_connection(sgx_enclave_id_t eid, int client_socket)
     uint8_t current_pubKey[PUB_SIZE];
 
     secure_recv(client_socket, &sender_id, sizeof(sender_id));
+
     secure_recv(client_socket, sender_pubKey, PUB_SIZE);
 
     // get the sender ip and port
@@ -589,9 +603,23 @@ void initialize_peer2peer_connection(sgx_enclave_id_t eid, int client_socket)
 
     // printf("pubkey: %d\n", current_pubKey);
 
-    ecall_peer_init(eid, current_pubKey, sender_pubKey, ip_str, &client_socket, sender_id);
+    int *current_id = malloc(sizeof(int));
+
+    ecall_peer_init(eid, current_pubKey, sender_pubKey, ip_str, &client_socket, sender_id, current_id);
 
     secure_send(client_socket, current_pubKey, PUB_SIZE);
+
+    
+    int current_id_tmp = *current_id;
+    if (secure_send(client_socket, &current_id_tmp, sizeof(current_id_tmp)) != sizeof(current_id_tmp))
+    {
+        printf("Failed to send current id to ip %s\n", ip_str);
+        close(client_socket);
+        return;
+    }
+    free(current_id);
+
+    ack_recv(client_socket);
 
 }
 
@@ -689,12 +717,8 @@ void handle_key_exchange(sgx_enclave_id_t eid, int client_socket)
     secure_send(client_socket, PC_KEY_tmp, 32);
 
 
-    char ack_buf[4];
-    if (recv(client_socket, ack_buf, sizeof(ack_buf), 0) > 0) {
-        printf("Received ACK: %s\n", ack_buf);
-    }
-
-    close(client_socket);
+    ack_recv(client_socket);
+    
 }
 
 void handle_block_retrival_request(sgx_enclave_id_t eid, int client_socket)
@@ -1008,7 +1032,10 @@ void ocall_retrieve_code_words(int fileNum, int num_code_words, int total_code_w
 
 void *broadcast_request_data_from_node(void *arg)
 {
-
+    if (arg == NULL) {
+        fprintf(stderr, "Error: received null arg pointer\n");
+        return NULL;
+    }
     printf("the arg is:\n");
 
     ThreadWrapperArgs *args = (ThreadWrapperArgs *)arg;
@@ -1025,7 +1052,7 @@ void *broadcast_request_data_from_node(void *arg)
     }
 
     // 3. Connect to the ith node
-    struct sockaddr_in server_addr = {
+    struct sockaddr_in server_addr = {  
         .sin_family = AF_INET,
         .sin_port = htons(args->node_port)};
 
@@ -1040,13 +1067,15 @@ void *broadcast_request_data_from_node(void *arg)
         close(sock);
         return NULL;
     }
-
+    printf("debug 1\n");
     // send the request type
     RequestType request_type = BLOCK;
     secure_send(sock, &request_type, sizeof(RequestType));
-
+    printf("debug 2\n");
     secure_send(sock, &args->fileNum, sizeof(int));
+    printf("debug 3\n");
     secure_send(sock, &args->blockNum, sizeof(int));
+    printf("debug 4\n");
 
     printf("the file num is: %d\n", args->fileNum);
     printf("the block num is: %d\n", args->blockNum);
@@ -1375,7 +1404,7 @@ void initiate_Chunks(char *fileChunkName, char *current_file, int n, int k)
             continue;
         }
 
-        break;
+        // break;
 
         uint32_t chunk_type = 1; // 1 for data chunk, 2 for parity chunk
         uint32_t chunk_len;
@@ -1530,7 +1559,7 @@ void connection_thread_func(void *args_ptr)
     
 }
 
-void ocall_peer_init(uint8_t *current_pubKey, uint8_t *peer_pubKey, const char *ip, int port, int *socket_fd, int current_id)
+void ocall_peer_init(uint8_t *current_pubKey, uint8_t *peer_pubKey, const char *ip, int port, int *socket_fd, int current_id, int *peer_id)
 {
 
 
@@ -1571,6 +1600,15 @@ void ocall_peer_init(uint8_t *current_pubKey, uint8_t *peer_pubKey, const char *
         close(socket_fd);
         return;
     }
+
+    int peer_id_tmp;    
+    if (secure_recv(socket_fd, &peer_id_tmp, sizeof(peer_id_tmp)) != sizeof(peer_id_tmp))
+    {
+        printf("Failed to receive peer id from ip %s\n", ip);
+        close(socket_fd);
+        return;
+    }
+    *peer_id = peer_id_tmp;
 
     // 2. Exchange public keys
     if (secure_send(socket_fd, current_pubKey, PUB_SIZE) != PUB_SIZE)

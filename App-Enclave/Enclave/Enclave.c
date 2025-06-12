@@ -1292,7 +1292,7 @@ void ecall_init(FileDataTransfer *fileDataTransfer, int size)
 
 
 // this function is called by the receiver-peer to initialize the connection with the sender-peer
-void ecall_peer_init(uint8_t *current_pubKey, uint8_t *sender_pubKey, const char *ip, int *socket_fd, int sender_id) {
+void ecall_peer_init(uint8_t *current_pubKey, uint8_t *sender_pubKey, const char *ip, int *socket_fd, int sender_id, int *peer_id) {
 
 	uint8_t current_privKey[ECC_PRV_KEY_SIZE];
 
@@ -1328,6 +1328,8 @@ void ecall_peer_init(uint8_t *current_pubKey, uint8_t *sender_pubKey, const char
 			files[fileNum].nodes[i].chunk_id = sender_id;
 		}
 	}
+
+	*peer_id = files[fileNum].current_chunk_id;
 
 	// Authentication
 	// 	uint8_t keyNonce[KEY_SIZE];
@@ -1445,7 +1447,12 @@ int ecall_file_init(Tag *tag, uint8_t *sigma, FileDataTransfer *fileDataTransfer
 			}
 			ecdh_generate_keys(current_pubKey, current_privKey);
 			int *socket_fd = 0;
-			ocall_peer_init(current_pubKey, peer_i_pubKey, files[fileNum].nodes[j].ip, files[fileNum].nodes[j].port, socket_fd, files[fileNum].current_chunk_id);
+			// TODO: change the initilization ID for all nodes
+			int *peer_id = malloc(sizeof(int));
+			ocall_peer_init(current_pubKey, peer_i_pubKey, files[fileNum].nodes[j].ip, files[fileNum].nodes[j].port, socket_fd, files[fileNum].current_chunk_id, peer_id);
+			files[fileNum].nodes[j].chunk_id = *peer_id;
+			free(peer_id);
+			
 			ecdh_shared_secret(current_privKey, peer_i_pubKey, files[fileNum].nodes[j].dh_sharedKey_peer2peer);
 			// files[i].nodes[j].socket_fd = *socket_fd;    	
     		// // size_t len = KEY_SIZE;
@@ -2349,7 +2356,8 @@ void check_block(int fileNum, int blockNum,  uint8_t *status, uint8_t *recovered
 		ocall_printf("tag:", 10, 0);
 		ocall_printf(tag, sizeof(Tag), 1);
 
-
+		ocall_printf("========================================", 40, 0);
+		ocall_printf("I am in the audit block group", 30, 0);
 
 	if (audit_block_group(0, 1, indices, sigmas, tag, data) != 0) {
 			*status = 1;
@@ -2373,7 +2381,7 @@ void check_block(int fileNum, int blockNum,  uint8_t *status, uint8_t *recovered
 
 
 
-void recover_block(int fileNum, int blockNum, uint8_t *blockData){
+void recover_block(int fileNum, int blockNum, uint8_t *blockData, int *toggle){
 
 	int k = files[fileNum].k;
 	int n = files[fileNum].n;
@@ -2411,6 +2419,7 @@ void recover_block(int fileNum, int blockNum, uint8_t *blockData){
 	// ocall_printint(&symSize);
 	// ocall_printf("------------info recover block ------------", 42, 0);
 	
+	ocall_printf("debug 1", 8, 0);
 
 
 	int *code_word_index = malloc(n * sizeof(int));
@@ -2442,34 +2451,38 @@ void recover_block(int fileNum, int blockNum, uint8_t *blockData){
 		for (int j = 0; j < 16; j++) {
 			nodes[i].ip[j] = files[fileNum].nodes[i].ip[j];
 		}
-		ocall_printf("the file num is", 15, 0);
+	ocall_printf("========================================", 40, 0);
+		ocall_printf("the file num is:", 16, 0);
 		ocall_printint(&fileNum);
-		ocall_printf("the i is", 8, 0);
+		ocall_printf("the i is:", 9, 0);
 		ocall_printint(&i);
-		ocall_printf("the IP is", 9, 0);
+		ocall_printf("the IP is:", 10, 0);
 		ocall_printf(files[fileNum].nodes[i].ip, 16, 0);
-		ocall_printf(nodes[i].ip, 16, 0);
 
 		nodes[i].port = files[fileNum].nodes[i].port;
-		ocall_printf("the port is", 9, 0);
+		ocall_printf("the port is:", 12, 0);
 		ocall_printint(&nodes[i].port);
 
 		nodes[i].chunk_id = files[fileNum].nodes[i].chunk_id;
-		ocall_printf("the chunk id is", 12, 0);
+		ocall_printf("the chunk id is:", 16, 0);
 		ocall_printint(&nodes[i].chunk_id);
 
 
 		nodes[i].is_parity_peer = files[fileNum].nodes[i].is_parity_peer;
-		ocall_printf("the is parity peer is", 16, 0);
+		ocall_printf("the parity peer is:", 19, 0);
 		ocall_printint(&nodes[i].is_parity_peer);
 
 		nodes[i].socket_fd = files[fileNum].nodes[i].socket_fd;
-		ocall_printf("the socket fd is", 13, 0);
+		ocall_printf("the socket fd is:", 17, 0);
 		ocall_printint(&nodes[i].socket_fd);
 		
 
 
 	}
+
+	ocall_printf("========================================", 40, 0);
+
+	ocall_printf("debug 6", 8, 0);
 
 
 	// claculate block number in the file
@@ -2512,8 +2525,9 @@ void recover_block(int fileNum, int blockNum, uint8_t *blockData){
 	
 	
 	*/
-	int code_word_number = 0;
 
+	int code_word_number = 0;
+	ocall_printf("debug 7", 8, 0);
 	for (int i = 0; i < total_blocks; i++) {
 		if (i % files[fileNum].k == 0 && i != 0){
 			code_word_number++;
@@ -2522,11 +2536,23 @@ void recover_block(int fileNum, int blockNum, uint8_t *blockData){
 		while (tmp_index >= total_blocks) {
 			tmp_index = feistel_network_prp(files[fileNum].shuffel_key, tmp_index, numBits);
 		}
+		// print data
+		ocall_printf("========================================", 40, 0);
+		ocall_printf("the I is:", 9, 0);
+		ocall_printint(&i);
+		ocall_printf("the tmp_index is:", 17, 0);
+		ocall_printint(&tmp_index);
+		ocall_printf("the blockNumInFile is:", 22, 0);
+		ocall_printint(&blockNumInFile);
+
+		
 		if (tmp_index == blockNumInFile) {
-			// rb_indicies[tmp_index].total_blocks_index = 1;
+			rb_indicies[tmp_index].total_blocks_index = 1;
 			break;
 		}
 	}
+		ocall_printf("========================================", 40, 0);
+
 
 	int cwrd_index = 0;
 	for (int i = 0; i < files[fileNum].k; i++) {
@@ -2548,12 +2574,30 @@ void recover_block(int fileNum, int blockNum, uint8_t *blockData){
 		rb_indicies[i].node_index = (tmp_index - temp_internal_block_index) / files[fileNum].numBlocks;
 		rb_indicies[i].code_word_number = code_word_number;
 		if (rb_indicies[i].node_index == files[fileNum].current_chunk_id) {
+
+			ocall_printf("==================imp======================", 43, 0);
+			ocall_printf("the node index is:", 18, 0);
+			ocall_printint(&rb_indicies[i].node_index);
+			ocall_printf("the current chunk id is:", 24, 0);
+			ocall_printint(&files[fileNum].current_chunk_id);
+			ocall_printf("the internal block index is:", 28, 0);
+			ocall_printint(&rb_indicies[i].internal_block_index);
+			ocall_printf("the code word number is:", 24, 0);
+			ocall_printint(&rb_indicies[i].code_word_number);
+			ocall_printf("the temp index is:", 18, 0);
+			ocall_printint(&tmp_index);
+			ocall_printf("the i is:", 9, 0);
+			ocall_printint(&i);
+			ocall_printf("========================================", 40, 0);
+
 			rb_indicies[i].is_local = 1;
 		} else {
 			rb_indicies[i].is_local = 0;
 		}
 
 	}
+
+	ocall_printf("debug 8", 8, 0);
 
 	// block number is calculated
 	// now we have 
@@ -2567,15 +2611,25 @@ void recover_block(int fileNum, int blockNum, uint8_t *blockData){
 	int cw_size = n* BLOCK_SIZE;
 	int cw_count = n;
 
-	int *status = 0;
+	// int *status = ;
+    uint8_t *status = malloc(sizeof(uint8_t));
+	ocall_printf("debug 9", 8, 0);
 
 	// retrive local data
 	// this fucntion should be decoupled from the ecall and become local function
 	// first we collect the local blocks
+
 	for (int i = 0; i < files[fileNum].k; i++) {
 		if (rb_indicies[i].is_local == 1) {
+			if (*toggle) {
+				ocall_init_parity(numBits);
+				*toggle = 0;
+			}
 			check_block(fileNum, rb_indicies[i].internal_block_index, status, tmpcode_word);
-			if (status == 1) {
+			if (status == 0) {
+				ocall_printf("local block is not corrupted", 28, 0);
+				ocall_printf("tmpcode_word: ", 10, 0);
+				ocall_printf(tmpcode_word, BLOCK_SIZE, 1);
 				// if the block is not corrupted, we can directly assign the code word
 				for (int j = 0; j < BLOCK_SIZE; j++) {
 					code_word[rb_indicies[i].node_index * BLOCK_SIZE + j] = tmpcode_word[j];
@@ -2640,7 +2694,8 @@ void ecall_small_corruption(const char *fileName, int blockNum) {
     int numBits = (int)ceil(log2(numPages)) + 1;
 
 
-
+	int *toggle = malloc(sizeof(int));
+	*toggle = 1;
 	ocall_init_parity(numBits);
 
 	// Generate shared key used when generating file parity, for permutation and encryption.
@@ -2740,7 +2795,7 @@ void ecall_small_corruption(const char *fileName, int blockNum) {
 
 	uint8_t Datatest[BLOCK_SIZE];
 	memcpy(Datatest, blockData, BLOCK_SIZE);
-	if (blockNum == 0) {
+	if (blockNum == 1) {
 		blockData[0] = 0x00;
 		blockData[1] = 0x00;
 	}
@@ -2748,7 +2803,7 @@ void ecall_small_corruption(const char *fileName, int blockNum) {
 		    ocall_printf("AUDIT FAILED!!", 15, 0);
 		    ocall_printf("==================================================", 50, 0);
 		    ocall_printf("recovering block", 15, 0);
-			recover_block(fileNum, blockNum, blockData);
+			recover_block(fileNum, blockNum, blockData, toggle);
 			if (memcmp(Datatest, blockData, BLOCK_SIZE) == 0) {
 				ocall_printf("Everything is working correctly!", 31, 0);
 			} else {
@@ -2772,8 +2827,7 @@ void ecall_small_corruption(const char *fileName, int blockNum) {
 
 	// ocall_write_partition(numBits);
 	// ocall_printf("HERE4", 6, 0);
-
-	ocall_init_parity(numBits);
+	if (*toggle) ocall_init_parity(numBits);
 
 }
 
