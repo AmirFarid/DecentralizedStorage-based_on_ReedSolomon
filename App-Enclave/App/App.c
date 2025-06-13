@@ -259,7 +259,6 @@ void app_file_init(sgx_enclave_id_t eid, FileDataTransfer *fileDataTransfer)
         printf("numBlocks in app file init: %d\n", numBlocks);
     }
 
-    printf("------------debug 1--------------\n");
 
 	Tag *tag = malloc(sizeof(Tag));
 	// Allocate memory for sigma
@@ -272,13 +271,11 @@ void app_file_init(sgx_enclave_id_t eid, FileDataTransfer *fileDataTransfer)
 printf("PRIME_LENGTH = %d\n", PRIME_LENGTH);
 printf("sigma_mem size = %zu\n", numBlocks * (PRIME_LENGTH / 8) * sizeof(uint8_t));
 
-    printf("------------debug 2--------------\n");
     uint8_t *sigma_mem = malloc(numBlocks * (PRIME_LENGTH / 8) * sizeof(uint8_t));
     if (!sigma_mem) {
     fprintf(stderr, "sigma_mem allocation failed\n");
     exit(1);
     }
-    printf("------------debug 3--------------\n");
 	
     for (int i = 0; i < numBlocks; i++) {
     	sigma[i] = sigma_mem + i * (PRIME_LENGTH / 8);
@@ -287,13 +284,11 @@ printf("sigma_mem size = %zu\n", numBlocks * (PRIME_LENGTH / 8) * sizeof(uint8_t
 
 	}
     
-    printf("------------debug 4--------------\n");
     /* Call ecall_file_init to initialize tag and sigma */
 
     FILE *file = fopen(fileName, "rb");
     // uint8_t blockData[BLOCK_SIZE];
 
-    printf("------------debug 5--------------\n");
 
 	//printf("call ecall\n");
 	int fileNum = 0;
@@ -627,8 +622,8 @@ int main(void)
     // printf("Press enter to continue <enter>\n");
 
     // ------------------------------------ this is for testing ------------------------------------
-    printf("Press enter to continue for small corruption\n");
     getchar();
+    printf("Press enter to continue for small corruption\n");
     ecall_compare(eid);
 
     // the block number is 0 for the first block if you are on mode 

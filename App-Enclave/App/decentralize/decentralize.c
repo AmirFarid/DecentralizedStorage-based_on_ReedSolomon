@@ -359,6 +359,8 @@ char *store_received_file(int client_socket, char *save_path)
     secure_recv(client_socket, &file_size, sizeof(u_int32_t));
 
     Current_Chunk_ID = chunk_id;
+
+ 
     // while ((len = recv(client_socket, buffer, sizeof(buffer), 0)) > 0) {
     // while ((len = secure_recv(client_socket, buffer, file_size)) > 0) {
 
@@ -509,9 +511,6 @@ void ocall_get_shuffle_key(u_int8_t *Sh_key, u_int8_t *Kexchange_PUB_KEY, u_int8
 
     RequestType type = PARITY_KEY;
 
-    printf("type: %d\n", type);
-    printf("type size: %d\n", sizeof(type));
-    printf("type size: %d\n", sizeof(RequestType));
 
     secure_send(client_socket, &type, sizeof(type));
 
@@ -605,13 +604,18 @@ void initialize_peer2peer_connection(sgx_enclave_id_t eid, int client_socket)
 
     int *current_id = malloc(sizeof(int));
 
-    ecall_peer_init(eid, current_pubKey, sender_pubKey, ip_str, &client_socket, sender_id, current_id);
+    ecall_peer_init(eid, current_pubKey, sender_pubKey, ip_str, client_socket, sender_id, current_id);
 
     secure_send(client_socket, current_pubKey, PUB_SIZE);
 
+    printf("########################Id Sends to#################################\n");
+    printf("sends to ip: %s\n", ip_str);
+    printf("sends to port: %d\n", port);
+    printf("current_id: %d\n", *current_id);
+    printf("########################&&&&& Sends to##############################\n");
     
     int current_id_tmp = *current_id;
-    if (secure_send(client_socket, &current_id_tmp, sizeof(current_id_tmp)) != sizeof(current_id_tmp))
+    if (secure_send(client_socket, &current_id_tmp, sizeof(int)) != sizeof(int))
     {
         printf("Failed to send current id to ip %s\n", ip_str);
         close(client_socket);
@@ -781,7 +785,7 @@ void handle_code_word_retrival_request(sgx_enclave_id_t eid, int client_socket)
     // }
 
 }
-
+pthread_mutex_t global_lock = PTHREAD_MUTEX_INITIALIZER;
 void *handle_client(void *args_ptr)
 {
     server_args *args = (server_args *)args_ptr;
@@ -790,7 +794,7 @@ void *handle_client(void *args_ptr)
 
     // Reciever side
     printf("Client connected\n");
-    pthread_mutex_lock(&args->lock);
+    pthread_mutex_lock(&global_lock);
     while (1)
     {
 
@@ -852,8 +856,10 @@ void *handle_client(void *args_ptr)
             break;
         }
     }
-    pthread_mutex_unlock(&args->lock);
-    close(client_socket);
+    pthread_mutex_unlock(&global_lock);
+    // n--;
+    // if(n <= 0) 
+    // close(client_socket);
 }
 
 void *listener_thread_func(void *eid_ptr)
@@ -890,9 +896,11 @@ void *listener_thread_func(void *eid_ptr)
 
 
         pthread_t handler_thread;
+        // n++;
         if (pthread_create(&handler_thread, NULL, handle_client, args) != 0) {
             perror("Failed to create client thread");
             close(client_socket);
+            // n--;
             continue;
         }
 
@@ -1248,7 +1256,6 @@ void ocall_broadcast_block(int fileNum, void *rb_indicies_ptr, int rb_indicies_s
         printf("==============================================\n");
         printf("this is the turn: %d\n", i);
         printf("==============================================\n");
-        sleep(4);
         for(int j = 0; j < rb_indicies_count; j++){
             if(rb_indicies[j].node_index == nodes[i].chunk_id){
                 wrapper_args->fileNum = fileNum;
@@ -1404,7 +1411,7 @@ void initiate_Chunks(char *fileChunkName, char *current_file, int n, int k)
             continue;
         }
 
-        // break;
+        break;
 
         uint32_t chunk_type = 1; // 1 for data chunk, 2 for parity chunk
         uint32_t chunk_len;
@@ -1559,21 +1566,23 @@ void connection_thread_func(void *args_ptr)
     
 }
 
-void ocall_peer_init(uint8_t *current_pubKey, uint8_t *peer_pubKey, const char *ip, int port, int *socket_fd, int current_id, int *peer_id)
+void ocall_peer_init(uint8_t *current_pubKey, uint8_t *peer_pubKey, const char *ip, int port, int current_id, int *peer_id)
 {
 
-
     // 1. Create and connect the socket
-    socket_fd = socket(AF_INET, SOCK_STREAM, 0);
+    int socket_fd = socket(AF_INET, SOCK_STREAM, 0);
     if (socket_fd < 0)
     {
         printf("Socket creation failed for ip %s\n", ip);
         return;
     }
 
+
     struct sockaddr_in server_addr;
     server_addr.sin_family = AF_INET;
     server_addr.sin_port = htons(port);
+
+    
 
     if (inet_pton(AF_INET, ip, &server_addr.sin_addr) <= 0)
     {
@@ -1589,8 +1598,11 @@ void ocall_peer_init(uint8_t *current_pubKey, uint8_t *peer_pubKey, const char *
         return;
     }
 
+
+
     RequestType type = INIT;
 
+    printf("RequestType: %d\n", type);
     secure_send(socket_fd, &type, sizeof(RequestType));
 
     // send the current id
@@ -1600,15 +1612,6 @@ void ocall_peer_init(uint8_t *current_pubKey, uint8_t *peer_pubKey, const char *
         close(socket_fd);
         return;
     }
-
-    int peer_id_tmp;    
-    if (secure_recv(socket_fd, &peer_id_tmp, sizeof(peer_id_tmp)) != sizeof(peer_id_tmp))
-    {
-        printf("Failed to receive peer id from ip %s\n", ip);
-        close(socket_fd);
-        return;
-    }
-    *peer_id = peer_id_tmp;
 
     // 2. Exchange public keys
     if (secure_send(socket_fd, current_pubKey, PUB_SIZE) != PUB_SIZE)
@@ -1625,12 +1628,29 @@ void ocall_peer_init(uint8_t *current_pubKey, uint8_t *peer_pubKey, const char *
         return;
     }
 
+    int peer_id_tmp;    
+    if (secure_recv(socket_fd, &peer_id_tmp, sizeof(int)) != sizeof(int))
+    {
+        printf("Failed to receive peer id from ip %s\n", ip);
+        close(socket_fd);
+        return;
+    }
+    printf("##############################Recv peer_id################################\n");
+    printf("recieved from: %d\n", port);
+    printf("recived from ip: %s\n", ip);
+    printf("recievedpeer_id: %d\n", peer_id_tmp);
+    printf("##############################&&&&&&&&&&&&################################\n");
+    *peer_id = peer_id_tmp;
+
     // 4. Mark node as ready
     printf("-------------------------------------------------------\n");
     printf("The IP %s connected and session key initialized with socket ID%d and peer pubKey %s\n", ip, socket_fd, peer_pubKey);
     printf("-------------------------------------------------------\n");
-    // Do not close the socket — keep it open for future use!
-    return;
+
+    ack_send(socket_fd);
+
+    // 5. Close the socket
+    close(socket_fd);
 }
 
 /**
@@ -1780,6 +1800,7 @@ void preprocessing(sgx_enclave_id_t eid, int mode, char *fileChunkName, FileData
     fileDataTransfer->owner_ip[INET_ADDRSTRLEN - 1] = '\0';  // ensure null-termination
 
     fileDataTransfer->owner_port = nodes[0].port;
+
     
 
     //    strcpy(fileChunkName, current_file);

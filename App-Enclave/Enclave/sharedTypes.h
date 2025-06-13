@@ -52,7 +52,7 @@ typedef struct {
     char ip[30];
     int port;
 	uint8_t is_parity_peer;
-	uint8_t chunk_id;
+	int chunk_id;
     // peers communication keys
 	uint8_t dh_sharedKey_peer2peer[64];
     int socket_fd;

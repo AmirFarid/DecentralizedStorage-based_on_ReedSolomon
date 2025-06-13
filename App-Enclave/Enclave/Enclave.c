@@ -1292,14 +1292,19 @@ void ecall_init(FileDataTransfer *fileDataTransfer, int size)
 
 
 // this function is called by the receiver-peer to initialize the connection with the sender-peer
-void ecall_peer_init(uint8_t *current_pubKey, uint8_t *sender_pubKey, const char *ip, int *socket_fd, int sender_id, int *peer_id) {
+void ecall_peer_init(uint8_t *current_pubKey, uint8_t *sender_pubKey, const char *ip, int socket_fd, int sender_id, int *peer_id) {
 
 	uint8_t current_privKey[ECC_PRV_KEY_SIZE];
 
 	// TODO: a golobal file ID should be defined for multi-file support
 	// this should be send to the receiver-peer for multi-file support
 	int fileNum = 0;
-
+	ocall_printf("########################################################################################", 88, 0);
+	ocall_printf("files[fileNum].current_chunk_id: ", 34, 0);
+	ocall_printint(&files[fileNum].current_chunk_id);
+	ocall_printf("IP: ", 4, 0);
+	ocall_printf(ip,16,0);	
+	ocall_printf("########################################################################################", 88, 0);
 	for(int i = 0; i < ECC_PRV_KEY_SIZE; ++i) {
 		current_privKey[i] = prng_next();
 	}
@@ -1324,10 +1329,12 @@ void ecall_peer_init(uint8_t *current_pubKey, uint8_t *sender_pubKey, const char
 		if (equal) {
 			// files[fileNum].nodes[i].dh_sharedKey_peer2peer = malloc(ECC_PUB_KEY_SIZE * sizeof(uint8_t));
 		    ecdh_shared_secret(current_privKey, sender_pubKey, files[fileNum].nodes[i].dh_sharedKey_peer2peer);
-			files[fileNum].nodes[i].socket_fd = *socket_fd;
+			files[fileNum].nodes[i].socket_fd = socket_fd;
 			files[fileNum].nodes[i].chunk_id = sender_id;
 		}
 	}
+
+
 
 	*peer_id = files[fileNum].current_chunk_id;
 
@@ -1402,7 +1409,7 @@ int ecall_file_init(Tag *tag, uint8_t *sigma, FileDataTransfer *fileDataTransfer
 	ocall_printf("the file num is ", 17, 0);
 	ocall_printint(&fileNum);
 	ocall_printf("the file name is ", 17, 0);
-	ocall_printf(files[fileNum].fileName, 20, 0);
+	ocall_printf(files[fileNum].fileName, 30, 0);
 	ocall_printf("the num blocks is ", 17, 0);
 	ocall_printint(&files[fileNum].numBlocks);
 	ocall_printf("the n is ", 17, 0);
@@ -1446,13 +1453,21 @@ int ecall_file_init(Tag *tag, uint8_t *sigma, FileDataTransfer *fileDataTransfer
 				current_privKey[k] = prng_next();
 			}
 			ecdh_generate_keys(current_pubKey, current_privKey);
-			int *socket_fd = 0;
-			// TODO: change the initilization ID for all nodes
 			int *peer_id = malloc(sizeof(int));
-			ocall_peer_init(current_pubKey, peer_i_pubKey, files[fileNum].nodes[j].ip, files[fileNum].nodes[j].port, socket_fd, files[fileNum].current_chunk_id, peer_id);
+			// TODO: change the initilization ID for all nodes
+			ocall_peer_init(current_pubKey, peer_i_pubKey, files[fileNum].nodes[j].ip, files[fileNum].nodes[j].port, files[fileNum].current_chunk_id, peer_id);
 			files[fileNum].nodes[j].chunk_id = *peer_id;
-			free(peer_id);
-			
+
+			ocall_printf("++++++++++++++++++++++++++++++", 30, 0);
+			ocall_printf("files[fileNum].nodes[j].chunk_id: ", 34, 0);
+			ocall_printint(&files[fileNum].nodes[j].chunk_id);
+			ocall_printf("ip: ", 16, 0);
+			ocall_printf(files[fileNum].nodes[j].ip, 16, 0);
+			ocall_printf("port: ", 4, 0);
+			ocall_printint(&files[fileNum].nodes[j].port);
+			ocall_printf("++++++++++++++++++++++++++++++", 30, 0);
+
+
 			ecdh_shared_secret(current_privKey, peer_i_pubKey, files[fileNum].nodes[j].dh_sharedKey_peer2peer);
 			// files[i].nodes[j].socket_fd = *socket_fd;    	
     		// // size_t len = KEY_SIZE;
@@ -1618,11 +1633,6 @@ int ecall_file_init(Tag *tag, uint8_t *sigma, FileDataTransfer *fileDataTransfer
         for(int k = 0; k < SEGMENT_PER_BLOCK; k++) {
             BN_free(data_bn[k]);
         }
-		ocall_printf("----------------------------------------", 42, 0);
-		ocall_printf("Sigma for block:", 17, 0);
-	// ocall_printint(blockNum);
-	// ocall_printf("is", 3, 0);
-		ocall_printf(sigma + (blockNum * (PRIME_LENGTH/8)), PRIME_LENGTH/8, 1);
 
         blockNum++;
     }
@@ -2180,7 +2190,7 @@ ocall_printf("tagSegNum2", 10, 0);
 		    int segIndex = blockNum% sigPerSeg;
 
 			ocall_printf("sigData:", 10, 0);
-			ocall_printf(sigData, SEGMENT_SIZE, 1);
+			ocall_printf(sigData, 80, 1);
 
 			ocall_printf("-------------------------------------------------", 30, 0);
 			ocall_printf("segIndex:", 10, 0);
@@ -2419,7 +2429,6 @@ void recover_block(int fileNum, int blockNum, uint8_t *blockData, int *toggle){
 	// ocall_printint(&symSize);
 	// ocall_printf("------------info recover block ------------", 42, 0);
 	
-	ocall_printf("debug 1", 8, 0);
 
 
 	int *code_word_index = malloc(n * sizeof(int));
@@ -2648,7 +2657,9 @@ void recover_block(int fileNum, int blockNum, uint8_t *blockData, int *toggle){
 		}
 	}
 
-	sgx_status_t ocall_ret = ocall_broadcast_block(fileNum, (void *)rb_indicies, sizeof(rb_indicies), files[fileNum].k, code_word, code_word_index, nodes, cw_size, cw_count, sizeof(NodeInfo));
+	// sgx_status_t ocall_ret = ocall_broadcast_block(fileNum, (void *)rb_indicies, sizeof(rb_indicies), files[fileNum].k, code_word, code_word_index, nodes, cw_size, cw_count, sizeof(NodeInfo));
+	sgx_status_t ocall_ret = ocall_retrieve_block(fileNum, rb_indicies, nodes, status, code_word, BLOCK_SIZE, sizeof(nodes), sizeof(rb_indicies));
+
 	
 	printEnclaveError(ocall_ret);
 	
