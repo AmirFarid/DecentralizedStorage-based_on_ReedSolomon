@@ -147,27 +147,22 @@ int N;
 
 int *erasures_to_erased(int k, int m, int *erasures)
 {
-  ocall_printf("erasures_2", 11, 0);
 
   int td;
   int t_non_erased;
   int *erased;
   int i;
-  ocall_printf("erasures_3", 11, 0);
 
   td = k+m;
   erased = talloc(int, td);
   if (erased == NULL) return NULL;
   t_non_erased = td;
-  ocall_printf("erasures_4", 11, 0);
 
   for (i = 0; i < td; i++) erased[i] = 0;
-  ocall_printf("erasures_5", 11, 0);
 
   for (i = 0; erasures[i] != -1; i++) {
-    ocall_printf("erasures_6", 11, 0);
-      ocall_printint(&i);
-    ocall_printint(&erasures[i]);
+    //   ocall_printint(&i);
+    // ocall_printint(&erasures[i]);
     // If the drive is erased, set it to 1
     if (erased[erasures[i]] == 0) {
       erased[erasures[i]] = 1;
@@ -179,7 +174,6 @@ int *erasures_to_erased(int k, int m, int *erasures)
       }
     }
   }
-  ocall_printf("erasures_7", 11, 0);
   return erased;
 }
 
@@ -504,7 +498,7 @@ void decode(int chunk_size, int *erasures, uint16_t *code_word, int *code_word_i
     
     // Create the original coding matrix
     // int *matrix = reed_sol_vandermonde_coding_matrix(K, N-K, symSize);
-    ocall_printf("debug ECC 1", 12, 0);
+    // ocall_printf("debug ECC 1", 12, 0);
     // Allocate and read data from files
     char **data_ptrs = (char **)malloc(sizeof(char *) * K);
     char **coding_ptrs = (char **)malloc(sizeof(char *) * (N-K));
@@ -542,14 +536,14 @@ void decode(int chunk_size, int *erasures, uint16_t *code_word, int *code_word_i
                 } 
             }
         }
-        ocall_printf("debug ECC 3", 12, 0);
+        // ocall_printf("debug ECC 3", 12, 0);
         // Decode
         // int ret = jerasure_matrix_decode(K, N-K, symSize, matrix, 1, erasures, data_ptrs, coding_ptrs, sizeof(uint16_t));
         int ret = matrix_decode(K, N-K, symSize, matrix, erasures, data_ptrs, coding_ptrs, sizeof(uint16_t));
-        ocall_printf("debug ECC 4", 12, 0);
+        // ocall_printf("debug ECC 4", 12, 0);
         
         if (ret == 0) {
-        ocall_printf("debug ECC ret", 14, 0);
+        // ocall_printf("debug ECC ret", 14, 0);
 
             // Write recovered data
             // for (int i = 0; erasures[i] != -1; i++) {
@@ -578,7 +572,7 @@ void decode(int chunk_size, int *erasures, uint16_t *code_word, int *code_word_i
             ocall_printint(s);
         }
     }
-    ocall_printf("debug ECC 5", 12, 0);
+    // ocall_printf("debug ECC 5", 12, 0);
     // Cleanup
     for (int i = 0; i < K; i++) {
         free(data_ptrs[i]);
