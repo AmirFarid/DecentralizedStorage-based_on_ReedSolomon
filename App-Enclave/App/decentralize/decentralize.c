@@ -1048,12 +1048,12 @@ void *request_data_from_node(void *arg)
         fprintf(stderr, "Error: received null arg pointer\n");
         return NULL;
     }
-    printf("Sending request to node %d for block %d\n", args->node_id, args->blockNum);
 
     ThreadWrapperArgs *args = (ThreadWrapperArgs *)arg;
 
     ThreadSharedArgs *shared_args = (ThreadSharedArgs *)args->shared_args;
 
+    printf("Sending request to node %d for block %d\n", args->node_id, args->blockNum);
 
     int sock = socket(AF_INET, SOCK_STREAM, 0);
     if (sock < 0)
@@ -1204,7 +1204,7 @@ void ocall_retrieve_block(int fileNum, void *rb_indicies_ptr, NodeInfo *nodes, u
 
     }
 
-    if (rb_indicies->node_index => NUM_NODES) {
+    if (rb_indicies->node_index >= NUM_NODES) {
         printf("this is the node index: %d\n", rb_indicies->node_index);
         printf("this is the fake mode\n");
         ThreadWrapperArgs *wrapper_args = malloc(sizeof(ThreadWrapperArgs));

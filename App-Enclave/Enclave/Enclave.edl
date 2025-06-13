@@ -53,7 +53,7 @@ enclave {
 
 		void ocall_get_shuffle_key([out, size=16] uint8_t *shuffle_key, [in, size=64] uint8_t *Kexchange_PUB_KEY, [out, size=64] uint8_t *Kexchange_DataOwner_PUB_KEY, [out, size=32] uint8_t *parity_aes_key, [in, string] char *owner_ip, int owner_port);
 
-		void ocall_broadcast_block(int fileNum, [in, size=rb_indicies_size, count=rb_indicies_count]void *rb_indicies, int rb_indicies_size, int rb_indicies_count, [out, size=cw_size] uint8_t *code_word, [out, count=cw_count] int *code_word_index, [in, size=node_size, count=cw_count] NodeInfo *nodes, int cw_size, int cw_count, int node_size);
+		void ocall_get_batch_blocks(int fileNum, [in, size=rb_indicies_size, count=rb_indicies_count]void *rb_indicies, int rb_indicies_size, int rb_indicies_count, [out, size=cw_size] uint8_t *code_word, [out, count=cw_count] int *code_word_index, [in, size=node_size, count=cw_count] NodeInfo *nodes, int cw_size, int cw_count, int node_size);
 	
 		void ocall_get_rs_matrix(int k, int m, int symSize, [out, size=matrix_size] int *matrix, int matrix_size);
 

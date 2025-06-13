@@ -2668,7 +2668,7 @@ void recover_block(int fileNum, int blockNum, uint8_t *blockData, int *toggle){
 	}
 
 
-		sgx_status_t ocall_ret = ocall_get_batch_blocks(fileNum, rb_indicies, nodes, status, code_word, BLOCK_SIZE, sizeof(nodes), sizeof(rb_indicies));
+		sgx_status_t ocall_ret = ocall_get_batch_blocks(fileNum, (void *)rb_indicies, sizeof(rb_indicies), files[fileNum].k, code_word, code_word_index, nodes, cw_size, cw_count, sizeof(NodeInfo));
 		printEnclaveError(ocall_ret);
 		// sleep(10);
 		
