@@ -43,6 +43,8 @@ NodeInfo nodes[NUM_NODES] = {
     {"141.219.209.11", 8080, -1, 0}, // This is the host node do not count it as a node
     // {"141.219.210.172", 8080, -1, 0},
     {"141.219.249.254", 8080, -1, 0},
+    {"141.219.250.6", 8080, -1, 0},
+
     // {"141.219.249.254", 8080, -1, 0},
     // {"141.219.250.6", 8080, -1, 0},
     // for the parity node I have to retrive it from the first node while if the parity was required in the first node I have to fake it from the second node and 
