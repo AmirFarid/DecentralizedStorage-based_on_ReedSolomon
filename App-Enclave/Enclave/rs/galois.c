@@ -302,9 +302,11 @@ void galois_w08_region_multiply(char *region,      /* Region to multiply */
                                   char *r2,          /* If r2 != NULL, products go here */
                                   int add)
 {
+  ocall_printf("debug dot 19", 13, 0);
   if (my_gfp_array[8] == NULL) {
     galois_init(8);
   }
+  ocall_printf("debug dot 20", 13, 0);
   my_gfp_array[8]->multiply_region.w32(my_gfp_array[8], region, r2, multby, nbytes, add);
 }
 
@@ -314,9 +316,11 @@ void galois_w16_region_multiply(char *region,      /* Region to multiply */
                                   char *r2,          /* If r2 != NULL, products go here */
                                   int add)
 {
+  ocall_printf("debug dot 10", 13, 0);
   if (my_gfp_array[16] == NULL) {
     galois_init(16);
   }
+  ocall_printf("debug dot 11", 13, 0);
   my_gfp_array[16]->multiply_region.w32(my_gfp_array[16], region, r2, multby, nbytes, add);
 }
 

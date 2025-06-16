@@ -123,7 +123,7 @@ else
 endif
 Crypto_Library_Name := sgx_tcrypto
 
-Enclave_C_Files := Enclave/Enclave.c Enclave/eccDH/ecdh.c Enclave/cpor/cpor.c Enclave/aes/aes.c Enclave/rs/rs.c Enclave/rs/galois.c Enclave/sha/sha1.c Enclave/hmac/hmac_sha1.c Enclave/prp/prp.c Enclave/rs/gf.c Enclave/rs/gf_w16.c Enclave/rs/gf_wgen.c Enclave/rs/gf_cpu.c Enclave/rs/gf_w8.c Enclave/rs/gf_w32.c Enclave/rs/gf_w4.c
+Enclave_C_Files := Enclave/Enclave.c Enclave/eccDH/ecdh.c Enclave/cpor/cpor.c Enclave/aes/aes.c Enclave/rs/rs.c Enclave/rs/galois.c Enclave/sha/sha1.c Enclave/hmac/hmac_sha1.c Enclave/hmac/hmac_sha2.c Enclave/prp/prp.c Enclave/rs/gf.c Enclave/rs/gf_w16.c Enclave/rs/gf_wgen.c Enclave/rs/gf_cpu.c Enclave/rs/gf_w8.c Enclave/rs/gf_w32.c Enclave/rs/gf_w4.c
 Enclave_Include_Paths := -IEnclave/rs -IEnclave -I$(SGX_SDK)/include -I$(SGX_SDK)/include/libcxx -I$(SGX_SDK)/include/tlibc -IEnclave/eccDH -IEnclave/cpor -I/opt/intel2/sgxssl/Linux/package/include -IEnclave/hmac -IEnclave/sha -IEnclave/aes -IEnclave/prp -I/usr/local/include -I/usr/lib/gcc/x86_64-linux-gnu/12/include
 
 Enclave_C_Flags := -nostdinc -fvisibility=hidden -fpie -fstack-protector -fno-builtin-printf $(Enclave_Include_Paths)

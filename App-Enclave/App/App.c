@@ -405,6 +405,8 @@ printf("sigma_mem size = %zu\n", numBlocks * (PRIME_LENGTH / 8) * sizeof(uint8_t
 
 #include <openssl/rand.h>
 #include <openssl/err.h>
+#include "jerasure/reed_sol.h"
+
 
 int main(void) 
 {
@@ -490,49 +492,74 @@ int main(void)
 
 
 
-    // int k = 2;
-    // int n = 4;
-    // int m = n - k;
-    // int *erasures = malloc(sizeof(int) * n);
-    // int erasures[2];
-    // erasures[0] = 1;
-    // erasures[1] = -1;
-
-    // for (int i = 0; i < 2; i++) {
-    //     printf("erasures[%d]: %d\n", i, erasures[i]);
+    // int k_test = 3;
+    // int n_test = 5;
+    // int m_test = n_test - k_test;
+    // int *erasures_test = malloc(sizeof(int) * n_test);
+    // // int erasures_test[2];
+    // erasures_test[0] = 1;
+    // erasures_test[1] = -1;
+    // printf("================ erasures_test ================\n");
+    // for (int i = 0; i < n_test; i++) {
+    //     printf("erasures_test[%d]: %d\n", i, erasures_test[i]);
     // }
+    // printf("================================================\n");
 
-    // char *data = malloc(sizeof(char) * n);
-    // for (int i = 0; i < k; i++) {
-    //     data[i] = 1;
+    // printf("================ data_test ================\n");
+    // char *data_test = malloc(sizeof(char) * n_test);
+    // for (int i = 0; i < k_test; i++) {
+    //     data_test[i] = 1;
+
+    //     printf("data_test[%d]: %X\n", i, data_test[i]);
     // }
-    // for (int i = k ; i < n; i++) {
-    //     data[i] = 0;
+    // for (int i = k_test ; i < n_test; i++) {
+    //     data_test[i] = 0;
+    //     printf("data_test[%d]: %X\n", i, data_test[i]);
     // }
+    // printf("================================================\n");
 
-    // test_rs(data, k, n);
+    // int *matrix_test = malloc(sizeof(int) * m_test * k_test);
+    // int *matrix_test_2 = malloc(sizeof(int) * m_test * k_test);
 
-    // int *matrix = malloc(sizeof(int) * m * k);
+    // ocall_get_rs_matrix(k_test, m_test, 16, matrix_test, m_test * k_test);
 
-    // ocall_get_rs_matrix(k, m, 16, matrix, m * k);
+    // printf("================ encoding test ================\n");
+    // test_rs(data_test, k_test, n_test, matrix_test);
+    // printf("================================================\n");
 
-    // jerasure_print_matrix(matrix, k, m, 16);
+    // printf("================ matrix_test ================\n");
+    // jerasure_print_matrix(matrix_test, k_test, m_test, 16);
+    // printf("================================================\n");
 
+    // matrix_test_2 = reed_sol_vandermonde_coding_matrix(k_test, m_test, 16);
+
+    // printf("================ matrix_test_2 ================\n");
+    // // jerasure_print_matrix(matrix_test_2, k_test, m_test, 16);
+    // printf("matrix_test_2[0]: %d\n", matrix_test_2[0]);
+    // printf("matrix_test_2[1]: %d\n", matrix_test_2[1]);
+    // printf("matrix_test_2[2]: %d\n", matrix_test_2[2]);
+    // printf("matrix_test_2[3]: %d\n", matrix_test_2[3]);
+    // printf("matrix_test_2[4]: %d\n", matrix_test_2[4]);
+    // printf("matrix_test_2[5]: %d\n", matrix_test_2[5]);
+    // printf("================================================\n");
+
+    // // jerasure_print_matrix(matrix_test_2, k_test, m_test, 16);
+
+
+    // printf("Press enter to continue for test\n");
     // getchar();
 
-    // data[1] = 23;
-    // for (int i = 0; i < n; i++) {
-    //     printf("data[%d]: %d\n", i, data[i]);
+    // data_test[1] = 23;
+    // for (int i = 0; i < n_test; i++) {
+    //     printf("data_test[%d]: %d\n", i, data_test[i]);
     // }
 
-    // ecall_test_rs(eid, data, k, n, erasures);
+    // ecall_test_rs(eid, data_test, k_test, n_test, erasures_test);
 
 
     // printf("Fiiiiiiniiiiished\n");
 
     // getchar();
-    // getchar();
-
 
 
 // ---------------------------------------------------------------------------------
@@ -558,6 +585,9 @@ int main(void)
     if (mode == 2) {
         load_file_data(fileName, fileDataTransfer->numBlocks);
     }
+
+    // printf("press enter to continue\n");
+    // getchar();
     
 
     strcpy(fileName, fileDataTransfer->fileName);
@@ -618,19 +648,32 @@ int main(void)
     //cpu_time_used = (end_time.tv_sec - start_time.tv_sec) + (end_time.tv_usec - start_time.tv_usec) / 1000000.0;
 
     
-    
     // printf("Press enter to continue <enter>\n");
 
     // ------------------------------------ this is for testing ------------------------------------
-    getchar();
     printf("Press enter to continue for small corruption\n");
-    ecall_compare(eid);
+    getchar();
+    // ecall_compare(eid);ma
 
     // the block number is 0 for the first block if you are on mode 
     printf("==== SMALL CORRUPTION ====\n");
     printf("==== Block 0 ====\n");
+
     // ------------------------------------ small corruption ------------------------------------
+    // ecall_test_rs(eid, data_test, k_test, n_test, erasures_test);
     ecall_small_corruption(eid, fileName, 0);
+    // ecall_test_rs(eid, data_test, k_test, n_test, erasures_test);
+
+    // printf("CRTL C\n");
+
+
+
+    ecall_retrieve_File(eid, fileName);
+    
+    
+    
+    printf("Press enter to continue for retrieve file\n");
+    getchar();
 
     printf("==== Block 1 ====\n");
     ecall_small_corruption(eid, fileName, 1);

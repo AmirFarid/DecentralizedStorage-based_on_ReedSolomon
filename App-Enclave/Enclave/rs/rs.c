@@ -298,9 +298,7 @@ int make_decoding_matrix(int k, int m, int w, int *matrix, int *erased, int *dec
 
 
 
-void matrix_dotprod(int k, int w, int *matrix_row,
-                          int *src_ids, int dest_id,
-                          char **data_ptrs, char **coding_ptrs, int size)
+void matrix_dotprod(int k, int w, int *matrix_row, int *src_ids, int dest_id, char **data_ptrs, char **coding_ptrs, int size)
 {
   int init;
   char *dptr, *sptr;
@@ -311,55 +309,76 @@ void matrix_dotprod(int k, int w, int *matrix_row,
     // assert(0);
   }
 
+  // ocall_printf("debug dot 1", 12, 0);
+
+
   init = 0;
 
   dptr = (dest_id < k) ? data_ptrs[dest_id] : coding_ptrs[dest_id-k];
 
+  // ocall_printf("debug dot 2", 12, 0);
+
   /* First copy or xor any data that does not need to be multiplied by a factor */
 
   for (i = 0; i < k; i++) {
-    ocall_printf("matrix_decode1", 16, 0);
+    // ocall_printf("matrix_decode1", 16, 0);
     if (matrix_row[i] == 1) {
       if (src_ids == NULL) {
-      ocall_printf("matrix_decode20", 16, 0);
+      // ocall_printf("matrix_decode20", 16, 0);
         sptr = data_ptrs[i];
       } else if (src_ids[i] < k) {
-      ocall_printf("matrix_decode21", 16, 0);
-
+      // ocall_printf("matrix_decode21", 16, 0);
+        // ocall_printf("debug dot 21", 12, 0);
         sptr = data_ptrs[src_ids[i]];
+        // ocall_printf("debug dot 22", 12, 0);
       } else {
-      ocall_printf("matrix_decode22", 16, 0);
-
+      // ocall_printf("matrix_decode22", 16, 0);
+        // ocall_printf("debug dot 23", 12, 0);
         sptr = coding_ptrs[src_ids[i]-k];
+        // ocall_printf("debug dot 24", 12, 0);
       }
-      ocall_printf("matrix_decode23", 16, 0);
+      // ocall_printf("matrix_decode23", 16, 0);
 
       if (init == 0) {
+        // ocall_printf("debug dot 25", 12, 0);
         memcpy(dptr, sptr, size);
-      ocall_printf("matrix_decode24", 16, 0);
+      // ocall_printf("matrix_decode24", 16, 0);
         total_memcpy_bytes += size;
         init = 1;
       } else {
-      ocall_printf("matrix_decode25", 16, 0);
+      // ocall_printf("debug dot 26", 12, 0);
+      // ocall_printf("matrix_decode25", 16, 0);
         galois_region_xor(sptr, dptr, size);
         total_xor_bytes += size;
       }
     }
   }
-  ocall_printf("matrix_decode26", 16, 0);
+  // ocall_printf("debug dot 3", 12, 0);
+
 
   /* Now do the data that needs to be multiplied by a factor */
 
   for (i = 0; i < k; i++) {
+    // ocall_printf("debug dot 4", 12, 0);
 
     if (matrix_row[i] != 0 && matrix_row[i] != 1) {
+      // ocall_printf("debug dot 5", 12, 0);
       if (src_ids == NULL) {
+        // ocall_printf("debug dot 6", 12, 0);
         sptr = data_ptrs[i];
       } else if (src_ids[i] < k) {
+        // ocall_printf("debug dot 7", 12, 0);
         sptr = data_ptrs[src_ids[i]];
       } else {
+        // ocall_printf("debug dot 8", 12, 0);
         sptr = coding_ptrs[src_ids[i]-k];
       }
+      // ocall_printf("debug dot 9", 12, 0);
+      // ocall_printf(sptr, 1, 1);
+      // ocall_printint(&matrix_row[i]);
+      // ocall_printint(&size);
+      // ocall_printf(dptr, 1, 1);
+      // ocall_printint(&init);
       switch (w) {
         case 8:  galois_w08_region_multiply(sptr, matrix_row[i], size, dptr, init); break;
         case 16: galois_w16_region_multiply(sptr, matrix_row[i], size, dptr, init); break;
@@ -391,13 +410,35 @@ int matrix_decode(int k, int m, int w, int *matrix, int *erasures, char **data_p
     int row_k_ones = 1;
 
     if (w != 8 && w != 16 && w != 32) return -1;
+    // ocall_printf("debug data 1", 13, 0);
 
-    
+    // ocall_printf(*data_ptrs, 16, 1);
+    // ocall_printf("debug MAT 1", 12, 0);
+
+    // ocall_printf(matrix, 15, 1);
+    // ocall_printf("debug code 1", 13, 0);
+    // ocall_printf(*coding_ptrs, 16, 1);
+
+    // ocall_printf("debug erasures 1", 17, 0);
+    // ocall_printint(&erasures[0]);
+    // ocall_printint(&erasures[1]);
+    // ocall_printint(&erasures[2]);
+    // ocall_printint(&erasures[3]);
+    // ocall_printint(&erasures[4]);
+    // ocall_printf("This is size", 12,0);
+    // ocall_printint(&size);
+
+    // ocall_printf("This is K", 14, 0);
+    // ocall_printint(&k);
+    // ocall_printf("This is M", 14, 0);
+    // ocall_printint(&m);
+    // ocall_printf("This is w", 14, 0);
+    // ocall_printint(&w);
 
     erased = erasures_to_erased(k, m, erasures);
     if (erased == NULL) return -1;
 
-
+    // ocall_printf("debug ECC 2", 12, 0);
     /* Find the number of data drives failed */
 
     lastdrive = k;
@@ -421,7 +462,7 @@ int matrix_decode(int k, int m, int w, int *matrix, int *erasures, char **data_p
           return -1;
         }
 
-
+        // ocall_printf("debug ECC 3", 12, 0);
         decoding_matrix = talloc(int, k*k);
         if (decoding_matrix == NULL) {
           free(erased);
@@ -437,7 +478,7 @@ int matrix_decode(int k, int m, int w, int *matrix, int *erasures, char **data_p
         }
       }
 
-
+      // ocall_printf("debug ECC 4", 12, 0);
       /* Decode the data drives.  
          If row_k_ones is true and coding device 0 is intact, then only decode edd-1 drives.
          This is done by stopping at lastdrive.
@@ -451,6 +492,7 @@ int matrix_decode(int k, int m, int w, int *matrix, int *erasures, char **data_p
         }
       }
 
+      // ocall_printf("debug ECC 5", 12, 0);
 
       /* Then if necessary, decode drive lastdrive */
 
@@ -470,7 +512,7 @@ int matrix_decode(int k, int m, int w, int *matrix, int *erasures, char **data_p
         free(tmpids);
       }
 
-
+      // ocall_printf("debug ECC 6", 12, 0);
       /* Finally, re-encode any erased coding devices */
 
       for (i = 0; i < m; i++) {
@@ -479,11 +521,15 @@ int matrix_decode(int k, int m, int w, int *matrix, int *erasures, char **data_p
         }
       }
 
+      // ocall_printf("debug ECC 7", 12, 0);
+
       free(erased);
       if (dm_ids != NULL) free(dm_ids);
       if (decoding_matrix != NULL) free(decoding_matrix);
 
-      ocall_printf("matrix_decode6", 16, 0);
+      // ocall_printf("debug ECC 8", 12, 0);
+
+      // ocall_printf("matrix_decode6", 16, 0);
       return 0;
 }
 
@@ -493,13 +539,29 @@ int matrix_decode(int k, int m, int w, int *matrix, int *erasures, char **data_p
 
 
 
-void decode(int chunk_size, int *erasures, uint16_t *code_word, int *code_word_index, int *matrix, int current_chunk_id, uint16_t *recovered_data) {
+// void decode(int chunk_size, int *erasures, uint16_t *code_word, int *matrix, int current_chunk_id, uint16_t *recovered_data) {
+void decode(int chunk_size, int *erasures, uint16_t *code_word, int *matrix, int current_chunk_id) {
+
+
+    int N = 5;
+    int K = 3;
+    int m = 2;
+    // ocall_printint(K);
     int symSize = 16;
-    
-    // Create the original coding matrix
-    // int *matrix = reed_sol_vandermonde_coding_matrix(K, N-K, symSize);
-    // ocall_printf("debug ECC 1", 12, 0);
-    // Allocate and read data from files
+
+    matrix[0] = 1;
+	  matrix[1] = 1;
+	  matrix[2] = 1;
+	  matrix[3] = 1;
+	  matrix[4] = 61477;
+	  matrix[5] = 61477;
+	  ocall_printint(&matrix[0]);
+	  ocall_printint(&matrix[1]);
+	  ocall_printint(&matrix[2]);
+	  ocall_printint(&matrix[3]);
+	  ocall_printint(&matrix[4]);
+	  ocall_printint(&matrix[5]);
+
     char **data_ptrs = (char **)malloc(sizeof(char *) * K);
     char **coding_ptrs = (char **)malloc(sizeof(char *) * (N-K));
     
@@ -509,8 +571,11 @@ void decode(int chunk_size, int *erasures, uint16_t *code_word, int *code_word_i
     for (int i = 0; i < N-K; i++) {
         coding_ptrs[i] = (char *)malloc(sizeof(uint16_t));
     }
+
+    // int *matrix = malloc(sizeof(int) * m * K);
+
+    // ocall_get_rs_matrix(K, m, 16, matrix, m * K);
     
-    size_t offset = 0;
     // uint16_t *recovered_data = talloc(uint16_t, chunk_size);
 
     // Process each symbol
@@ -529,10 +594,14 @@ void decode(int chunk_size, int *erasures, uint16_t *code_word, int *code_word_i
             if (!is_erased) {
 
 
-                if (i < K) {      
+                if (i < K) {
                     *((uint16_t *)data_ptrs[i]) = code_word [ (i * 2048) + s];
+                    // *((char *)data_ptrs[i]) = 1;
+
                 } else {                  
                     *((uint16_t *)coding_ptrs[i-K]) = code_word [ i * 2048 + s];
+                    // *((char *)coding_ptrs[i-K]) = 0;
+
                 } 
             }
         }
@@ -540,10 +609,17 @@ void decode(int chunk_size, int *erasures, uint16_t *code_word, int *code_word_i
         // Decode
         // int ret = jerasure_matrix_decode(K, N-K, symSize, matrix, 1, erasures, data_ptrs, coding_ptrs, sizeof(uint16_t));
         int ret = matrix_decode(K, N-K, symSize, matrix, erasures, data_ptrs, coding_ptrs, sizeof(uint16_t));
+        ocall_printint(&N);
         // ocall_printf("debug ECC 4", 12, 0);
         
+        // ocall_printf("data_ptrs", 8, 0);
+        // ocall_printf(data_ptrs, 3, 1);
+        ocall_printint(&ret);
+
         if (ret == 0) {
         // ocall_printf("debug ECC ret", 14, 0);
+        // ocall_printint(&erasures[0]);
+        // ocall_printint(&erasures[1]);
 
             // Write recovered data
             // for (int i = 0; erasures[i] != -1; i++) {
@@ -558,12 +634,14 @@ void decode(int chunk_size, int *erasures, uint16_t *code_word, int *code_word_i
             // }
             for (int i = 0; erasures[i] != -1; i++) {
                 int idx = erasures[i];
+                    // ocall_printint(&idx);
                 if (idx < K) {
-                    recovered_data[s] = *((uint16_t *)data_ptrs[idx]);
-                    code_word[(i * 2048) + s] = recovered_data[s];
+                    // ocall_printint(&data_ptrs[idx]);
+                    // recovered_data[s] = *((uint16_t *)data_ptrs[idx]);
+                    code_word[(i * 2048) + s] = *((uint16_t *)data_ptrs[idx]);
                 } else {
-                    recovered_data[s] = *((uint16_t *)coding_ptrs[idx-K]);
-                    code_word[(i * 2048) +s] = recovered_data[s];
+                    // recovered_data[s] = *((uint16_t *)coding_ptrs[idx-K]);
+                    code_word[(i * 2048) +s] = *((uint16_t *)coding_ptrs[idx-K]);
                 }
             }
 
@@ -701,14 +779,14 @@ void decode(int chunk_size, int *erasures, uint16_t *code_word, int *code_word_i
 // }   
 
 
-// void initiate_rs(const char *original_file, int k, int n){
-//     N = n;
-//     K = k;
-//     uint16_t *chunks;
-//     int padding_size;
-//     int chunk_size;
-//     read_file(original_file, &chunks, &chunk_size, &padding_size);
-// }
+void initiate_rs(int k, int n){
+    N = n;
+    K = k;
+    // uint16_t *chunks;
+    // int padding_size;
+    // int chunk_size;
+    // read_file(original_file, &chunks, &chunk_size, &padding_size);
+}
 
 
 // int main(){

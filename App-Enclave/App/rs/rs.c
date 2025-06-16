@@ -213,7 +213,7 @@ void encode(uint16_t *chunks, int n, int chunk_size) {
 }
 
 
-void test_rs(char *data, int k, int n){
+void test_rs(char *data, int k, int n, int *matrix){
 
   
     char **data_ptrs = malloc(sizeof(char *) * rs_K);
@@ -230,10 +230,14 @@ void test_rs(char *data, int k, int n){
         memset(coding_ptrs[i], 0, sizeof(char));
         // *((uint16_t *)coding_ptrs[i]) = *((uint16_t *)data[i+k]);
     }
-    int *matrix = reed_sol_vandermonde_coding_matrix(rs_K, rs_N-rs_K, 8);
-    printf("matrix: %p\n", matrix);
-    printf("data_ptrs: %p\n", data_ptrs);
-    printf("coding_ptrs: %p\n", coding_ptrs);
+    // int *matrix = reed_sol_vandermonde_coding_matrix(rs_K, rs_N-rs_K, 8);
+    printf("matrix: %d\n", matrix[0]);
+    printf("matrix: %d\n", matrix[1]);
+    printf("matrix: %d\n", matrix[2]);
+    printf("matrix: %d\n", matrix[3]);
+
+    printf("data_ptrs: %X\n", data_ptrs);
+    printf("coding_ptrs: %X\n", coding_ptrs);
     jerasure_matrix_encode(rs_K, rs_N-rs_K, 8, matrix, data_ptrs, coding_ptrs, sizeof(char));
     printf("encoded\n");
 
@@ -577,6 +581,7 @@ int matrix_decode(int k, int m, int w, int *matrix, int *erasures, int *data_ptr
 
 
 void decode(int chunk_size, int *erasures) {
+    
     int symSize = 16;
     
     // Create the original coding matrix
