@@ -406,77 +406,10 @@ printf("sigma_mem size = %zu\n", numBlocks * (PRIME_LENGTH / 8) * sizeof(uint8_t
 #include <openssl/rand.h>
 #include <openssl/err.h>
 #include "jerasure/reed_sol.h"
-
+#include <time.h>
 
 int main(void) 
 {
-    // init_pork();
-    // uint8_t key[16];
-    // // RAND_bytes(key, 16);
-    // for (int i = 0; i < 16; i++) {
-    //     key[i] = i;
-    // }
-    // printf("key: ");
-    // for (int i = 0; i < 16; i++) {
-    //     printf("%X", key[i]);
-    // }
-    // printf("\n");
-
-    // printf("size of key: %d\n", sizeof(key));
-
-    // uint8_t test[30];
-    // for (int i = 0; i < 30; i++) {
-    //     test[i] = i;
-    // }
-
-    // EncryptData((uint32_t *)key, test, 30);
-
-    // printf("encrypted test: ");
-    // for (int i = 0; i < 30; i++) {
-    //     printf("%X", test[i]);
-    // }
-    // printf("\n");
-
-    // DecryptData((uint32_t *)key, test, 30);
-
-
-    // // DecryptData(key, test, 16);
-
-    // printf("decrypted test: ");
-    // for (int i = 0; i < 30; i++) {
-    //     printf("%X", test[i]);
-    // }
-    // printf("\n");
-
-
-
-
-
-    // getchar();
-
-
-    // uint8_t key[16];
-    // RAND_bytes(key, 16);
-    // printf("key: %s\n", key);
-    // printf("size of key: %d\n", sizeof(key));
-//     const uint8_t key[16] = {0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8, 
-//                          0x9, 0xA, 0xB, 0xC, 0xD, 0xE, 0xF, 0x0};
-    // int numBits = 3;
-
-// // Forward operation
-// uint64_t output = feistel_network_prp(key, 0, numBits);  // returns 7
-
-// printf("output: %lld\n", output);
-
-// uint64_t output2 = feistel_network_prp(key, output, numBits);
-
-// printf("output2 should be 0: %lld\n", output2);
-
-// getchar();
-
-    //struct timeval start_time, end_time;
-    //double cpu_time_used;
-    //int waittime;
 
     sgx_enclave_id_t eid;
     sgx_status_t ret;
@@ -490,77 +423,30 @@ int main(void)
 
 // ---------------------------------------------------------------------------------
 
+   
+    // int *matrix_test_2 = malloc(sizeof(int) * 3 * 3);
 
-
-    // int k_test = 3;
-    // int n_test = 5;
-    // int m_test = n_test - k_test;
-    // int *erasures_test = malloc(sizeof(int) * n_test);
-    // // int erasures_test[2];
-    // erasures_test[0] = 1;
-    // erasures_test[1] = -1;
-    // printf("================ erasures_test ================\n");
-    // for (int i = 0; i < n_test; i++) {
-    //     printf("erasures_test[%d]: %d\n", i, erasures_test[i]);
-    // }
-    // printf("================================================\n");
-
-    // printf("================ data_test ================\n");
-    // char *data_test = malloc(sizeof(char) * n_test);
-    // for (int i = 0; i < k_test; i++) {
-    //     data_test[i] = 1;
-
-    //     printf("data_test[%d]: %X\n", i, data_test[i]);
-    // }
-    // for (int i = k_test ; i < n_test; i++) {
-    //     data_test[i] = 0;
-    //     printf("data_test[%d]: %X\n", i, data_test[i]);
-    // }
-    // printf("================================================\n");
-
-    // int *matrix_test = malloc(sizeof(int) * m_test * k_test);
-    // int *matrix_test_2 = malloc(sizeof(int) * m_test * k_test);
-
-    // ocall_get_rs_matrix(k_test, m_test, 16, matrix_test, m_test * k_test);
-
-    // printf("================ encoding test ================\n");
-    // test_rs(data_test, k_test, n_test, matrix_test);
-    // printf("================================================\n");
-
-    // printf("================ matrix_test ================\n");
-    // jerasure_print_matrix(matrix_test, k_test, m_test, 16);
-    // printf("================================================\n");
-
-    // matrix_test_2 = reed_sol_vandermonde_coding_matrix(k_test, m_test, 16);
+    // matrix_test_2 = reed_sol_vandermonde_coding_matrix(3, 3, 16);
 
     // printf("================ matrix_test_2 ================\n");
-    // // jerasure_print_matrix(matrix_test_2, k_test, m_test, 16);
+    // jerasure_print_matrix(matrix_test_2, 3, 3, 16);
     // printf("matrix_test_2[0]: %d\n", matrix_test_2[0]);
     // printf("matrix_test_2[1]: %d\n", matrix_test_2[1]);
     // printf("matrix_test_2[2]: %d\n", matrix_test_2[2]);
     // printf("matrix_test_2[3]: %d\n", matrix_test_2[3]);
     // printf("matrix_test_2[4]: %d\n", matrix_test_2[4]);
     // printf("matrix_test_2[5]: %d\n", matrix_test_2[5]);
-    // printf("================================================\n");
-
-    // // jerasure_print_matrix(matrix_test_2, k_test, m_test, 16);
-
-
-    // printf("Press enter to continue for test\n");
-    // getchar();
-
-    // data_test[1] = 23;
-    // for (int i = 0; i < n_test; i++) {
-    //     printf("data_test[%d]: %d\n", i, data_test[i]);
-    // }
-
-    // ecall_test_rs(eid, data_test, k_test, n_test, erasures_test);
-
-
-    // printf("Fiiiiiiniiiiished\n");
+    // printf("matrix_test_2[6]: %d\n", matrix_test_2[6]);
+    // printf("matrix_test_2[7]: %d\n", matrix_test_2[7]);
+    // printf("matrix_test_2[8]: %d\n", matrix_test_2[8]);
+    // printf("================================================\n");ma
 
     // getchar();
 
+
+    struct timeval start_time, end_time;
+    double cpu_time_used;
+    int waittime;
 
 // ---------------------------------------------------------------------------------
 
@@ -574,13 +460,26 @@ int main(void)
 
     NodeInfo nodes[NUM_NODES];
 
-    int n = 5;
+    int n = 6;
     int k = 3;
     int mode = 2;
 
     FileDataTransfer *fileDataTransfer =  malloc(sizeof(FileDataTransfer));
     // ------------------------------------ Pre processing ------------------------------------
+    // clock_t start0 = clock();
+    gettimeofday(&start_time, NULL);
     preprocessing(eid, mode, fileName, fileDataTransfer , n, k);
+    // clock_t end0 = clock();
+    gettimeofday(&end_time, NULL);
+    waittime = 3;
+    cpu_time_used = (end_time.tv_sec - start_time.tv_sec) + (end_time.tv_usec - start_time.tv_usec) / 1000000.0;
+    printf("INIT TIME: %f with %d wait time\n", cpu_time_used, waittime);
+    printf("()()()()()()()()()()()()()()(()()()()()()())\n");
+
+    // printf("Time: %f preprocessing\n", ((double)(end0 - start0)) / CLOCKS_PER_SEC);
+    printf("()()()()()()()()()()()()()()(()()()()()()())\n");
+
+    getchar();
 
     if (mode == 2) {
         load_file_data(fileName, fileDataTransfer->numBlocks);
@@ -592,19 +491,22 @@ int main(void)
 
     strcpy(fileName, fileDataTransfer->fileName);
 
-    for (int i = 0; i < NUM_NODES; i++) {
-        printf("Node %d: %s:%d\n", i, fileDataTransfer->nodes[i].ip, fileDataTransfer->nodes[i].port);
-    }
-    printf("------------info--------------\n");
-    printf("Sending to enclave:\n");
-    printf("  fileName: %s\n", fileDataTransfer->fileName);
-    printf("  numBlocks: %d\n", fileDataTransfer->numBlocks);
-    printf("  nodes[0].ip: %s\n", fileDataTransfer->nodes[0].ip);
-    printf("  n = %d, k = %d, current_id = %d\n",fileDataTransfer->n, fileDataTransfer->k, fileDataTransfer->current_id);
-    printf("--------------------------\n");
+    // for (int i = 0; i < NUM_NODES; i++) {
+    //     printf("Node %d: %s:%d\n", i, fileDataTransfer->nodes[i].ip, fileDataTransfer->nodes[i].port);
+    // }
+    // printf("------------info--------------\n");
+    // printf("Sending to enclave:\n");
+    // printf("  fileName: %s\n", fileDataTransfer->fileName);
+    // printf("  numBlocks: %d\n", fileDataTransfer->numBlocks);
+    // printf("  nodes[0].ip: %s\n", fileDataTransfer->nodes[0].ip);
+    // printf("  n = %d, k = %d, current_id = %d\n",fileDataTransfer->n, fileDataTransfer->k, fileDataTransfer->current_id);
+    // printf("--------------------------\n");
 
 
-    printf("File data transfer size: %d\n", sizeof(FileDataTransfer));
+    // printf("File data transfer size: %d\n", sizeof(FileDataTransfer));
+
+
+
     printf("Press enter to continue for initialization\n");
     getchar();
 
@@ -614,7 +516,10 @@ int main(void)
     // ------------------------------------  initialization ------------------------------------
     //gettimeofday(&start_time, NULL);
     printf("Call FTL init\n");
+    //clock_t start12 = clock();
+    gettimeofday(&start_time, NULL);
     ret = ecall_init(eid, fileDataTransfer, sizeof(FileDataTransfer));
+    
 
 
 
@@ -631,24 +536,47 @@ int main(void)
     // Data for initialization provided by local file at the filePath of fileName
 
     // strcpy(fileName, "/home/jdafoe/Decentralized-Cloud-Storage-Self-Audit-Repair/App-Enclave/testFile");
-    printf("------------info 2--------------\n");
-    printf("Sending to enclave:\n");
-    printf("  fileName: %s\n", fileDataTransfer->fileName);
-    printf("  numBlocks: %d\n", fileDataTransfer->numBlocks);
-    printf("  nodes[0].ip: %s\n", fileDataTransfer->nodes[0].ip);
-    printf("  n = %d, k = %d, current_id = %d\n",fileDataTransfer->n, fileDataTransfer->k, fileDataTransfer->current_id);
-    printf("--------------------------\n");
+    // printf("------------info 2--------------\n");
+    // printf("Sending to enclave:\n");
+    // printf("  fileName: %s\n", fileDataTransfer->fileName);
+    // printf("  numBlocks: %d\n", fileDataTransfer->numBlocks);
+    // printf("  nodes[0].ip: %s\n", fileDataTransfer->nodes[0].ip);
+    // printf("  n = %d, k = %d, current_id = %d\n",fileDataTransfer->n, fileDataTransfer->k, fileDataTransfer->current_id);
+    // printf("--------------------------\n");
     // Perform file initialization in SGX
     //gettimeofday(&start_time, NULL);
     printf("Call file init\n");
     // it is called in untrusted side
     app_file_init(eid, fileDataTransfer);
+    // clock_t end12 = clock();
+
+    gettimeofday(&end_time, NULL);
+    waittime = 3;
+    cpu_time_used = (end_time.tv_sec - start_time.tv_sec) + (end_time.tv_usec - start_time.tv_usec) / 1000000.0;
+    printf("INIT TIME: %f with %d wait time\n", cpu_time_used, waittime);
+    printf("()()()()()()()()()()()()()()(()()()()()()())\n");
+    // printf("Time: %f file init\n", ((double)(end12 - start12)) / CLOCKS_PER_SEC);
+    printf("()()()()()()()()()()()()()()(()()()()()()())\n");
     //gettimeofday(&end_time, NULL);
     //waittime = 24;
     //cpu_time_used = (end_time.tv_sec - start_time.tv_sec) + (end_time.tv_usec - start_time.tv_usec) / 1000000.0;
 
     
     // printf("Press enter to continue <enter>\n");
+
+    int status = 1;
+
+    gettimeofday(&start_time, NULL);
+
+    ecall_audit_file(eid, fileName, &status);
+
+    gettimeofday(&end_time, NULL);
+    waittime = 3;
+    cpu_time_used = (end_time.tv_sec - start_time.tv_sec) + (end_time.tv_usec - start_time.tv_usec) / 1000000.0;
+    printf("INIT TIME: %f with %d wait time\n", cpu_time_used, waittime);
+    printf("()()()()()()()()()()()()()()(()()()()()()())\n");
+    // printf("Time: %f file init\n", ((double)(end12 - start12)) / CLOCKS_PER_SEC);
+    printf("()()()()()()()()()()()()()()(()()()()()()())\n");
 
     // ------------------------------------ this is for testing ------------------------------------
     printf("Press enter to continue for small corruption\n");
@@ -661,22 +589,43 @@ int main(void)
 
     // ------------------------------------ small corruption ------------------------------------
     // ecall_test_rs(eid, data_test, k_test, n_test, erasures_test);
+    // clock_t start2 = clock();
+    gettimeofday(&start_time, NULL);
     ecall_small_corruption(eid, fileName, 0);
+    // clock_t end2 = clock();
+
+    gettimeofday(&end_time, NULL);
+    waittime = 3;
+    cpu_time_used = (end_time.tv_sec - start_time.tv_sec) + (end_time.tv_usec - start_time.tv_usec) / 1000000.0;
+    printf("INIT TIME: %f with %d wait time\n", cpu_time_used, waittime);
+    printf("()()()()()()()()()()()()()()(()()()()()()())\n");
+    // printf("Time: %f small corruption (without corruption)\n", ((double)(end2 - start2)) / CLOCKS_PER_SEC);
+    printf("()()()()()()()()()()()()()()(()()()()()()())\n");
+
     // ecall_test_rs(eid, data_test, k_test, n_test, erasures_test);
 
     // printf("CRTL C\n");
 
-
-
-    ecall_retrieve_File(eid, fileName);
+    printf("==== Block 1 ====\n");
+    // clock_t start3 = clock();
+    gettimeofday(&start_time, NULL);
+    ecall_small_corruption(eid, fileName, 2);
+    // clock_t end3 = clock();
+    gettimeofday(&end_time, NULL);
+    waittime = 3;
+    cpu_time_used = (end_time.tv_sec - start_time.tv_sec) + (end_time.tv_usec - start_time.tv_usec) / 1000000.0;
+    printf("INIT TIME: %f with %d wait time\n", cpu_time_used, waittime);
+    printf("()()()()()()()()()()()()()()(()()()()()()())\n");
+    // mprintf("Time: %f small corruption (without corruption)\n", ((double)(end3 - start3)) / CLOCKS_PER_SEC);
+    printf("()()()()()()()()()()()()()()(()()()()()()())\n");
+    
     
     
     
     printf("Press enter to continue for retrieve file\n");
     getchar();
 
-    printf("==== Block 1 ====\n");
-    ecall_small_corruption(eid, fileName, 1);
+    ecall_retrieve_File(eid, fileName);
 
     printf("Press enter to continue <enter>\n");
 
@@ -684,10 +633,8 @@ int main(void)
 
     //printf("FILE INIT TIME: %f with %d wait time\n", cpu_time_used, waittime);
 
-    int status = 1;
     printf("Call audit file\n");
     //gettimeofday(&start_time, NULL);
-    ecall_audit_file(eid, fileName, &status);
     //gettimeofday(&end_time, NULL);
     //waittime = 46;
     //cpu_time_used = (end_time.tv_sec - start_time.tv_sec) + (end_time.tv_usec - start_time.tv_usec) / 1000000.0;

@@ -543,9 +543,7 @@ int matrix_decode(int k, int m, int w, int *matrix, int *erasures, char **data_p
 void decode(int chunk_size, int *erasures, uint16_t *code_word, int *matrix, int current_chunk_id) {
 
 
-    int N = 5;
-    int K = 3;
-    int m = 2;
+    int m = N - K;
     // ocall_printint(K);
     int symSize = 16;
 
@@ -553,14 +551,20 @@ void decode(int chunk_size, int *erasures, uint16_t *code_word, int *matrix, int
 	  matrix[1] = 1;
 	  matrix[2] = 1;
 	  matrix[3] = 1;
-	  matrix[4] = 61477;
-	  matrix[5] = 61477;
-	  ocall_printint(&matrix[0]);
-	  ocall_printint(&matrix[1]);
-	  ocall_printint(&matrix[2]);
-	  ocall_printint(&matrix[3]);
-	  ocall_printint(&matrix[4]);
-	  ocall_printint(&matrix[5]);
+	  matrix[4] = 24578;
+	  matrix[5] = 40964;
+	  matrix[6] = 1;
+	  matrix[7] = 61477;
+	  matrix[8] = 61476;
+	  // ocall_printint(&matrix[0]);
+	  // ocall_printint(&matrix[1]);
+	  // ocall_printint(&matrix[2]);
+	  // ocall_printint(&matrix[3]);
+	  // ocall_printint(&matrix[4]);
+	  // ocall_printint(&matrix[5]);
+
+
+    ocall_printf("-------------------------- Decoding --------------------------", 62, 0);
 
     char **data_ptrs = (char **)malloc(sizeof(char *) * K);
     char **coding_ptrs = (char **)malloc(sizeof(char *) * (N-K));
@@ -609,12 +613,12 @@ void decode(int chunk_size, int *erasures, uint16_t *code_word, int *matrix, int
         // Decode
         // int ret = jerasure_matrix_decode(K, N-K, symSize, matrix, 1, erasures, data_ptrs, coding_ptrs, sizeof(uint16_t));
         int ret = matrix_decode(K, N-K, symSize, matrix, erasures, data_ptrs, coding_ptrs, sizeof(uint16_t));
-        ocall_printint(&N);
+        // ocall_printint(&N);
         // ocall_printf("debug ECC 4", 12, 0);
         
         // ocall_printf("data_ptrs", 8, 0);
         // ocall_printf(data_ptrs, 3, 1);
-        ocall_printint(&ret);
+        // ocall_printint(&ret);
 
         if (ret == 0) {
         // ocall_printf("debug ECC ret", 14, 0);

@@ -43,7 +43,9 @@ NodeInfo nodes[NUM_NODES] = {
     {"141.219.209.11", 8080, -1, 0}, // This is the host node do not count it as a node
     // {"141.219.210.172", 8080, -1, 0},
     {"141.219.249.254", 8080, -1, 0},
-    {"141.219.250.6", 8080, -1, 0},
+    // {"141.219.250.6", 8080, -1, 0},
+    // {"141.219.250.6", 8080, -1, 0},
+
 
     // {"141.219.249.254", 8080, -1, 0},
     // {"141.219.250.6", 8080, -1, 0},
@@ -812,8 +814,11 @@ void handle_code_word_retrival_request(sgx_enclave_id_t eid, int client_socket)
 
     uint8_t *buffer = malloc(BLOCK_SIZE * K);
     ecall_local_code_words(eid, file_id, code_word_id, buffer, BLOCK_SIZE * K);
+    
     secure_send(client_socket, buffer, BLOCK_SIZE * K);
 
+    ack_recv(client_socket);
+    free(buffer);
     // int index;
     // for (int i = 0; i < K; i++) {
     //     uint8_t *buffer = malloc(BLOCK_SIZE);
@@ -990,13 +995,18 @@ void *get_code_word(void *arg)
     // this is the code_word_number that we want to retrieve not the block number
     secure_send(sock, &args->blockNum, sizeof(int));
 
-    uint8_t *buffer = malloc(BLOCK_SIZE * K);
-    secure_recv(sock, buffer, BLOCK_SIZE * K);
-    pthread_mutex_lock(&shared_args->lock);
-    memcpy(shared_args->output_code_word_buffer + args->blockNum * K * BLOCK_SIZE, buffer, BLOCK_SIZE * K);
-    // for(int j = 0; j < BLOCK_SIZE; j++) args->output_code_word_buffer[index * BLOCK_SIZE + j] = buffer[j];
-    pthread_mutex_unlock(&shared_args->lock);
-    free(buffer);
+        uint8_t *buffer = malloc(BLOCK_SIZE * K);
+        secure_recv(sock, buffer, BLOCK_SIZE * K);
+
+        pthread_mutex_lock(&shared_args->lock);
+        memcpy(shared_args->output_code_word_buffer + args->blockNum * K *  BLOCK_SIZE, buffer, BLOCK_SIZE);
+        // for(int j = 0; j < BLOCK_SIZE; j++) args->output_code_word_buffer[index * BLOCK_SIZE + j] = buffer[j];
+        pthread_mutex_unlock(&shared_args->lock);
+        free(buffer);
+
+
+    ack_send(sock);
+
     
 
 
@@ -1004,22 +1014,21 @@ void *get_code_word(void *arg)
 
 }
 
-void ocall_retrieve_code_words(int fileNum, int num_code_words, int total_code_words, uint8_t *data_tmp, int remainder, NodeInfo *node, int num_retrieval_rq_per_peer, int node_size, int node_count, int data_tmp_size) {
-
+void ocall_retrieve_code_words(int fileNum, NodeInfo *nodes, int node_size, int node_counts, uint8_t *data_tmp, int data_tmp_size, int data_tmp_count, int num_retrieval_rq_per_peer, int num_code_words_counter, int num_code_words, int remainder)
+{
 
     int k = K;
     int n = N;
     int symSize = 16;
     int m = n - k;
 
-    int total_threads = (k - 1) * num_retrieval_rq_per_peer + remainder;
 
     ThreadSharedArgs *args = malloc(sizeof(ThreadSharedArgs));
 
     // args->output_code_word_buffer = malloc(N * BLOCK_SIZE * sizeof(uint8_t));
     // args->output_index_list = malloc(N * sizeof(uint8_t));
-    args->output_code_word_buffer = malloc((total_code_words) * BLOCK_SIZE * sizeof(uint8_t));
-    args->output_index_list = malloc(node_count * sizeof(uint8_t));
+    args->output_code_word_buffer = malloc((num_code_words * num_retrieval_rq_per_peer) * BLOCK_SIZE * sizeof(uint8_t));
+    args->output_index_list = malloc(num_code_words * num_retrieval_rq_per_peer * sizeof(uint8_t));
 
 
     pthread_mutex_init(&args->lock, NULL);
@@ -1027,36 +1036,37 @@ void ocall_retrieve_code_words(int fileNum, int num_code_words, int total_code_w
     int counter = remainder;
     int i;
     // first retrieved locally
-    int requested_code_words = total_code_words - num_code_words;
+    // int requested_code_words = total_code_words - num_code_words;
 
-    ThreadWrapperArgs *wrapper_args = malloc((k * num_retrieval_rq_per_peer + remainder) * sizeof(ThreadWrapperArgs));
-    pthread_t *threads = malloc(total_threads * sizeof(pthread_t));
+    ThreadWrapperArgs *wrapper_args = malloc((num_code_words * num_retrieval_rq_per_peer) * sizeof(ThreadWrapperArgs));
+    pthread_t *threads = malloc((num_code_words * num_retrieval_rq_per_peer) * sizeof(pthread_t));
+
     int thread_idx = 0;
-    for (int i = 0 ; i < k - 1; i++)
+    for (int i = 1 ; i < k - 1; i++)
     {
 
         int j;
-        for(j = 0; j < num_retrieval_rq_per_peer && requested_code_words < total_code_words; j++){
+        for(j = 0; j < num_retrieval_rq_per_peer && num_code_words_counter < num_code_words; j++){
             wrapper_args[thread_idx].fileNum = fileNum;
-            wrapper_args[thread_idx].blockNum = requested_code_words;
-            wrapper_args[thread_idx].node_id = node[i].chunk_id;
-            memcpy(wrapper_args[thread_idx].node_ip, node[i].ip, 16);
-            wrapper_args[thread_idx].node_port = node[i].port;
+            wrapper_args[thread_idx].blockNum = num_code_words_counter;
+            wrapper_args[thread_idx].node_id = nodes[i].chunk_id;
+            memcpy(wrapper_args[thread_idx].node_ip, nodes[i].ip, 16);
+            wrapper_args[thread_idx].node_port = nodes[i].port;
             wrapper_args[thread_idx].shared_args = args;
             pthread_create(&threads[thread_idx], NULL, get_code_word, &wrapper_args[thread_idx]);
-            requested_code_words ++;
+            num_code_words_counter ++;
             thread_idx ++;
         }
         if(counter > 0){
             wrapper_args[thread_idx].fileNum = fileNum;
-            wrapper_args[thread_idx].blockNum = requested_code_words;
-            wrapper_args[thread_idx].node_id = node[i].chunk_id;
-            memcpy(wrapper_args[thread_idx].node_ip, node[i].ip, 16);
-            wrapper_args[thread_idx].node_port = node[i].port;
+            wrapper_args[thread_idx].blockNum = num_code_words_counter;
+            wrapper_args[thread_idx].node_id = nodes[i].chunk_id;
+            memcpy(wrapper_args[thread_idx].node_ip, nodes[i].ip, 16);
+            wrapper_args[thread_idx].node_port = nodes[i].port;
             wrapper_args[thread_idx].shared_args = args;
             pthread_create(&threads[thread_idx], NULL, get_code_word, &wrapper_args[thread_idx]);
             counter--;
-            requested_code_words ++;
+            num_code_words_counter ++;
             thread_idx ++;
         }
     }
@@ -1203,6 +1213,7 @@ void *request_data_from_node(void *arg)
 
 void ocall_retrieve_block(int fileNum, void *rb_indicies_ptr, NodeInfo *nodes, uint8_t *status, uint8_t *data_tmp, int block_size, int node_size, int rb_indicies_size)
 {
+    
     printf("RB 1");
     recoverable_block_indicies *rb_indicies = (recoverable_block_indicies *)rb_indicies_ptr;
 
@@ -1363,12 +1374,12 @@ void ocall_get_batch_blocks(int fileNum, recoverable_block_indicies *rb_indicies
                     wrapper_args[counter].shared_args = args;
                     wrapper_args[counter].fake = 0;
                     wrapper_args[counter].offset = i * BLOCK_SIZE;
-                    printf("this is the node ip: %s\n", nodes[j].ip);
-                    printf("this is the node ip: %s\n", wrapper_args[counter].node_ip);
-                    printf("this is the node port: %d\n", nodes[j].port);
-                    printf("this is the node port: %d\n", wrapper_args[counter].node_port);
-                    printf("this is the offset: %d\n", wrapper_args[counter].offset);
-                    printf("this is the thread CREATTION OF : %d\n", counter);
+                    // printf("this is the node ip: %s\n", nodes[j].ip);
+                    // printf("this is the node ip: %s\n", wrapper_args[counter].node_ip);
+                    // printf("this is the node port: %d\n", nodes[j].port);
+                    // printf("this is the node port: %d\n", wrapper_args[counter].node_port);
+                    // printf("this is the offset: %d\n", wrapper_args[counter].offset);
+                    // printf("this is the thread CREATTION OF : %d\n", counter);
                     pthread_create(&threads[counter], NULL, request_data_from_node, &wrapper_args[counter]);
                     counter++;
 
@@ -1382,16 +1393,16 @@ void ocall_get_batch_blocks(int fileNum, recoverable_block_indicies *rb_indicies
             printf("==============================================\n");
 
             // this is the fake node
-            wrapper_args[counter].fileNum = fileNum;
-            wrapper_args[counter].blockNum = 0;
-            wrapper_args[counter].node_id = nodes[1].chunk_id;
-            wrapper_args[counter].offset = i * BLOCK_SIZE;
-            wrapper_args[counter].fake = 1;
-            for(int k = 0; k < 16; k++) wrapper_args[counter].node_ip[k] = nodes[1].ip[k];
-            wrapper_args[counter].node_port = nodes[1].port;
-            wrapper_args[counter].shared_args = args;
-            pthread_create(&threads[counter], NULL, request_data_from_node, &wrapper_args[counter]);
-            counter++;
+            // wrapper_args[counter].fileNum = fileNum;
+            // wrapper_args[counter].blockNum = 0;
+            // wrapper_args[counter].node_id = nodes[1].chunk_id;
+            // wrapper_args[counter].offset = i * BLOCK_SIZE;
+            // wrapper_args[counter].fake = 1;
+            // for(int k = 0; k < 16; k++) wrapper_args[counter].node_ip[k] = nodes[1].ip[k];
+            // wrapper_args[counter].node_port = nodes[1].port;
+            // wrapper_args[counter].shared_args = args;
+            // pthread_create(&threads[counter], NULL, request_data_from_node, &wrapper_args[counter]);
+            // counter++;
 
             pthread_mutex_lock(&args->lock);    
                 memcpy(args->output_code_word_buffer + i * BLOCK_SIZE, ALL_DATA + rb_indicies[i].total_blocks_index * BLOCK_SIZE, BLOCK_SIZE);

@@ -2577,43 +2577,9 @@ void recover_block(int fileNum, int blockNum, uint8_t *blockData, int *toggle){
 
 
 
-	// ocall_printf("------------info recover block ------------", 42, 0);
-	// ocall_printf("fileNum:", 8, 0);
-	// ocall_printint(&fileNum);
-	// ocall_printf("blockNum:", 8, 0);
-	// ocall_printint(&blockNum);
-	// ocall_printf("n:", 2, 0);
-	// ocall_printint(&n);
-	// ocall_printf("k:", 2, 0);
-	// ocall_printint(&k);
-	// ocall_printf("m:", 2, 0);
-	// ocall_printint(&m);
-	// ocall_printf("symSize:", 8, 0);
-	// ocall_printint(&symSize);
-	// ocall_printf("------------info recover block ------------", 42, 0);
-	
-
-
 	int *code_word_index = malloc(n * sizeof(int));
 	for (int i = 0; i < n; i++) code_word_index[i] = -1;
 
-
-	// ocall_printf("==================Encalve file info2======================", 60, 0);
-	// ocall_printf("the file num is", 17, 0);
-	// ocall_printint(&fileNum);
-	// ocall_printf("the file name is", 17, 0);
-	// ocall_printf(files[fileNum].fileName, 20, 0);
-	// ocall_printf("the num blocks is ", 17, 0);
-	// ocall_printint(&files[fileNum].numBlocks);
-	// ocall_printf("the n is ", 17, 0);
-	// ocall_printint(&files[fileNum].n);
-	// ocall_printf("the ip is ", 17, 0);
-	// ocall_printf(files[fileNum].nodes[0].ip, 16, 0);
-	// ocall_printf("the port is ", 17, 0);
-	// ocall_printint(&files[fileNum].nodes[0].port);
-	
-	// ocall_printf("========================================", 42, 0);
-	
 	// this is the nodes that will be used to recover the block
 	NodeInfo *nodes = (NodeInfo *)malloc(NUM_NODES * sizeof(NodeInfo));
 
@@ -2841,6 +2807,7 @@ void recover_block(int fileNum, int blockNum, uint8_t *blockData, int *toggle){
 	char *code_word_tmp = malloc(files[fileNum].n * sizeof(char) * BLOCK_SIZE);
 	
 	// first we collect the local blocks
+
 	int counter_outside_data = 0;
 	for (int i = 0; i < files[fileNum].k; i++) {
 
@@ -2884,11 +2851,7 @@ void recover_block(int fileNum, int blockNum, uint8_t *blockData, int *toggle){
 		free(tmpcode_word);
 	}
 
-	ocall_printf("=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-NODE INDEX=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=", 60, 0);
-
-
-
-
+	ocall_printf("=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-= Request Block =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=", 77, 0);
 	
 		// if (counter_outside_data > 0) {
 		sgx_status_t ocall_ret = ocall_get_batch_blocks(fileNum, rb_indicies, sizeof(recoverable_block_indicies), files[fileNum].n, code_word, code_word_index, nodes, cw_size, cw_count, sizeof(NodeInfo));
@@ -2981,7 +2944,7 @@ void recover_block(int fileNum, int blockNum, uint8_t *blockData, int *toggle){
 	// ocall_printint(&files[fileNum].k);
 	// ocall_printint(&files[fileNum].n);
 
-	// initiate_rs(3, 5);
+	initiate_rs(files[fileNum].k, files[fileNum].n);
 	// INJA
 
 	ocall_printint(&erasures[0]);
@@ -2996,11 +2959,10 @@ void recover_block(int fileNum, int blockNum, uint8_t *blockData, int *toggle){
 
 
 	ocall_printf("Recovered block after", 21, 0);
-	ocall_printf(code_word_tmp, BLOCK_SIZE, 1);
+	ocall_printf(code_word_tmp + (erasures[0] * BLOCK_SIZE), BLOCK_SIZE, 1);
 	
 	// store the recovered block
 	memcpy(blockData, code_word_tmp + (erasures[0] * BLOCK_SIZE), BLOCK_SIZE);
-	ocall_printf("Recovered block", 15, 0);
 
 
 }
@@ -3098,9 +3060,9 @@ void ecall_small_corruption(const char *fileName, int blockNum) {
 		BIGNUM *sigmas[1];
 
 
-		for(int i = 0; i < 1; i++) {
- 		   sigmas[i] = BN_new();
-		    BN_zero(sigmas[i]);
+		// for(int i = 0; i < 1; i++) {
+ 		   sigmas[0] = BN_new();
+		    BN_zero(sigmas[0]);
 
 		    int startSeg = totalSegments;
 		    int sigSegNum = floor(blockNum/ sigPerSeg) + startSeg;
@@ -3118,34 +3080,18 @@ void ecall_small_corruption(const char *fileName, int blockNum) {
 
 		    DecryptData((uint32_t *)sharedKey, sigData, SEGMENT_SIZE);
 		    int segIndex = blockNum% sigPerSeg;
-		    BN_bin2bn(sigData + (segIndex * (PRIME_LENGTH / 8)), PRIME_LENGTH / 8, sigmas[i]);
-		}
+		    BN_bin2bn(sigData + (segIndex * (PRIME_LENGTH / 8)), PRIME_LENGTH / 8, sigmas[0]);
+		// }
 
 	uint8_t Datatest[BLOCK_SIZE];
 	memcpy(Datatest, blockData, BLOCK_SIZE);
-	ocall_printf("==================================================", 50, 0);
-	ocall_printf("==================================================", 50, 0);
-	ocall_printf("==================================================", 50, 0);
-	ocall_printf("==================================================", 50, 0);
-	ocall_printf("==================================================", 50, 0);
-	
-	ocall_printf(blockData, BLOCK_SIZE, 1);
-	
-	
-	ocall_printf("==================================================", 50, 0);
-	ocall_printf("==================================================", 50, 0);
 
-	ocall_printf(Datatest, BLOCK_SIZE, 1);
-
-
-	ocall_printf("==================================================", 50, 0);
-	ocall_printf("==================================================", 50, 0);
-	ocall_printf("==================================================", 50, 0);
-	
-	if (blockNum == 1) {
+	if (blockNum == 2) {
 		blockData[0] = 0x00;
 		blockData[1] = 0x00;
 	}
+
+
 	if (audit_block_group(fileNum, 1, &blockNum, sigmas, tag, blockData) != 0) {
 		    ocall_printf("AUDIT FAILED!!", 15, 0);
 		    ocall_printf("==================================================", 50, 0);
@@ -3182,19 +3128,6 @@ void ecall_small_corruption(const char *fileName, int blockNum) {
 		    ocall_printf("AUDIT SUCCESS!", 15, 0);
 		}
 
-// this part is wrong
-
-	// 	for(int j = 0; j < PAGE_PER_BLOCK; j++) {
-	// 		int pageNum = (currBlockNum * PAGE_PER_BLOCK) + j;
-	// 		pageNum = feistel_network_prp(sharedKey, pageNum, numBits);
-	// 		for(int k = 0; k < SEGMENT_PER_PAGE; k++) {
-	// 			EncryptData((uint32_t *)sharedKey, groupData + ((i* BLOCK_SIZE) + (j * PAGE_SIZE) + (k * SEGMENT_SIZE)), SEGMENT_SIZE);
-	// 		}
-	// 		ocall_write_page(pageNum, groupData + (i * BLOCK_SIZE) + (j * PAGE_SIZE));
-	// 	}
-
-	// ocall_write_partition(numBits);
-	// ocall_printf("HERE4", 6, 0);
 	if (*toggle) ocall_init_parity(numBits);
 
 	BN_free(sigmas[0]);
@@ -3538,7 +3471,7 @@ void ecall_test_rs(char *data, int k, int n, int *erasures) {
 // }
 
 
-void local_code_words(int fileNum, int code_word_id, uint8_t *blockData, int *indices, int *toggle){
+void local_code_words(int fileNum, int code_word_id, uint8_t *blockData, int *toggle){
 
 	int k = files[fileNum].k;
 	int n = files[fileNum].n;
@@ -3563,8 +3496,6 @@ void local_code_words(int fileNum, int code_word_id, uint8_t *blockData, int *in
 
 	int *code_word_index = malloc(n * sizeof(int));
 	for (int i = 0; i < n; i++) code_word_index[i] = -1;
-
-
 
 	
 	// this is the nodes that will be used to recover the block
@@ -3844,7 +3775,7 @@ void local_code_words(int fileNum, int code_word_id, uint8_t *blockData, int *in
 	ocall_printf(code_word_tmp, BLOCK_SIZE, 1);
 	
 	// store the recovered block
-	memcpy(blockData, code_word_tmp, k * BLOCK_SIZE);
+	memcpy(blockData, code_word_tmp + (code_word_id * BLOCK_SIZE + k), k * BLOCK_SIZE);
 	ocall_printf("Recovered block", 15, 0);
 
 
@@ -3858,24 +3789,18 @@ void ecall_local_code_words(int fileNum, int code_word_id, uint8_t *data, int cw
 	int k_cached = files[fileNum].k;
 	int numBlocks_cached = files[fileNum].numBlocks;
 	int numBits = (int)ceil(log2(numBlocks_cached * k_cached));
-	int indices[k_cached];
 
-	for (int i = 0; i < k_cached * numBlocks_cached; i++) {
-		int permuted_index = feistel_network_prp(files[fileNum].shuffel_key, i, numBits);
-        while (permuted_index >= numBlocks_cached * k_cached) {
-			permuted_index = feistel_network_prp(files[fileNum].shuffel_key, permuted_index, numBits);
-		}
-		indices[i] = permuted_index;
-	}
 	int *toggle = malloc(sizeof(int));
 	*toggle = 0;
 
-	local_code_words(fileNum, code_word_id, data, indices, toggle);
+	local_code_words(fileNum, code_word_id, data, toggle);
 }
 
 
 void ecall_retrieve_File(const char *fileName) {
 
+	int *toggle = malloc(sizeof(int));
+	*toggle = 0;
 
 	int fileNum;
 	for(fileNum = 0; fileNum < MAX_FILES; fileNum++) {
@@ -3883,6 +3808,7 @@ void ecall_retrieve_File(const char *fileName) {
 			break;
 		}
 	}
+
 	// cache the reperirve info to avoid multiple retrieval requests
 	int k_cached = files[fileNum].k;
 	int n_cached = files[fileNum].n;
@@ -3890,20 +3816,15 @@ void ecall_retrieve_File(const char *fileName) {
 
     int numBits = (int)ceil(log2(numBlocks_cached * k_cached));
 
-	int *toggle = malloc(sizeof(int));
-	*toggle = 0;
-
-	ocall_printf("test 1", 6, 0);
-
 	uint8_t *data = (uint8_t *)malloc(numBlocks_cached * BLOCK_SIZE * sizeof(uint8_t) * k_cached);
-	ocall_printf("test 2", 6, 0);
 
 	int num_code_words = numBlocks_cached;
-	int remainder = num_code_words % k_cached;
 	int num_retrieval_rq_per_peer = num_code_words / k_cached;
+	int remainder = num_code_words % k_cached;
 
 	int *indices = (int *)malloc(sizeof(int) * k_cached * numBlocks_cached);
-	ocall_printf("test 3", 6, 0);
+
+	// INJA2
 	for (int i = 0; i < numBlocks_cached * k_cached; i++) {
 		int permuted_index = feistel_network_prp(files[fileNum].shuffel_key, i, numBits);
         while (permuted_index >= numBlocks_cached * k_cached) {
@@ -3911,48 +3832,47 @@ void ecall_retrieve_File(const char *fileName) {
 		}
 		indices[i] = permuted_index;
 	}
-	ocall_printf("test 4", 6, 0);
+	int nodes_count = NUM_NODES;
+	NodeInfo *nodes = (NodeInfo *)malloc(sizeof(NodeInfo) * NUM_NODES);
 
-	NodeInfo *node = (NodeInfo *)malloc(sizeof(NodeInfo) * NUM_NODES);
-	uint8_t *data_tmp = (uint8_t *)malloc(numBlocks_cached * BLOCK_SIZE * sizeof(uint8_t) * k_cached);
-	uint8_t *local_data_tmp = (uint8_t *)malloc(numBlocks_cached * BLOCK_SIZE * sizeof(uint8_t) * k_cached);
+	int data_tmp_count = numBlocks_cached *  k_cached;
+	int data_tmp_size = BLOCK_SIZE;
+	uint8_t *data_tmp = (uint8_t *)malloc( sizeof(uint8_t) * BLOCK_SIZE * data_tmp_count);
 
-	int num_code_words_counter = num_code_words;
+	uint8_t *local_data_tmp = (uint8_t *)malloc(num_retrieval_rq_per_peer * BLOCK_SIZE * sizeof(uint8_t) * k_cached);
 
-	ocall_printf("test 5", 6, 0);	
+	int num_code_words_counter = 0;
+
 	for(int i = 0; i < NUM_NODES; i++) {
 
 		// if (files[fileNum].nodes[i].ip == current_ip) {
 		if (i == 0) {
 			for(int j = 0; j < num_retrieval_rq_per_peer; j++) {
-				ocall_printf("test 5.1", 6, 0);
-				local_code_words(fileNum, j, local_data_tmp, indices, toggle);
-				num_code_words_counter--;
-				ocall_printf("test 5.2", 6, 0);
+				local_code_words(fileNum, j, local_data_tmp, toggle);
+				num_code_words_counter++;
 			}
 			continue;
 		}
-		ocall_printf("test 6", 6, 0);
 		// copy the node info
-		for (int j = 0; j < 16; j++) node[i - 1].ip[j] = files[fileNum].nodes[i].ip[j];
-		node[i - 1].chunk_id = files[fileNum].nodes[i].chunk_id;
-		node[i - 1].port = files[fileNum].nodes[i].port;
-		node[i - 1].is_parity_peer = files[fileNum].nodes[i].is_parity_peer;
-		node[i - 1].socket_fd = files[fileNum].nodes[i].socket_fd;
-		ocall_printf("test 7", 6, 0);
+		for (int j = 0; j < 16; j++) nodes[i].ip[j] = files[fileNum].nodes[i].ip[j];
+		nodes[i].chunk_id = files[fileNum].nodes[i].chunk_id;
+		nodes[i].port = files[fileNum].nodes[i].port;
+		nodes[i].is_parity_peer = files[fileNum].nodes[i].is_parity_peer;
+		nodes[i].socket_fd = files[fileNum].nodes[i].socket_fd;
 		// TODO: Calculate the number of code words to retrieve in local node
-
 		}
 	
-	ocall_printf("test 8", 6, 0);
-	ocall_retrieve_code_words(fileName, num_code_words_counter, num_code_words, data_tmp, remainder, node, num_retrieval_rq_per_peer, sizeof(node), NUM_NODES - 1, numBlocks_cached * BLOCK_SIZE * k_cached);
-	ocall_printf("test 9", 6, 0);
+	// ocall_retrieve_code_words(fileName, num_code_words_counter, num_code_words, data_tmp, remainder, nodes, num_retrieval_rq_per_peer, sizeof(NodeInfo), NUM_NODES - 1, data_tmp_count);
+
+	ocall_retrieve_code_words(fileNum, nodes, sizeof(NodeInfo), nodes_count, data_tmp, data_tmp_size, data_tmp_count, num_retrieval_rq_per_peer, num_code_words_counter, num_code_words, remainder);
+
+
 	for (int i = 0; i < num_retrieval_rq_per_peer * k_cached; i++) {
 		for (int j = 0; j < BLOCK_SIZE; j++) {
 			data[indices[i] * BLOCK_SIZE + j] = local_data_tmp[i * BLOCK_SIZE + j];
 		}
 	}
-	ocall_printf("test 10", 6, 0);
+
 	for (int i = num_retrieval_rq_per_peer * k_cached; i < numBlocks_cached * k_cached; i++) {
 		for (int j = 0; j < BLOCK_SIZE; j++) {
 			data[indices[i] * BLOCK_SIZE + j] = data_tmp[i * BLOCK_SIZE + j];

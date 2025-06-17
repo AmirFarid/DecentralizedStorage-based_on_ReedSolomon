@@ -718,16 +718,16 @@ void read_file(const char *filename, uint16_t **chunks, int *chunk_size, int *pa
     int num_blocks = (*chunk_size / 2048) * rs_K;
     int numBits = (int)ceil(log2(num_blocks));
 
-    printf("N: %d\n", rs_N);
-    printf("K: %d\n", rs_K);
+    // printf("N: %d\n", rs_N);
+    // printf("K: %d\n", rs_K);
 
-    printf("num_blocks: %d\n", num_blocks);
-    printf("numBits: %d\n", numBits);
-    printf("chunk_size: %d\n", *chunk_size);
+    // printf("num_blocks: %d\n", num_blocks);
+    // printf("numBits: %d\n", numBits);
+    // printf("chunk_size: %d\n", *chunk_size);
 
 
     printf("enter to continue\n");
-    getchar();
+    // getchar();
     // printf("size %d\n", rs_K * (*chunk_size));
     // // sleep(10);
         // printf("chunks[%d]: %d\n", i, (*chunks)[i]);
@@ -793,67 +793,67 @@ void read_file(const char *filename, uint16_t **chunks, int *chunk_size, int *pa
 
   
 	// ----------------------------------- test -----------------------------------
-	int total_blocks = 4 * rs_K;
-	int blockNumInFile = (4 * 1) + 2;
-  int numBits2 = (int)ceil(log2(total_blocks));
+	// int total_blocks = 4 * rs_K;
+	// int blockNumInFile = (4 * 1) + 2;
+  // int numBits2 = (int)ceil(log2(total_blocks));
 
 
-	// int permuted_index2 = feistel_network_prp(Shuffle_key, blockNumInFile, numBits2);
-  //       // printf("i: %d, permuted_index: %d\n", i, permuted_index);
+	// // int permuted_index2 = feistel_network_prp(Shuffle_key, blockNumInFile, numBits2);
+  // //       // printf("i: %d, permuted_index: %d\n", i, permuted_index);
 
-  //   while (permuted_index2 >= total_blocks) {
-  //     permuted_index2 = feistel_network_prp(Shuffle_key, permuted_index2, numBits2);
+  // //   while (permuted_index2 >= total_blocks) {
+  // //     permuted_index2 = feistel_network_prp(Shuffle_key, permuted_index2, numBits2);
+  // //   }
+	
+	// int *recoverable_block_indicies = (int *)malloc(sizeof(int) * total_blocks);
+	// memset(recoverable_block_indicies, -1, total_blocks * sizeof(int));
+	
+	// int count = 0;
+
+	// for (int i = 0; i < total_blocks; i++) {
+	// 	if (i % rs_K == 0 && i != 0){
+	// 		count++;
+	// 	}
+	// 	int tmp_index = feistel_network_prp(Shuffle_key, i, numBits2);
+	// 	while (tmp_index >= total_blocks) {
+	// 		tmp_index = feistel_network_prp(Shuffle_key, tmp_index, numBits2);
+	// 	}
+	// 	if (tmp_index == blockNumInFile) {
+	// 		recoverable_block_indicies[tmp_index] = 1;
+	// 		break;
+	// 	}
+	// }
+
+	// int code_word_index = 0;
+	// for (int i = 0; i < rs_K; i++) {
+  //   printf("count: %d\n", count);
+	// 	code_word_index = count * rs_K + i;
+	// 	int tmp_index = feistel_network_prp(Shuffle_key, code_word_index, numBits);
+	// 	while (tmp_index >= total_blocks) {
+	// 		tmp_index = feistel_network_prp(Shuffle_key, tmp_index, numBits);
+	// 	}
+	// 	recoverable_block_indicies[tmp_index] = 1;
+  //   printf("i: %d, permuted_index: %d\n", i, tmp_index);
+
+	// }
+
+  // printf("---------------------------------\n");
+
+  // for (int i = 0; i < total_blocks; i++) {
+  //   if (recoverable_block_indicies[i] == 1) {
+  //     int internal_block_index = i % 4;
+	//     int node_index = (i - internal_block_index) / 4;
+  //     printf("recoverable_block_indicies[%d]: %d\n", i, recoverable_block_indicies[i]);
+  //     printf("internal_block_index: %d\n", internal_block_index);
+  //     printf("node_index: %d\n", node_index);
   //   }
-	
-	int *recoverable_block_indicies = (int *)malloc(sizeof(int) * total_blocks);
-	memset(recoverable_block_indicies, -1, total_blocks * sizeof(int));
-	
-	int count = 0;
-
-	for (int i = 0; i < total_blocks; i++) {
-		if (i % rs_K == 0 && i != 0){
-			count++;
-		}
-		int tmp_index = feistel_network_prp(Shuffle_key, i, numBits2);
-		while (tmp_index >= total_blocks) {
-			tmp_index = feistel_network_prp(Shuffle_key, tmp_index, numBits2);
-		}
-		if (tmp_index == blockNumInFile) {
-			recoverable_block_indicies[tmp_index] = 1;
-			break;
-		}
-	}
-
-	int code_word_index = 0;
-	for (int i = 0; i < rs_K; i++) {
-    printf("count: %d\n", count);
-		code_word_index = count * rs_K + i;
-		int tmp_index = feistel_network_prp(Shuffle_key, code_word_index, numBits);
-		while (tmp_index >= total_blocks) {
-			tmp_index = feistel_network_prp(Shuffle_key, tmp_index, numBits);
-		}
-		recoverable_block_indicies[tmp_index] = 1;
-    printf("i: %d, permuted_index: %d\n", i, tmp_index);
-
-	}
-
-  printf("---------------------------------\n");
-
-  for (int i = 0; i < total_blocks; i++) {
-    if (recoverable_block_indicies[i] == 1) {
-      int internal_block_index = i % 4;
-	    int node_index = (i - internal_block_index) / 4;
-      printf("recoverable_block_indicies[%d]: %d\n", i, recoverable_block_indicies[i]);
-      printf("internal_block_index: %d\n", internal_block_index);
-      printf("node_index: %d\n", node_index);
-    }
-  }
+  // }
 
 
 
     // printf("enter to continue\n");
 
-    getchar();
+    // getchar();
     encode(*chunks, rs_N, *chunk_size);
     fclose(file);
 }

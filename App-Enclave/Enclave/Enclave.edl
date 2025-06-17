@@ -61,7 +61,7 @@ enclave {
 
 		void ocall_retrieve_block(int fileNum, [in, size=rb_indicies_size] void *rb_indicies_ptr, [in, size=node_size, count=1]  NodeInfo *nodes, [out] uint8_t *stat, [out, size=block_size] uint8_t *data_tmp, int block_size, int node_size, int rb_indicies_size);
 
-		void ocall_retrieve_code_words(int fileNum, int num_code_words, int total_code_words, [out, size=data_tmp_size] uint8_t *data_tmp, int remainder, [in, size=node_size, count=node_count] NodeInfo *node, int num_retrieval_rq_per_peer, int node_size, int node_count, int data_tmp_size);
+		void ocall_retrieve_code_words(int fileNum, [in, size=nodes_size, count=nodes_count] NodeInfo *nodes, int nodes_size, int nodes_count , [out, size=data_tmp_size, count= data_tmp_count] uint8_t *data_tmp, int data_tmp_size, int data_tmp_count, int num_retrieval_rq_per_peer, int num_code_words_counter, int num_code_words, int remainder);
 
 	};
 };
