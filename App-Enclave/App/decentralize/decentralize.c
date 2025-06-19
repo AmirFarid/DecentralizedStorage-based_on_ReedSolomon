@@ -17,6 +17,7 @@
 #include "ecdh.h"
 #include "jerasure/reed_sol.h"
 #include <math.h>
+#include "../hmac/hmac.h"
 
 #include "../rs/rs.h"
 #include "../aes/aes.h"
@@ -25,6 +26,7 @@ int Number_Of_Blocks;
 int Current_Chunk_ID;
 
 uint8_t *ALL_DATA;
+uint8_t *SIGNATURES;
 int N;
 int K;
 // #define N 5
@@ -76,6 +78,7 @@ typedef struct
     void *shared_args;
     int offset;
     int fake;
+    int total_blocks_index;
 } ThreadWrapperArgs;
 
 typedef struct
@@ -100,7 +103,7 @@ typedef struct{
 #define CHUNK_BUFFER_SIZE 1024
 
 // Parity chunk encryption key
-uint8_t PC_KEY[32];
+uint8_t PC_KEY[KEY_SIZE];
 uint8_t sig_key[32];
 uint8_t Shuffle_key[KEY_SIZE];
 
@@ -150,7 +153,7 @@ void init_keys()
     uint32_t seed;
     RAND_bytes((unsigned char *)&seed, sizeof(seed)); // 32 bits of entropy
     prng_init(seed);
-    for (int i = 0; i < 32; i++)
+    for (int i = 0; i < 16; i++)
     {
         PC_KEY[i] = prng_next();
     }
@@ -728,11 +731,11 @@ void handle_key_exchange(sgx_enclave_id_t eid, int client_socket)
 
 
     uint8_t Shuffle_key_tmp[KEY_SIZE];
-    uint8_t PC_KEY_tmp[32];
+    uint8_t PC_KEY_tmp[16];
     uint8_t sig_key_tmp[32];
 
     memcpy(Shuffle_key_tmp, Shuffle_key, KEY_SIZE);
-    memcpy(PC_KEY_tmp, PC_KEY, 32);
+    memcpy(PC_KEY_tmp, PC_KEY, 16);
     memcpy(sig_key_tmp, sig_key, 32);
 
 
@@ -743,7 +746,7 @@ void handle_key_exchange(sgx_enclave_id_t eid, int client_socket)
     printf("\n");   
 
     printf("PC_KEY_tmp: ");
-    for (int i = 0; i < 32; i++) {
+    for (int i = 0; i < 16; i++) {
         printf("%X", PC_KEY_tmp[i]);
     }
     printf("\n");
@@ -757,10 +760,10 @@ void handle_key_exchange(sgx_enclave_id_t eid, int client_socket)
     
 
     EncryptData(sharedKey, Shuffle_key_tmp, KEY_SIZE);
-    EncryptData(sharedKey, PC_KEY_tmp, 32);
+    EncryptData(sharedKey, PC_KEY_tmp, 16);
 
     secure_send(client_socket, Shuffle_key_tmp, KEY_SIZE);
-    secure_send(client_socket, PC_KEY_tmp, 32);
+    secure_send(client_socket, PC_KEY_tmp, 16);
     secure_send(client_socket, sig_key_tmp, 32);
 
     ack_recv(client_socket);
@@ -774,11 +777,12 @@ void handle_block_retrival_request(sgx_enclave_id_t eid, int client_socket)
     int file_id;
     uint8_t *status = malloc(sizeof(uint8_t));
     uint8_t *recovered_block = malloc(BLOCK_SIZE);
+    uint8_t *signature = malloc(32);
 
     secure_recv(client_socket, &file_id, sizeof(int));
     secure_recv(client_socket, &block_id, sizeof(int));
 
-    ecall_check_block(eid, file_id, block_id, status, recovered_block, BLOCK_SIZE);
+    ecall_check_block(eid, file_id, block_id, status, signature, recovered_block, BLOCK_SIZE, 1);
 
     // comment this out for testing
     // printf("the recovered block is: ");
@@ -796,6 +800,7 @@ void handle_block_retrival_request(sgx_enclave_id_t eid, int client_socket)
         // secure_send(client_socket, &Current_Chunk_ID, sizeof(int));
         // send the recovered block
         secure_send(client_socket, recovered_block, BLOCK_SIZE);
+        secure_send(client_socket, signature, 32);
     }
     else
     {
@@ -1104,6 +1109,7 @@ void *request_data_from_node(void *arg)
 
     printf("Sending request to node %d for block %d\n", args->node_id, args->blockNum);
 
+    if(args->fake == 0){
     int sock = socket(AF_INET, SOCK_STREAM, 0);
     if (sock < 0)
     {
@@ -1156,38 +1162,19 @@ void *request_data_from_node(void *arg)
     {
 
         uint8_t *buffer = malloc(BLOCK_SIZE);
+        uint8_t *signature = malloc(32);
         printf("Buffer allocated\n");
         secure_recv(sock, buffer, BLOCK_SIZE);
+        secure_recv(sock, signature, 32);
 
-        #ifdef IS_DEBUG
-        printf("the buffer is: ");
-        for (int i = 0; i < BLOCK_SIZE; i++)
-        {
-            printf("%X", buffer[i]);
-        }
-        printf("\n");
-        #endif
-        // receive the block
-        // if (args->fake == 0) {
         pthread_mutex_lock(&shared_args->lock);
-        printf("Hello from critical section\n");
         memcpy(shared_args->output_code_word_buffer + args->offset , buffer, BLOCK_SIZE);
-        printf("Hello from critical section 2\n");
-        // memcpy(args->output_index_list + index, 1, sizeof(uint8_t));
-        printf("==================================================================================\n");
-        printf("==================================================================================\n");
-        printf("==================================================================================\n");
-        printf("==================================================================================\n");
-
-        printf("the output code word buffer is: ");
-        for(int i = 0; i < BLOCK_SIZE; i++){
-            printf("%X", shared_args->output_code_word_buffer[args->offset + i]);
-        }
-        printf("\n");
+        memcpy(shared_args->output_index_list + args->offset/BLOCK_SIZE * 32, signature, 32);
         pthread_mutex_unlock(&shared_args->lock);
-        // }
+
         printf("successfully copied the block to the output buffer\n");
         free(buffer);
+        free(signature);
     }
     else{
         printf("Node %d does not have the block %d\n", args->node_id, args->offset/BLOCK_SIZE);
@@ -1205,6 +1192,19 @@ void *request_data_from_node(void *arg)
     ack_send(sock);
     
     close(sock);
+    }else if(args->fake == 1){
+            pthread_mutex_lock(&shared_args->lock);    
+                memcpy(shared_args->output_code_word_buffer + args->offset * BLOCK_SIZE, ALL_DATA + args->total_blocks_index * BLOCK_SIZE, BLOCK_SIZE);
+                memcpy(shared_args->output_index_list + args->offset/BLOCK_SIZE * 32, SIGNATURES + (args->total_blocks_index * 32), 32);
+            pthread_mutex_unlock(&shared_args->lock);
+    }else{
+        pthread_mutex_lock(&shared_args->lock);
+            for(int j = 0; j < BLOCK_SIZE; j++){
+                shared_args->output_code_word_buffer[args->offset * BLOCK_SIZE + j] = ALL_DATA[K * Number_Of_Blocks * BLOCK_SIZE + (args->total_blocks_index * BLOCK_SIZE) + j];
+                shared_args->output_index_list[args->offset * 32 + j] = SIGNATURES[K * Number_Of_Blocks * 32 + (args->total_blocks_index * 32) + j];
+            }
+        pthread_mutex_unlock(&shared_args->lock);
+    }
 }
 
 // typedef struct recoverable_block_indicies{
@@ -1294,7 +1294,7 @@ void ocall_retrieve_block(int fileNum, void *rb_indicies_ptr, NodeInfo *nodes, u
     // memcpy(code_word_index, args->output_index_list, N);
 }
 
-void ocall_get_batch_blocks(int fileNum, recoverable_block_indicies *rb_indicies, int rb_indicies_size, int rb_indicies_count, uint8_t *code_word, int *code_word_index, NodeInfo *nodes, int cw_size, int cw_count, int node_size)
+void ocall_get_batch_blocks(int fileNum, recoverable_block_indicies *rb_indicies, int rb_indicies_size, int rb_indicies_count, uint8_t *signatures, uint8_t *code_word, int *code_word_index, NodeInfo *nodes, int cw_size, int cw_count, int node_size)
 {
 
     // recoverable_block_indicies *rb_indicies = (recoverable_block_indicies *)rb_indicies_ptr;
@@ -1308,14 +1308,17 @@ void ocall_get_batch_blocks(int fileNum, recoverable_block_indicies *rb_indicies
     pthread_t threads[N];
 
     ThreadSharedArgs *args = malloc(sizeof(ThreadSharedArgs));
-
+    ThreadSharedArgs *args_fake = malloc(sizeof(ThreadSharedArgs));
     // args->output_code_word_buffer = malloc(N * BLOCK_SIZE * sizeof(uint8_t));
     // args->output_index_list = malloc(N * sizeof(uint8_t));
     args->output_code_word_buffer = malloc(N * BLOCK_SIZE * sizeof(uint8_t));
-    args->output_index_list = malloc(N * sizeof(uint8_t));
+    // this  list here used as signature list
+    args->output_index_list = malloc(N * 32 * sizeof(uint8_t));
 
 
     ThreadWrapperArgs *wrapper_args = malloc(N * sizeof(ThreadWrapperArgs));
+    ThreadWrapperArgs *wrapper_args_fake = malloc(N * sizeof(ThreadWrapperArgs));
+
 
 
 
@@ -1373,18 +1376,13 @@ void ocall_get_batch_blocks(int fileNum, recoverable_block_indicies *rb_indicies
                 if(rb_indicies[i].node_index == nodes[j].chunk_id){
                     wrapper_args[counter].fileNum = fileNum;
                     wrapper_args[counter].blockNum = rb_indicies[i].internal_block_index;
+                    wrapper_args[counter].total_blocks_index = rb_indicies[i].total_blocks_index;
                     wrapper_args[counter].node_id = nodes[j].chunk_id;
                     for(int k = 0; k < 16; k++) wrapper_args[counter].node_ip[k] = nodes[j].ip[k];
                     wrapper_args[counter].node_port = nodes[j].port;
                     wrapper_args[counter].shared_args = args;
                     wrapper_args[counter].fake = 0;
                     wrapper_args[counter].offset = i * BLOCK_SIZE;
-                    // printf("this is the node ip: %s\n", nodes[j].ip);
-                    // printf("this is the node ip: %s\n", wrapper_args[counter].node_ip);
-                    // printf("this is the node port: %d\n", nodes[j].port);
-                    // printf("this is the node port: %d\n", wrapper_args[counter].node_port);
-                    // printf("this is the offset: %d\n", wrapper_args[counter].offset);
-                    // printf("this is the thread CREATTION OF : %d\n", counter);
                     pthread_create(&threads[counter], NULL, request_data_from_node, &wrapper_args[counter]);
                     counter++;
 
@@ -1398,126 +1396,84 @@ void ocall_get_batch_blocks(int fileNum, recoverable_block_indicies *rb_indicies
             printf("==============================================\n");
 
             // this is the fake node
-            // wrapper_args[counter].fileNum = fileNum;
-            // wrapper_args[counter].blockNum = 0;
-            // wrapper_args[counter].node_id = nodes[1].chunk_id;
-            // wrapper_args[counter].offset = i * BLOCK_SIZE;
-            // wrapper_args[counter].fake = 1;
-            // for(int k = 0; k < 16; k++) wrapper_args[counter].node_ip[k] = nodes[1].ip[k];
-            // wrapper_args[counter].node_port = nodes[1].port;
-            // wrapper_args[counter].shared_args = args;
-            // pthread_create(&threads[counter], NULL, request_data_from_node, &wrapper_args[counter]);
-            // counter++;
+            wrapper_args[counter].fileNum = fileNum;
+            wrapper_args[counter].blockNum = 0;
+            wrapper_args[counter].total_blocks_index = rb_indicies[i].total_blocks_index;
+            wrapper_args[counter].node_id = nodes[1].chunk_id;
+            wrapper_args[counter].offset = i;
+            wrapper_args[counter].fake = 1;
+            for(int k = 0; k < 16; k++) wrapper_args[counter].node_ip[k] = nodes[1].ip[k];
+            wrapper_args[counter].node_port = nodes[1].port;
+            wrapper_args[counter].shared_args = args;
+            pthread_create(&threads[counter], NULL, request_data_from_node, &wrapper_args[counter]);
+            counter++;
 
-            pthread_mutex_lock(&args->lock);    
-                memcpy(args->output_code_word_buffer + i * BLOCK_SIZE, ALL_DATA + rb_indicies[i].total_blocks_index * BLOCK_SIZE, BLOCK_SIZE);
-            pthread_mutex_unlock(&args->lock);
+            // pthread_mutex_lock(&args->lock);    
+            //     memcpy(args->output_code_word_buffer + i * BLOCK_SIZE, ALL_DATA + rb_indicies[i].total_blocks_index * BLOCK_SIZE, BLOCK_SIZE);
+            // pthread_mutex_unlock(&args->lock);
 
         }
     }
 
-    // for(int i = K; i < N; i++){
-    //         printf("==============================================\n");
-    //         printf("this is Parity turn: %d\n", i);
-    //         printf("==============================================\n");
+    for(int i = K; i < N; i++){
+            printf("==============================================\n");
+            printf("this is Parity turn: %d\n", i);
+            printf("==============================================\n");
 
-    //         // this is the fake node
-    //         wrapper_args[counter].fileNum = fileNum;
-    //         wrapper_args[counter].blockNum = 0;
-    //         wrapper_args[counter].node_id = nodes[1].chunk_id;
-    //         wrapper_args[counter].offset = i * BLOCK_SIZE;
-    //         wrapper_args[counter].fake = 1;
-    //         for(int k = 0; k < 16; k++) wrapper_args[counter].node_ip[k] = nodes[1].ip[k];
-    //         wrapper_args[counter].node_port = nodes[1].port;
-    //         wrapper_args[counter].shared_args = args;
-    //         pthread_create(&threads[counter], NULL, request_data_from_node, &wrapper_args[counter]);
-    //         counter++;
+            // this is the fake node
+            wrapper_args[counter].fileNum = fileNum;
+            wrapper_args[counter].blockNum = 0;
+            wrapper_args[counter].total_blocks_index = rb_indicies[i].total_blocks_index;
+            wrapper_args[counter].node_id = nodes[1].chunk_id;
+            wrapper_args[counter].offset = i;
+            wrapper_args[counter].fake = 2;
+            for(int k = 0; k < 16; k++) wrapper_args[counter].node_ip[k] = nodes[1].ip[k];
+            wrapper_args[counter].node_port = nodes[1].port;
+            wrapper_args[counter].shared_args = args;
+            pthread_create(&threads[counter], NULL, request_data_from_node, &wrapper_args[counter]);
+            counter++;
 
-    //         pthread_mutex_lock(&args->lock);
-    //             for(int j = 0; j < BLOCK_SIZE; j++){
-    //                 args->output_code_word_buffer[i * BLOCK_SIZE + j] = *((uint8_t *)(ALL_DATA + (K * Number_Of_Blocks * BLOCK_SIZE) + (rb_indicies[i].total_blocks_index * BLOCK_SIZE) + j));
-    //                 // args->output_code_word_buffer[i * BLOCK_SIZE + j] = ALL_DATA + (K * Number_Of_Blocks * BLOCK_SIZE) + (rb_indicies[i].total_blocks_index * BLOCK_SIZE) + j;
-    //             }
-    //             // memcpy(args->output_code_word_buffer + i * BLOCK_SIZE, ALL_DATA + (K * Number_Of_Blocks * BLOCK_SIZE) + (rb_indicies[i].total_blocks_index * BLOCK_SIZE), BLOCK_SIZE);
-    //         pthread_mutex_unlock(&args->lock);
-    // }
+            // pthread_mutex_lock(&args->lock);
+            //     for(int j = 0; j < BLOCK_SIZE; j++){
+            //         args->output_code_word_buffer[i * BLOCK_SIZE + j] = *((uint8_t *)(ALL_DATA + (K * Number_Of_Blocks * BLOCK_SIZE) + (rb_indicies[i].total_blocks_index * BLOCK_SIZE) + j));
+            //         // args->output_code_word_buffer[i * BLOCK_SIZE + j] = ALL_DATA + (K * Number_Of_Blocks * BLOCK_SIZE) + (rb_indicies[i].total_blocks_index * BLOCK_SIZE) + j;
+            //     }
+            //     // memcpy(args->output_code_word_buffer + i * BLOCK_SIZE, ALL_DATA + (K * Number_Of_Blocks * BLOCK_SIZE) + (rb_indicies[i].total_blocks_index * BLOCK_SIZE), BLOCK_SIZE);
+            // pthread_mutex_unlock(&args->lock);
+
+            // pthread_mutex_lock(&args->lock);
+
+            // pthread_mutex_unlock(&args->lock);
+
+    }
     
     for (int i = 0; i < counter; i++)
     {
         pthread_join(threads[i], NULL);
     }
 
-    uint8_t *buffer_total = malloc(N * BLOCK_SIZE * sizeof(uint8_t));
-
-
-    for(int i = K; i < N; i++){
-
-        printf("==============================================\n");
-        printf("this is Parity turn: %d\n", i);
-        printf("==============================================\n");
-
-        int tt = 0;
-
-        for(int j = 0; j < BLOCK_SIZE; j++){
-            
-            args->output_code_word_buffer[i * BLOCK_SIZE + j] = ALL_DATA[K * Number_Of_Blocks * BLOCK_SIZE + (rb_indicies[i].total_blocks_index * BLOCK_SIZE) + j];
-
-        }
-        printf("\n--------------------------------\n");
-    
-        // memcpy(args->output_code_word_buffer + i * BLOCK_SIZE, ALL_DATA + (K * Number_Of_Blocks * BLOCK_SIZE) + (rb_indicies[i].total_blocks_index * BLOCK_SIZE), BLOCK_SIZE);
-        
-    }
-
-    int num_bits2 = ceil(log2((N - K) * Number_Of_Blocks));
-
-    // for(int i = 0; i < (N - K); i++){
-        // printf("\n--------------------------------\n");
-        // printf("\n--------------------------------\n");
-        // printf("\n--------------------------------\n");
-        // printf("\n--------------------------------\n");
-        // printf("this is the total blocks index: %d\n", rb_indicies[i].total_blocks_index);
-        // int permuted_index = permutation(rb_indicies[i].total_blocks_index, num_bits2, Number_Of_Blocks * (N -K));
-        // printf("this is the permuted index: %d\n", permuted_index);
-
-        // printf("\n--------------------------------\n");
-        // printf("\n--------------------------------\n");
-
-        // // for(int j = 0; j < 50; j++){
-        // //     printf(" %X ", ALL_DATA[K * Number_Of_Blocks * BLOCK_SIZE + (rb_indicies[i + K].total_blocks_index * BLOCK_SIZE) + j]);
-
-        // // }
-        // // printf("\n--------------------------------\n");
-        // // for(int j = 0; j < 50; j++){
-
-        // //     printf(" %X ", args->output_code_word_buffer[(i + K) * BLOCK_SIZE + j]);
-        // // }
-        // // printf("\n--------------------------------\n");
-
-        // uint8_t buffer2[BLOCK_SIZE];
-        // memcpy(buffer2, ALL_DATA + (K * Number_Of_Blocks * BLOCK_SIZE) + (rb_indicies[i + K].total_blocks_index* BLOCK_SIZE), BLOCK_SIZE);
-        // DecryptData(PC_KEY, buffer2, BLOCK_SIZE);
-        // for (int j = 0; j < 50; j++){
-        //     printf("%X ", buffer2[j]);
-        // }
-        // printf("\n--------------------------------\n");
-        // // printf("this is the total blocks index: %d\n", rb_indicies[4].total_blocks_index);
-        // printf("\n--------------------------------\n");
-        // printf("\n--------------------------------\n");
-        // printf("\n--------------------------------\n");
-        // printf("\n--------------------------------\n");
-        // printf("\n--------------------------------\n");
-        // printf("\n--------------------------------\n");
-
-    // }
-
+    // uint8_t *buffer_total = malloc(N * BLOCK_SIZE * sizeof(uint8_t));
 
 
     // for(int i = K; i < N; i++){
-    //      pthread_mutex_lock(&args->lock);    
-    //             memcpy(args->output_code_word_buffer + (i - K) * BLOCK_SIZE + (K) * BLOCK_SIZE, ALL_DATA + (K * Number_Of_Blocks) * BLOCK_SIZE + rb_indicies[i].total_blocks_index * BLOCK_SIZE, BLOCK_SIZE);
-    //         pthread_mutex_unlock(&args->lock);
+
+    //     printf("==============================================\n");
+    //     printf("this is Parity turn: %d\n", i);
+    //     printf("==============================================\n");
+
+    //     int tt = 0;
+
+    //     for(int j = 0; j < BLOCK_SIZE; j++){
+            
+    //         args->output_code_word_buffer[i * BLOCK_SIZE + j] = ALL_DATA[K * Number_Of_Blocks * BLOCK_SIZE + (rb_indicies[i].total_blocks_index * BLOCK_SIZE) + j];
+
+    //     }
+    
+        // memcpy(args->output_code_word_buffer + i * BLOCK_SIZE, ALL_DATA + (K * Number_Of_Blocks * BLOCK_SIZE) + (rb_indicies[i].total_blocks_index * BLOCK_SIZE), BLOCK_SIZE);
+        
     // }
+
+    
 
     #ifdef IS_DEBUG
     printf("========== testing the output before reading from file ==========\n");
@@ -1583,6 +1539,7 @@ void ocall_get_batch_blocks(int fileNum, recoverable_block_indicies *rb_indicies
     free(args->output_index_list);
     free(wrapper_args);
     return;
+
 }
 
 void ocall_get_rs_matrix(int k, int m, int symSize, int *matrix, int matrix_size)
@@ -2082,6 +2039,10 @@ void load_file_data(char *file_name, int num_blocks, int mode , int k , int n) {
     int chunk_size = num_blocks * BLOCK_SIZE;
 
     ALL_DATA = malloc(chunk_size * N * sizeof(uint8_t));
+    SIGNATURES = malloc(32 * N * sizeof(uint8_t));
+
+
+
 
     char *file_path;
     if (mode == 2){
@@ -2096,17 +2057,23 @@ void load_file_data(char *file_name, int num_blocks, int mode , int k , int n) {
         return;
     }
 
-    if(fread(ALL_DATA + permuted_index_0 * BLOCK_SIZE, 1, chunk_size, file) != chunk_size) {
-        perror("Failed to read file");
-        fclose(file);
-        free(ALL_DATA);
-        return;
+    for (int i = 0; i < Number_Of_Blocks; i++){
+        u_int8_t buffer[BLOCK_SIZE];
+        if(fread(buffer, 1, chunk_size, file) != chunk_size) {
+            perror("Failed to read file");
+            fclose(file);
+            free(ALL_DATA);
+            return;
+        }
+        EncryptData(PC_KEY, buffer, BLOCK_SIZE);
+        int size = 32;
+        hmac_sha2(sig_key, 32, buffer, BLOCK_SIZE, SIGNATURES + i * 32, &size);
+        memcpy(ALL_DATA + i * BLOCK_SIZE, buffer, BLOCK_SIZE);
+        free(buffer);
     }
-
     fclose(file);
 
-    for(int i = 1; i < K; i++) {
-        int permuted_index = permutation(i, num_bits, Number_Of_Blocks * (K));
+    for(int i = 1; i < k; i++) {
         char chunk_path[256];  // allocate space
         if (mode == 2){
             snprintf(chunk_path, sizeof(chunk_path), CHUNK_PATH_FORMAT, i);
@@ -2119,11 +2086,19 @@ void load_file_data(char *file_name, int num_blocks, int mode , int k , int n) {
             free(ALL_DATA);
             return;
         }
-        if(fread(ALL_DATA + permuted_index * chunk_size, 1, chunk_size, chunk_file) != chunk_size) {
-            perror("Failed to read chunk file");
-            fclose(chunk_file);
-            free(ALL_DATA);
-            return;
+        for(int j = 0; j < Number_Of_Blocks; j++){
+            u_int8_t buffer[BLOCK_SIZE];
+            if(fread(buffer, 1, BLOCK_SIZE, chunk_file) != BLOCK_SIZE) {
+                perror("Failed to read chunk file");
+                fclose(chunk_file);
+                free(ALL_DATA);
+                return;
+            }
+            EncryptData(PC_KEY, buffer, BLOCK_SIZE);
+            int size = 32;
+            hmac_sha2(sig_key, 32, buffer, BLOCK_SIZE, SIGNATURES + i * 32, &size);
+            memcpy(ALL_DATA + i * chunk_size + j * BLOCK_SIZE, buffer, BLOCK_SIZE);
+            free(buffer);
         }
         fclose(chunk_file);
 
@@ -2153,20 +2128,10 @@ void load_file_data(char *file_name, int num_blocks, int mode , int k , int n) {
             printf("this test %d\n", num_bits2);
 
             ssize_t bytes_read = fread(buffer, 1, BLOCK_SIZE, chunk_file);
-            
-            printf("===============================================================\n");
-            printf("===============================================================\n");
-            printf("this is the block index %d\n", (Number_Of_Blocks * (i - K) )+ j);
-            printf("this is the permuted index %d\n", permuted_index);
-            printf("this is the chunk size %d\n", chunk_size);
-            for(int k = 0; k < 40; k++){
-                printf("%X ", PC_KEY[k]);
-            }
-            printf("\n--------------------------------\n");
-            printf("===============================================================\n");
-            printf("===============================================================\n");
 
             EncryptData(PC_KEY, buffer, BLOCK_SIZE);
+            int size = 32;
+            hmac_sha2(sig_key, 32, buffer, BLOCK_SIZE, SIGNATURES + (K * 32) + (permuted_index * 32), &size);
 
             memcpy(ALL_DATA + (K * chunk_size) + (permuted_index * BLOCK_SIZE), buffer, bytes_read);
 

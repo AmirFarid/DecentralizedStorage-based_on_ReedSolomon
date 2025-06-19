@@ -1258,35 +1258,6 @@ void ecall_init(FileDataTransfer *fileDataTransfer, int size)
 	}
 
 	// TODO: move this to a function
-	uint8_t sig_key[32];
-	ocall_printf("Generating sig key", 19, 0);
-	prng_init((0xbad ^ 0xc0ffee ^ 42) | 0xcafebabe | 776);
-	for(int i = 0; i < 32; ++i) {
-		sig_key[i] = prng_next();
-	}
-
-
-	uint8_t signature[32] = {0};
-	ocall_printf("Generating signature", 20, 0);
-	int data_len = 32;
-	hmac_sha2(sig_key, 32, data, 4096, signature, &data_len);
-
-
-
-	uint8_t signature2[32] = {0};
-	ocall_printf("Generating signature", 20, 0);
-	int data_len2 = 32;
-	hmac_sha2(sig_key, 32, data, 4096, signature2, &data_len2);
-	
-
-	if (memcmp(signature, signature2, 32) == 0) {
-		ocall_printf("Signature match", 15, 0);
-	} else {
-		ocall_printf("Signature mismatch", 18, 0);
-	}
-
-	ocall_printf("Signature: ", 11, 0);
-	ocall_printf(signature, 64, 1);
 
 	// TODO: add signature to fileDataTransfer
 
@@ -2269,8 +2240,16 @@ ocall_printf("tagSegNum2", 10, 0);
 
 
 }
-void ecall_check_block(int fileNum, int blockNum,  uint8_t *status, uint8_t *recovered_block, int recovered_block_size){
+
+
+void ecall_check_block(int fileNum, int blockNum,  uint8_t *status, uint8_t *signature, uint8_t *recovered_block, int recovered_block_size, int recovered_block_count){
 	check_block(fileNum, blockNum, status, recovered_block);
+	EncryptData(&files[fileNum].PC_Key, recovered_block, recovered_block_size);
+
+	ocall_printf("Generating signature", 20, 0);
+	int data_len = 32;
+	hmac_sha2(files[fileNum].PC_Key, 32, recovered_block, recovered_block_size, signature, &data_len);
+
 }
 
 void check_block(int fileNum, int blockNum,  uint8_t *status, uint8_t *recovered_block){
@@ -2572,6 +2551,8 @@ void recover_block(int fileNum, int blockNum, uint8_t *blockData, int *toggle){
 
 
 	uint8_t *code_word = (uint8_t *)malloc(n * BLOCK_SIZE);
+	uint8_t *signatures = (uint8_t *)malloc(n * 32);
+
 	uint8_t *recovered_block = (uint8_t *)malloc(BLOCK_SIZE);
 
 	if (!matrix || !recovered_data || !code_word || !recovered_block) {
@@ -2672,28 +2653,28 @@ void recover_block(int fileNum, int blockNum, uint8_t *blockData, int *toggle){
 			rb_indicies[i - j].is_local = 0;
 		}
 				// print data
-		ocall_printf("*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=", 42, 0);
-		ocall_printf("the rquested block is:", 22, 0);
-		ocall_printint(&blockNum);
-		ocall_printf("the I is:", 9, 0);
-		ocall_printint(&i);
-		ocall_printf("the tmp_index is:", 17, 0);
-		ocall_printint(&tmp_index);
-		ocall_printint(&permuted_index);
-		ocall_printf("**********", 10, 0);
-		ocall_printf("the node index is:", 18, 0);
-		ocall_printint(&rb_indicies[i - j].node_index);
-		ocall_printf("the current chunk id is:", 24, 0);
-		ocall_printint(&files[fileNum].current_chunk_id);
-		ocall_printf("the internal block index is:", 28, 0);
-		ocall_printint(&rb_indicies[i - j].internal_block_index);
-		ocall_printf("the code word number is:", 24, 0);
-		ocall_printint(&rb_indicies[i - j].code_word_number);
+		// ocall_printf("*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=", 42, 0);
+		// ocall_printf("the rquested block is:", 22, 0);
+		// ocall_printint(&blockNum);
+		// ocall_printf("the I is:", 9, 0);
+		// ocall_printint(&i);
+		// ocall_printf("the tmp_index is:", 17, 0);
+		// ocall_printint(&tmp_index);
+		// ocall_printint(&permuted_index);
+		// ocall_printf("**********", 10, 0);
+		// ocall_printf("the node index is:", 18, 0);
+		// ocall_printint(&rb_indicies[i - j].node_index);
+		// ocall_printf("the current chunk id is:", 24, 0);
+		// ocall_printint(&files[fileNum].current_chunk_id);
+		// ocall_printf("the internal block index is:", 28, 0);
+		// ocall_printint(&rb_indicies[i - j].internal_block_index);
+		// ocall_printf("the code word number is:", 24, 0);
+		// ocall_printint(&rb_indicies[i - j].code_word_number);
 		
 		
 	}
 	
-	ocall_printf("*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=", 42, 0);
+	// ocall_printf("*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=", 42, 0);
 
 	int total_parity_blocks = files[fileNum].numBlocks * (files[fileNum].n - files[fileNum].k);
 
@@ -2721,75 +2702,29 @@ void recover_block(int fileNum, int blockNum, uint8_t *blockData, int *toggle){
 		rb_indicies[i].node_index = (tmp_index - temp_internal_block_index) / files[fileNum].numBlocks + files[fileNum].k;
 		// rb_indicies[i].node_index = i;
 		rb_indicies[i].code_word_number = code_word_number;	
-	ocall_printf("*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=", 42, 0);
-	ocall_printf("*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=", 42, 0);
-	ocall_printf("*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=", 42, 0);
-	ocall_printf("this is the i:", 14, 0);
-	ocall_printint(&i);
-	ocall_printf("the requested block is:", 23, 0);
-	ocall_printint(&requested_block);
-	ocall_printf("the total blocks index is:", 26, 0);
-	ocall_printint(&rb_indicies[i].total_blocks_index);
-	ocall_printf("the internal block index is:", 28, 0);
-	ocall_printint(&rb_indicies[i].internal_block_index);
-	ocall_printf("the node index is:", 18, 0);
-	ocall_printint(&rb_indicies[i].node_index);
-	ocall_printf("the code word number is:", 24, 0);
-	ocall_printint(&rb_indicies[i].code_word_number);
-	ocall_printf("*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=", 42, 0);
-	ocall_printf("*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=", 42, 0);
-	ocall_printf("*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=", 42, 0);
-	ocall_printf("*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=", 42, 0);
+	// ocall_printf("*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=", 42, 0);
+	// ocall_printf("*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=", 42, 0);
+	// ocall_printf("*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=", 42, 0);
+	// ocall_printf("this is the i:", 14, 0);
+	// ocall_printint(&i);
+	// ocall_printf("the requested block is:", 23, 0);
+	// ocall_printint(&requested_block);
+	// ocall_printf("the total blocks index is:", 26, 0);
+	// ocall_printint(&rb_indicies[i].total_blocks_index);
+	// ocall_printf("the internal block index is:", 28, 0);
+	// ocall_printint(&rb_indicies[i].internal_block_index);
+	// ocall_printf("the node index is:", 18, 0);
+	// ocall_printint(&rb_indicies[i].node_index);
+	// ocall_printf("the code word number is:", 24, 0);
+	// ocall_printint(&rb_indicies[i].code_word_number);
+	// ocall_printf("*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=", 42, 0);
+	// ocall_printf("*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=", 42, 0);
+	// ocall_printf("*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=", 42, 0);
+	// ocall_printf("*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=", 42, 0);
 	}
 	
 
 
-	// int cwrd_index = 0;
-	// for (int i = 0; i < files[fileNum].k; i++) {
-	// 	cwrd_index = code_word_number * files[fileNum].k + i;
-
-	// 	int tmp_index = feistel_network_prp(files[fileNum].shuffel_key, cwrd_index, numBits);
-	// 	while (tmp_index >= total_blocks) {
-	// 		tmp_index = feistel_network_prp(files[fileNum].shuffel_key, tmp_index, numBits);
-	// 	}
-	// 	if (tmp_index == permuted_index) {
-	// 		rb_indicies[i].is_corrupted = 1;
-	// 	} else {
-	// 		rb_indicies[i].is_corrupted = 0;
-	// 	}
-
-	// 	rb_indicies[i].total_blocks_index = tmp_index;
-	// 	// the temp is the internal block index
-	// 	int temp_internal_block_index = tmp_index % files[fileNum].numBlocks;
-	// 	rb_indicies[i].internal_block_index = temp_internal_block_index;
-	// 	rb_indicies[i].node_index = (tmp_index - temp_internal_block_index) / files[fileNum].numBlocks;
-	// 	rb_indicies[i].code_word_number = code_word_number;
-			
-	// 		ocall_printf("==================imp======================", 43, 0);
-	// 		ocall_printf("the I is :", 10, 0);
-	// 		ocall_printint(&i);
-	// 		ocall_printf("the node index is:", 18, 0);
-	// 		ocall_printint(&rb_indicies[i].node_index);
-	// 		ocall_printf("the current chunk id is:", 24, 0);
-	// 		ocall_printint(&files[fileNum].current_chunk_id);
-	// 		ocall_printf("the internal block index is:", 28, 0);
-	// 		ocall_printint(&rb_indicies[i].internal_block_index);
-	// 		ocall_printf("the code word number is:", 24, 0);
-	// 		ocall_printint(&rb_indicies[i].code_word_number);
-	// 		ocall_printf("the temp index is:", 18, 0);
-	// 		ocall_printint(&tmp_index);
-	// 		ocall_printf("the i is:", 9, 0);
-	// 		ocall_printint(&i);
-	// 		ocall_printf("========================================", 40, 0);
-		
-	// 	if (rb_indicies[i].node_index == files[fileNum].current_chunk_id) {
-
-	// 		rb_indicies[i].is_local = 1;
-	// 	} else {
-	// 		rb_indicies[i].is_local = 0;
-	// 	}
-
-	// }
 
 
 	// block number is calculated
@@ -2819,12 +2754,15 @@ void recover_block(int fileNum, int blockNum, uint8_t *blockData, int *toggle){
 		
 		if (rb_indicies[i].is_local == 1) {
 			if (*toggle) {
+				ocall_test_time();
+				ocall_printf("negetive test", 10, 0);
 				ocall_init_parity(numBits);
 				*toggle = 0;
+				ocall_test_time();
 			}
-			ocall_printf("###########################Local Block DETECTED###############################", 78, 0);
-			ocall_printf("the real block index is:", 24, 0);
-			ocall_printint(&rb_indicies[i].total_blocks_index);
+			// ocall_printf("###########################Local Block DETECTED###############################", 78, 0);
+			// ocall_printf("the real block index is:", 24, 0);
+			// ocall_printint(&rb_indicies[i].total_blocks_index);
 
 			check_block(fileNum, rb_indicies[i].internal_block_index, status, tmpcode_word);
 
@@ -2854,44 +2792,37 @@ void recover_block(int fileNum, int blockNum, uint8_t *blockData, int *toggle){
 
 		free(tmpcode_word);
 	}
+	ocall_test_time();
+
+
 
 	ocall_printf("=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-= Request Block =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=", 77, 0);
 	
 		// if (counter_outside_data > 0) {
-		sgx_status_t ocall_ret = ocall_get_batch_blocks(fileNum, rb_indicies, sizeof(recoverable_block_indicies), files[fileNum].n, code_word, code_word_index, nodes, cw_size, cw_count, sizeof(NodeInfo));
+		sgx_status_t ocall_ret = ocall_get_batch_blocks(fileNum, rb_indicies, sizeof(recoverable_block_indicies), files[fileNum].n, signatures, code_word, code_word_index, nodes, cw_size, cw_count, sizeof(NodeInfo));
+		
 		printEnclaveError(ocall_ret);
 		// }
 
-		// for (int i = files[fileNum].k; i < files[fileNum].n; i++) {
-		// 	uin
-		// }
-		// sleep(10);
-		
+	for (int i = 0; i < files[fileNum].n; i++) {
+		if (rb_indicies[i].is_local) { ocall_printf("Local Signature", 15, 0); continue;}
+		uint8_t signature2[32] = {0};
+		ocall_printf("Generating signature", 20, 0);
+		int data_len2 = 32;
+		hmac_sha2(files[fileNum].PC_Key, 32, code_word_tmp + (i * BLOCK_SIZE), BLOCK_SIZE, signature2, &data_len2);
 
-	// sgx_status_t ocall_ret = ocall_broadcast_block(fileNum, (void *)rb_indicies, sizeof(rb_indicies), files[fileNum].k, code_word, code_word_index, nodes, cw_size, cw_count, sizeof(NodeInfo));
-
+		if (memcmp(signatures[i], signature2, 32) == 0) {
+			ocall_printf("Signature match", 15, 0);
+			ocall_printint(&i);
+		} else {
+			ocall_printf("Signature mismatch", 18, 0);
+			ocall_printint(&i);
+		}
+	}
 	
-	// ocall_printf("debug 10", 8, 0);
 
 	ocall_get_rs_matrix(k, m, symSize, matrix, m*k);
 	
-	// ocall_printf("matrix: ", 8, 0);
-	// for (int i = 0; i < m; i++) {
-	// 	for (int j = 0; j < k; j++) {
-	// 		ocall_printint(&matrix[i*k + j]);
-	// 	}
-
-
-	// }
-
-	// ocall_printf("11111111111111111111", 20, 0);
-	// ocall_printf(files[fileNum].PC_Key, 32, 1);
-
-
-
-
-
-
 
 	for (int i = 0; i < files[fileNum].n; i++) {
 		
@@ -3095,8 +3026,19 @@ void ecall_small_corruption(const char *fileName, int blockNum) {
 		blockData[1] = 0x00;
 	}
 
+	ocall_printf("********************************************************************************", 80, 0);
+	ocall_printf("************************************************************", 60, 0);
+	ocall_printf("**************************************************", 50, 0);
+	ocall_printf("****************************************", 40, 0);
+	ocall_printf("******************************", 30, 0);
+	ocall_printf("********************", 20, 0);
+	ocall_printf("**********", 10, 0);
 
+
+	ocall_test_time();
 	if (audit_block_group(fileNum, 1, &blockNum, sigmas, tag, blockData) != 0) {
+		ocall_test_time();
+
 		    ocall_printf("AUDIT FAILED!!", 15, 0);
 		    ocall_printf("==================================================", 50, 0);
 		    ocall_printf("recovering block", 15, 0);
@@ -3129,6 +3071,8 @@ void ecall_small_corruption(const char *fileName, int blockNum) {
 			}
 
 		} else {
+			ocall_test_time();
+
 		    ocall_printf("AUDIT SUCCESS!", 15, 0);
 		}
 
@@ -3141,60 +3085,6 @@ void ecall_small_corruption(const char *fileName, int blockNum) {
 
 }
 
-
-
-// void ecall_test_rs(uint8_t *data, int k, int n, int *erasures) {
-
-// 	int m = n - k;
-
-// 	char **data_ptrs = malloc(sizeof(char *) * k * 2);
-// 	char **coding_ptrs = malloc(sizeof(char *) * m * 2);
-
-// 	int *matrix = (int *)malloc(sizeof(int) * m * k);
-
-// 	ocall_get_rs_matrix(k, m, 16, matrix, m*k);
-
-	
-// 	// reed_sol_vandermonde_coding_matrix(k, m, 16);
-
-// 	for (int i = 0; i < (2 * n); i++) {
-// 		ocall_printf("i", 2, 0);
-// 		ocall_printint(&i);
-// 		int flag = 0;
-// 		for (int j = 0; j < 2; j++) {
-// 			if ((i *2) == erasures[j]) {
-// 				ocall_printf("flag", 8, 0);
-// 				flag = 1;
-// 			}
-// 		}
-// 		if (flag == 0) {
-
-// 			if (i < k) {
-				
-// 				data_ptrs[i] = malloc(sizeof(uint16_t));
-// 				memcpy(data_ptrs[i], &data[i * 2], sizeof(uint16_t));
-// 			} else {
-// 				coding_ptrs[i-k] = malloc(sizeof(uint16_t));
-// 				memcpy(coding_ptrs[i-k], &data[i * 2], sizeof(uint16_t));
-// 			} 
-// 		}
-// 	}
-
-// 	ocall_printf("matrix", 6, 0);
-
-//     int ret = matrix_decode(k, m, 16, matrix, erasures, data_ptrs, coding_ptrs, sizeof(uint16_t));
-
-// 	ocall_printf("ret", 4, 0);
-// 	ocall_printint(&ret);
-
-// 	for (int i = 0; i < 2 * n; i++) {
-// 		ocall_printf("data",5,0);
-// 		int tmp = data[i];
-// 		ocall_printint(&tmp);
-// 	}
-
-
-// }
 
 void ecall_test_rs(char *data, int k, int n, int *erasures) {
     int m = n - k;
@@ -3490,6 +3380,7 @@ void local_code_words(int fileNum, int code_word_id, uint8_t *blockData, int *to
     uint16_t *recovered_data = (uint16_t *)malloc(sizeof(uint16_t) * BLOCK_SIZE / 2);
 
 	uint8_t *code_word = (uint8_t *)malloc(n * BLOCK_SIZE);
+	uint8_t *signatures = (uint8_t *)malloc(n * 32);
 	uint8_t *recovered_block = (uint8_t *)malloc(BLOCK_SIZE);
 
 	if (!recovered_data || !code_word || !recovered_block) {
@@ -3717,9 +3608,27 @@ void local_code_words(int fileNum, int code_word_id, uint8_t *blockData, int *to
 
 	
 		// if (counter_outside_data > 0) {
-		sgx_status_t ocall_ret = ocall_get_batch_blocks(fileNum, rb_indicies, sizeof(recoverable_block_indicies), files[fileNum].n, code_word, code_word_index, nodes, cw_size, cw_count, sizeof(NodeInfo));
+		sgx_status_t ocall_ret = ocall_get_batch_blocks(fileNum, rb_indicies, sizeof(recoverable_block_indicies), files[fileNum].n, signatures, code_word, code_word_index, nodes, cw_size, cw_count, sizeof(NodeInfo));
 		printEnclaveError(ocall_ret);
 		// }
+
+
+	for (int i = 0; i < files[fileNum].n; i++) {
+		if (rb_indicies[i].is_local) { ocall_printf("Local Signature", 15, 0); continue;}
+		uint8_t signature2[32] = {0};
+		ocall_printf("Generating signature", 20, 0);
+		int data_len2 = 32;
+		hmac_sha2(files[fileNum].PC_Key, 32, code_word_tmp + (i * BLOCK_SIZE), BLOCK_SIZE, signature2, &data_len2);
+
+		if (memcmp(signatures[i], signature2, 32) == 0) {
+			ocall_printf("Signature match", 15, 0);
+			ocall_printint(&i);
+		} else {
+			ocall_printf("Signature mismatch", 18, 0);
+			ocall_printint(&i);
+		}
+	}
+	
 
 
 	for (int i = 0; i < files[fileNum].n; i++) {
@@ -3748,7 +3657,6 @@ void local_code_words(int fileNum, int code_word_id, uint8_t *blockData, int *to
 		}
 
 	}
-
 
 	ocall_printf("code_word_tmp 0 ", 23, 0);
 	ocall_printf(code_word_tmp, BLOCK_SIZE, 1);

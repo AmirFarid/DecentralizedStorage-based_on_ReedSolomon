@@ -289,10 +289,27 @@ printf("sigma_mem size = %zu\n", numBlocks * (PRIME_LENGTH / 8) * sizeof(uint8_t
     FILE *file = fopen(fileName, "rb");
     // uint8_t blockData[BLOCK_SIZE];
 
+    struct timespec start, end;
 
+    // start time
+    clock_gettime(CLOCK_MONOTONIC, &start);
+
+    
 	//printf("call ecall\n");
 	int fileNum = 0;
     status = ecall_file_init(eid, &fileNum, tag, *sigma, fileDataTransfer, numBlocks, sizeof(FileDataTransfer)); // make sure the change to returning fileNum works properly.
+    
+        // end time
+    clock_gettime(CLOCK_MONOTONIC, &end);
+    
+    double s_time = start.tv_sec + (start.tv_nsec / 1e9);
+    double e_time = end.tv_sec + (end.tv_nsec / 1e9);
+
+    printf("Preprocessing time: %f seconds\n", e_time - s_time);
+    
+    
+    
+    
     if (status != SGX_SUCCESS) {
         printf("Error calling enclave function: %d\n", status);
         return;
@@ -423,6 +440,7 @@ void ocall_test_time() {
 
 int main(void) 
 {
+    struct timespec start, end;
     struct timeval start_time, end_time;
     double cpu_time_used;
     int waittime;
@@ -443,15 +461,10 @@ int main(void)
         return 1;
     }
 
-
+    // ---------------------------------------------------------------------------------
 
     // gettimeofday(&start_time, NULL);
     // ecall_test_time(eid);
-
-
-
-
-
 
     // gettimeofday(&end_time, NULL);
     // waittime = 3;
@@ -459,10 +472,7 @@ int main(void)
     // printf("1: %f with %d wait time\n", cpu_time_used, waittime);
     // printf("()()()()()()()()()()()()()()(()()()()()()())\n");
 
-
-
-
-// ---------------------------------------------------------------------------------
+// ---------------------------------- matrix test -----------------------------------------------
 
    
     int *matrix_test_2 = malloc(sizeof(int) * m * k);
@@ -480,78 +490,45 @@ int main(void)
 
 
 
-// ---------------------------------------------------------------------------------
-
+// --------------------------------------------------------------------------------- 
 
 
     char fileName[512];
     strcpy(fileName, "/home/amoghad1/f/Decentralized-Cloud-Storage-Self-Audit-Repair/App-Enclave/testFile");
 
-
-    // Amir M M Farid
-
     NodeInfo nodes[NUM_NODES];
 
-
     FileDataTransfer *fileDataTransfer =  malloc(sizeof(FileDataTransfer));
+
+
     // ------------------------------------ Pre processing ------------------------------------
-    // clock_t start0 = clock();
-    // gettimeofday(&start_time, NULL);
-    struct timespec start, end;
-
-
+    // start time
+    
+    printf("==== PREPROCESSING ====\n");
     clock_gettime(CLOCK_MONOTONIC, &start);
 
-    
     preprocessing(eid, mode, fileName, fileDataTransfer , n, k);
     
-    
+    // end time
     clock_gettime(CLOCK_MONOTONIC, &end);
+    
     double s_time = start.tv_sec + (start.tv_nsec / 1e9);
     double e_time = end.tv_sec + (end.tv_nsec / 1e9);
 
     printf("Preprocessing time: %f seconds\n", e_time - s_time);
 
-
-    getchar();
-
-    // clock_t end0 = clock();
-    // gettimeofday(&end_time, NULL);
-    // waittime = 3;
-
-
-
-
-    // cpu_time_used = (end_time.tv_sec - start_time.tv_sec) + (end_time.tv_usec - start_time.tv_usec) / 1000000.0;
-    // printf("INIT TIME: %f with %d wait time\n", cpu_time_used, waittime);
-    // printf("()()()()()()()()()()()()()()(()()()()()()())\n");
-
-    // printf("Time: %f preprocessing\n", ((double)(end0 - start0)) / CLOCKS_PER_SEC);
-
-    getchar();
-
     load_file_data(fileName, fileDataTransfer->numBlocks, mode, k, n);
-    
-
-    // printf("press enter to continue\n");
-    // getchar();
-    
-
-    strcpy(fileName, fileDataTransfer->fileName);
-
-
 
     printf("Press enter to continue for initialization\n");
     getchar();
 
-    // Call Enclave initialization function.
-    //int result;
-
     // ------------------------------------  initialization ------------------------------------
-    //gettimeofday(&start_time, NULL);
-    printf("Call FTL init\n");
-    //clock_t start12 = clock();
-    gettimeofday(&start_time, NULL);
+    
+    strcpy(fileName, fileDataTransfer->fileName);
+
+
+    printf("==== FTL INIT ====\n");
+    
     ret = ecall_init(eid, fileDataTransfer, sizeof(FileDataTransfer));
     
 
@@ -568,134 +545,50 @@ int main(void)
     }
 
 
-    // Perform file initialization in SGX
-    //gettimeofday(&start_time, NULL);
-    printf("Call file init\n");
-    // it is called in untrusted side
+    printf("==== FILE INIT ====\n");
     app_file_init(eid, fileDataTransfer);
-    // clock_t end12 = clock();
-
-    gettimeofday(&end_time, NULL);
-    waittime = 3;
-    cpu_time_used = (end_time.tv_sec - start_time.tv_sec) + (end_time.tv_usec - start_time.tv_usec) / 1000000.0;
-    printf("INIT TIME: %f with %d wait time\n", cpu_time_used, waittime);
-    printf("()()()()()()()()()()()()()()(()()()()()()())\n");
-    // printf("Time: %f file init\n", ((double)(end12 - start12)) / CLOCKS_PER_SEC);
-    printf("()()()()()()()()()()()()()()(()()()()()()())\n");
-    //gettimeofday(&end_time, NULL);
-    //waittime = 24;
-    //cpu_time_used = (end_time.tv_sec - start_time.tv_sec) + (end_time.tv_usec - start_time.tv_usec) / 1000000.0;
 
 
 
 
+    printf("Press enter to continue for small corruption Block 0\n");
+    getchar();
 
 
     // ------------------------------------ small corruption ------------------------------------
     printf("==== SMALL CORRUPTION ====\n");
     printf("==== Block 0 ====\n");
-    gettimeofday(&start_time, NULL);
+
     ecall_small_corruption(eid, fileName, 0);
-    gettimeofday(&end_time, NULL);
-    waittime = 3;
-    cpu_time_used = (end_time.tv_sec - start_time.tv_sec) + (end_time.tv_usec - start_time.tv_usec) / 1000000.0;
-    printf("INIT TIME: %f with %d wait time\n", cpu_time_used, waittime);
-    printf("()()()()()()()()()()()()()()(()()()()()()())\n");
 
 
 
 
+    printf("Press enter to continue for small corruption Block 1\n");
+    getchar();
 
 
+    printf("==== SMALL CORRUPTION ====\n");
+    printf("==== Block 1 ====\n");
+
+    ecall_small_corruption(eid, fileName, 1);
 
 
-
-
-
-
-
-    
-    // printf("Press enter to continue <enter>\n");
-
+    printf("Press enter to continue for audit file\n");
+    getchar();
     int status = 1;
-
-    gettimeofday(&start_time, NULL);
-
+    // ------------------------------------ audit file ------------------------------------
+    printf("==== AUDIT FILE ====\n");
+    
     ecall_audit_file(eid, fileName, &status);
 
-    gettimeofday(&end_time, NULL);
-    waittime = 3;
-    cpu_time_used = (end_time.tv_sec - start_time.tv_sec) + (end_time.tv_usec - start_time.tv_usec) / 1000000.0;
-    printf("INIT TIME: %f with %d wait time\n", cpu_time_used, waittime);
-    printf("()()()()()()()()()()()()()()(()()()()()()())\n");
-    // printf("Time: %f file init\n", ((double)(end12 - start12)) / CLOCKS_PER_SEC);
-    printf("()()()()()()()()()()()()()()(()()()()()()())\n");
-
-    // ------------------------------------ this is for testing ------------------------------------
-    printf("Press enter to continue for small corruption\n");
-    getchar();
-    // ecall_compare(eid);ma
-
-    // the block number is 0 for the first block if you are on mode 
-    printf("==== SMALL CORRUPTION ====\n");
-    printf("==== Block 0 ====\n");
-
-    // ------------------------------------ small corruption ------------------------------------
-    gettimeofday(&start_time, NULL);
-    ecall_small_corruption(eid, fileName, 0);
-    gettimeofday(&end_time, NULL);
-    waittime = 3;
-    cpu_time_used = (end_time.tv_sec - start_time.tv_sec) + (end_time.tv_usec - start_time.tv_usec) / 1000000.0;
-    printf("INIT TIME: %f with %d wait time\n", cpu_time_used, waittime);
-    printf("()()()()()()()()()()()()()()(()()()()()()())\n");
-
-
-    // printf("Time: %f small corruption (without corruption)\n", ((double)(end2 - start2)) / CLOCKS_PER_SEC);
-
-    // ecall_test_rs(eid, data_test, k_test, n_test, erasures_test);
-
-    // printf("CRTL C\n");
-
-    printf("==== Block 1 ====\n");
-    // clock_t start3 = clock();
-    gettimeofday(&start_time, NULL);
-    ecall_small_corruption(eid, fileName, 2);
-    // clock_t end3 = clock();
-    gettimeofday(&end_time, NULL);
-    waittime = 3;
-    cpu_time_used = (end_time.tv_sec - start_time.tv_sec) + (end_time.tv_usec - start_time.tv_usec) / 1000000.0;
-    printf("INIT TIME: %f with %d wait time\n", cpu_time_used, waittime);
-    printf("()()()()()()()()()()()()()()(()()()()()()())\n");
-    // mprintf("Time: %f small corruption (without corruption)\n", ((double)(end3 - start3)) / CLOCKS_PER_SEC);
-    printf("()()()()()()()()()()()()()()(()()()()()()())\n");
     
-    
-    
-    
+    // ------------------------------------ retrieve file ------------------------------------
     printf("Press enter to continue for retrieve file\n");
     getchar();
 
     ecall_retrieve_File(eid, fileName);
 
-    printf("Press enter to continue <enter>\n");
-
-    getchar();
-
-    //printf("FILE INIT TIME: %f with %d wait time\n", cpu_time_used, waittime);
-
-    printf("Call audit file\n");
-    //gettimeofday(&start_time, NULL);
-    //gettimeofday(&end_time, NULL);
-    //waittime = 46;
-    //cpu_time_used = (end_time.tv_sec - start_time.tv_sec) + (end_time.tv_usec - start_time.tv_usec) / 1000000.0;
-    //printf("AUDIT TIME: %f with %d wait Time\n", cpu_time_used, waittime);
-
-    printf("Press enter to continue <enter>\n");
-
-    getchar();
-
-    // printf("Call decode partition\n");
-    // ecall_decode_partition(eid, fileName, 3);
 
     if(status == 0) {
         printf("SUCCESS!!!\n");

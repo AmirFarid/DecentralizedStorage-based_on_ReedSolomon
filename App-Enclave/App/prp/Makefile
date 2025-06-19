@@ -79,8 +79,8 @@ else
 	Urts_Library_Name := sgx_urts
 endif
 
-App_C_Files := App/App.c App/ccom/ccom.c  App/decentralize/decentralize.c App/rs/rs.c App/aes/aes.c App/prp/prp.c
-App_Include_Paths := -IApp -I$(SGX_SDK)/include -IApp/ccom -IEnclave -IApp/decentralize -IApp/rs -IApp/aes -IApp/prp -I/usr/local/include/jerasure -L/usr/local/lib
+App_C_Files := App/App.c App/ccom/ccom.c  App/decentralize/decentralize.c App/rs/rs.c App/aes/aes.c App/prp/prp.c App/hmac/hmac.c
+App_Include_Paths := -IApp -I$(SGX_SDK)/include -IApp/ccom -IEnclave -IApp/decentralize -IApp/rs -IApp/aes -IApp/prp -I/usr/local/include/jerasure -L/usr/local/lib -IApp/hmac
 
 App_C_Flags := -fPIC -Wno-attributes $(App_Include_Paths)
 
