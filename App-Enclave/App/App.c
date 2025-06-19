@@ -408,9 +408,31 @@ printf("sigma_mem size = %zu\n", numBlocks * (PRIME_LENGTH / 8) * sizeof(uint8_t
 #include "jerasure/reed_sol.h"
 #include <time.h>
 
+void ocall_test_time() {
+
+    struct timespec currentTime;
+
+    clock_gettime(CLOCK_MONOTONIC, &currentTime);
+
+    double time_in_seconds = currentTime.tv_sec + (currentTime.tv_nsec / 1e9);
+    printf("Current time: %f seconds\n", time_in_seconds);
+    
+
+
+}
+
 int main(void) 
 {
+    struct timeval start_time, end_time;
+    double cpu_time_used;
+    int waittime;
 
+    int n = 4;
+    int k = 2;
+    int m = n - k;
+    int mode = 1;
+
+    
     sgx_enclave_id_t eid;
     sgx_status_t ret;
 
@@ -421,32 +443,42 @@ int main(void)
         return 1;
     }
 
+
+
+    // gettimeofday(&start_time, NULL);
+    // ecall_test_time(eid);
+
+
+
+
+
+
+    // gettimeofday(&end_time, NULL);
+    // waittime = 3;
+    // cpu_time_used = (end_time.tv_sec - start_time.tv_sec) + (end_time.tv_usec - start_time.tv_usec) / 1000000.0;
+    // printf("1: %f with %d wait time\n", cpu_time_used, waittime);
+    // printf("()()()()()()()()()()()()()()(()()()()()()())\n");
+
+
+
+
 // ---------------------------------------------------------------------------------
 
    
-    // int *matrix_test_2 = malloc(sizeof(int) * 3 * 3);
+    int *matrix_test_2 = malloc(sizeof(int) * m * k);
 
-    // matrix_test_2 = reed_sol_vandermonde_coding_matrix(3, 3, 16);
+    matrix_test_2 = reed_sol_vandermonde_coding_matrix(k, m, 16);
 
-    // printf("================ matrix_test_2 ================\n");
-    // jerasure_print_matrix(matrix_test_2, 3, 3, 16);
-    // printf("matrix_test_2[0]: %d\n", matrix_test_2[0]);
-    // printf("matrix_test_2[1]: %d\n", matrix_test_2[1]);
-    // printf("matrix_test_2[2]: %d\n", matrix_test_2[2]);
-    // printf("matrix_test_2[3]: %d\n", matrix_test_2[3]);
-    // printf("matrix_test_2[4]: %d\n", matrix_test_2[4]);
-    // printf("matrix_test_2[5]: %d\n", matrix_test_2[5]);
-    // printf("matrix_test_2[6]: %d\n", matrix_test_2[6]);
-    // printf("matrix_test_2[7]: %d\n", matrix_test_2[7]);
-    // printf("matrix_test_2[8]: %d\n", matrix_test_2[8]);
-    // printf("================================================\n");ma
+    printf("================ matrix_test_2 ================\n");
+    jerasure_print_matrix(matrix_test_2, k, m, 16);
 
-    // getchar();
+    printf("{");
+    for (int i = 0; i < m *k; i++) {
+        printf("%d, ", matrix_test_2[i]);
+    }
+    printf("} \\\\ N = %d, K = %d\n", n, k);
 
 
-    struct timeval start_time, end_time;
-    double cpu_time_used;
-    int waittime;
 
 // ---------------------------------------------------------------------------------
 
@@ -460,50 +492,52 @@ int main(void)
 
     NodeInfo nodes[NUM_NODES];
 
-    int n = 6;
-    int k = 3;
-    int mode = 2;
 
     FileDataTransfer *fileDataTransfer =  malloc(sizeof(FileDataTransfer));
     // ------------------------------------ Pre processing ------------------------------------
     // clock_t start0 = clock();
-    gettimeofday(&start_time, NULL);
-    preprocessing(eid, mode, fileName, fileDataTransfer , n, k);
-    // clock_t end0 = clock();
-    gettimeofday(&end_time, NULL);
-    waittime = 3;
-    cpu_time_used = (end_time.tv_sec - start_time.tv_sec) + (end_time.tv_usec - start_time.tv_usec) / 1000000.0;
-    printf("INIT TIME: %f with %d wait time\n", cpu_time_used, waittime);
-    printf("()()()()()()()()()()()()()()(()()()()()()())\n");
+    // gettimeofday(&start_time, NULL);
+    struct timespec start, end;
 
-    // printf("Time: %f preprocessing\n", ((double)(end0 - start0)) / CLOCKS_PER_SEC);
-    printf("()()()()()()()()()()()()()()(()()()()()()())\n");
+
+    clock_gettime(CLOCK_MONOTONIC, &start);
+
+    
+    preprocessing(eid, mode, fileName, fileDataTransfer , n, k);
+    
+    
+    clock_gettime(CLOCK_MONOTONIC, &end);
+    double s_time = start.tv_sec + (start.tv_nsec / 1e9);
+    double e_time = end.tv_sec + (end.tv_nsec / 1e9);
+
+    printf("Preprocessing time: %f seconds\n", e_time - s_time);
+
 
     getchar();
 
-    if (mode == 2) {
-        load_file_data(fileName, fileDataTransfer->numBlocks);
-    }
+    // clock_t end0 = clock();
+    // gettimeofday(&end_time, NULL);
+    // waittime = 3;
+
+
+
+
+    // cpu_time_used = (end_time.tv_sec - start_time.tv_sec) + (end_time.tv_usec - start_time.tv_usec) / 1000000.0;
+    // printf("INIT TIME: %f with %d wait time\n", cpu_time_used, waittime);
+    // printf("()()()()()()()()()()()()()()(()()()()()()())\n");
+
+    // printf("Time: %f preprocessing\n", ((double)(end0 - start0)) / CLOCKS_PER_SEC);
+
+    getchar();
+
+    load_file_data(fileName, fileDataTransfer->numBlocks, mode, k, n);
+    
 
     // printf("press enter to continue\n");
     // getchar();
     
 
     strcpy(fileName, fileDataTransfer->fileName);
-
-    // for (int i = 0; i < NUM_NODES; i++) {
-    //     printf("Node %d: %s:%d\n", i, fileDataTransfer->nodes[i].ip, fileDataTransfer->nodes[i].port);
-    // }
-    // printf("------------info--------------\n");
-    // printf("Sending to enclave:\n");
-    // printf("  fileName: %s\n", fileDataTransfer->fileName);
-    // printf("  numBlocks: %d\n", fileDataTransfer->numBlocks);
-    // printf("  nodes[0].ip: %s\n", fileDataTransfer->nodes[0].ip);
-    // printf("  n = %d, k = %d, current_id = %d\n",fileDataTransfer->n, fileDataTransfer->k, fileDataTransfer->current_id);
-    // printf("--------------------------\n");
-
-
-    // printf("File data transfer size: %d\n", sizeof(FileDataTransfer));
 
 
 
@@ -533,16 +567,7 @@ int main(void)
         return 1;
     }
 
-    // Data for initialization provided by local file at the filePath of fileName
 
-    // strcpy(fileName, "/home/jdafoe/Decentralized-Cloud-Storage-Self-Audit-Repair/App-Enclave/testFile");
-    // printf("------------info 2--------------\n");
-    // printf("Sending to enclave:\n");
-    // printf("  fileName: %s\n", fileDataTransfer->fileName);
-    // printf("  numBlocks: %d\n", fileDataTransfer->numBlocks);
-    // printf("  nodes[0].ip: %s\n", fileDataTransfer->nodes[0].ip);
-    // printf("  n = %d, k = %d, current_id = %d\n",fileDataTransfer->n, fileDataTransfer->k, fileDataTransfer->current_id);
-    // printf("--------------------------\n");
     // Perform file initialization in SGX
     //gettimeofday(&start_time, NULL);
     printf("Call file init\n");
@@ -560,6 +585,34 @@ int main(void)
     //gettimeofday(&end_time, NULL);
     //waittime = 24;
     //cpu_time_used = (end_time.tv_sec - start_time.tv_sec) + (end_time.tv_usec - start_time.tv_usec) / 1000000.0;
+
+
+
+
+
+
+    // ------------------------------------ small corruption ------------------------------------
+    printf("==== SMALL CORRUPTION ====\n");
+    printf("==== Block 0 ====\n");
+    gettimeofday(&start_time, NULL);
+    ecall_small_corruption(eid, fileName, 0);
+    gettimeofday(&end_time, NULL);
+    waittime = 3;
+    cpu_time_used = (end_time.tv_sec - start_time.tv_sec) + (end_time.tv_usec - start_time.tv_usec) / 1000000.0;
+    printf("INIT TIME: %f with %d wait time\n", cpu_time_used, waittime);
+    printf("()()()()()()()()()()()()()()(()()()()()()())\n");
+
+
+
+
+
+
+
+
+
+
+
+
 
     
     // printf("Press enter to continue <enter>\n");
@@ -588,19 +641,16 @@ int main(void)
     printf("==== Block 0 ====\n");
 
     // ------------------------------------ small corruption ------------------------------------
-    // ecall_test_rs(eid, data_test, k_test, n_test, erasures_test);
-    // clock_t start2 = clock();
     gettimeofday(&start_time, NULL);
     ecall_small_corruption(eid, fileName, 0);
-    // clock_t end2 = clock();
-
     gettimeofday(&end_time, NULL);
     waittime = 3;
     cpu_time_used = (end_time.tv_sec - start_time.tv_sec) + (end_time.tv_usec - start_time.tv_usec) / 1000000.0;
     printf("INIT TIME: %f with %d wait time\n", cpu_time_used, waittime);
     printf("()()()()()()()()()()()()()()(()()()()()()())\n");
+
+
     // printf("Time: %f small corruption (without corruption)\n", ((double)(end2 - start2)) / CLOCKS_PER_SEC);
-    printf("()()()()()()()()()()()()()()(()()()()()()())\n");
 
     // ecall_test_rs(eid, data_test, k_test, n_test, erasures_test);
 

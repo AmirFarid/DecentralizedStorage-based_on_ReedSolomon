@@ -43,11 +43,11 @@ NodeInfo nodes[NUM_NODES] = {
     {"141.219.209.11", 8080, -1, 0}, // This is the host node do not count it as a node
     // {"141.219.210.172", 8080, -1, 0},
     {"141.219.249.254", 8080, -1, 0},
-    // {"141.219.250.6", 8080, -1, 0},
+    {"141.219.250.6", 8080, -1, 0},
     // {"141.219.250.6", 8080, -1, 0},
 
 
-    // {"141.219.249.254", 8080, -1, 0},
+    {"141.219.210.172", 8080, -1, 0},
     // {"141.219.250.6", 8080, -1, 0},
     // for the parity node I have to retrive it from the first node while if the parity was required in the first node I have to fake it from the second node and 
     // {"192.168.1.1", 8080, -1, 0}, // This is the host node do not count it as a node
@@ -96,6 +96,7 @@ typedef struct{
 }server_args;
 
 #define CHUNK_PATH_FORMAT "App/decentralize/chunks/data_%d.dat"
+#define CHUNK_PATH_FORMAT2 "App/decentralize/NF/data_%d.dat"
 #define CHUNK_BUFFER_SIZE 1024
 
 // Parity chunk encryption key
@@ -373,6 +374,10 @@ char *store_received_file(int client_socket, char *save_path)
 
     int n;
     int k;
+
+    
+
+    secure_recv(client_socket, Shuffle_key, sizeof(Shuffle_key));
 
     secure_recv(client_socket, &n, sizeof(int));
     secure_recv(client_socket, &k, sizeof(int));
@@ -1605,18 +1610,15 @@ void initiate_Chunks(char *fileChunkName, char *current_file, int n, int k)
     char path[256];
 
     // divide the file into K chunks and generate N - K parity chunks. generated parities are stored in decentralize/chunks/chunk_i.bin
-    initiate_rs(fileChunkName, k, n, Shuffle_key);
-
-
-    printf("debug 1\n");
+    initiate_rs(fileChunkName, k, n, Shuffle_key, 2);
 
     for (int i = 0; i < n; i++)
     {
-
+        printf("i: %d\n", i);
         // 1. Open the file chunk_i.bin
         snprintf(path, sizeof(path), CHUNK_PATH_FORMAT, i);
-        printf("----------------------------File sending to node %d------------------------------\n", i);
-        printf("path: %s\n", path);
+        // printf("----------------------------File sending to node %d------------------------------\n", i);
+        // printf("path: %s\n", path);
         FILE *fp = fopen(path, "rb");
         if (!fp)
         {
@@ -1633,7 +1635,7 @@ void initiate_Chunks(char *fileChunkName, char *current_file, int n, int k)
             Current_Chunk_ID = i;
             Number_Of_Blocks = get_file_size(fp) / BLOCK_SIZE;
             rename_file(path, current_file);
-            printf("Number of blocks: %d\n", Number_Of_Blocks);
+            // printf("Number of blocks: %d\n", Number_Of_Blocks);
 
             // TODO: set the is_parity_peer to 0 for the first node ( idea save the current node ip and compare)
             nodes[i].is_parity_peer = 0;
@@ -1646,13 +1648,16 @@ void initiate_Chunks(char *fileChunkName, char *current_file, int n, int k)
         uint32_t chunk_type = 1; // 1 for data chunk, 2 for parity chunk
         uint32_t chunk_len;
 
-        if (i > K) chunk_type = 2;
+        int sock;
+
+        if (i > k) {chunk_type = 2;}
+        else if (i < NUM_NODES){
 
         // get the size of the file
         chunk_len = get_file_size(fp);
 
         // 2. Create socket
-        int sock = socket(AF_INET, SOCK_STREAM, 0);
+        sock = socket(AF_INET, SOCK_STREAM, 0);
         if (sock < 0)
         {
             perror("Socket creation failed");
@@ -1665,8 +1670,8 @@ void initiate_Chunks(char *fileChunkName, char *current_file, int n, int k)
             .sin_family = AF_INET,
             .sin_port = htons(nodes[i].port)};
 
-        printf("server_addr.sin_addr: %s\n", nodes[i].ip);
-        printf("server_addr.sin_port: %d\n", nodes[i].port);
+        // printf("server_addr.sin_addr: %s\n", nodes[i].ip);
+        // printf("server_addr.sin_port: %d\n", nodes[i].port);
 
         inet_pton(AF_INET, nodes[i].ip, &server_addr.sin_addr);
 
@@ -1681,6 +1686,8 @@ void initiate_Chunks(char *fileChunkName, char *current_file, int n, int k)
         printf("Connected to node %d (%s:%d), sending file: %s\n", i, nodes[i].ip, nodes[i].port, path);
 
         // 4. Send the chunk type and length
+
+        secure_send(sock, &Shuffle_key, sizeof(Shuffle_key));
 
         secure_send(sock, &N, sizeof(N));
         printf("N: %d\n", N);
@@ -1697,14 +1704,15 @@ void initiate_Chunks(char *fileChunkName, char *current_file, int n, int k)
         secure_send(sock, &chunk_len, sizeof(chunk_len));
         // secure_send(sock, chunk, chunk_len);
 
+        }
         // 4. Send file in chunks
         uint8_t *complete_buffer = malloc(chunk_len * sizeof(uint8_t));
         memset(complete_buffer, 0, chunk_len);
         size_t bytes_read;
 
-
         if (i > K)
         { // parity chunks
+            printf("parity chunk\n");
             uint8_t buffer[BLOCK_SIZE];
 
             // shuffle the file
@@ -1726,16 +1734,17 @@ void initiate_Chunks(char *fileChunkName, char *current_file, int n, int k)
 
                 EncryptData(PC_KEY, buffer, BLOCK_SIZE);
 
-                ssize_t sent = secure_send(sock, buffer, BLOCK_SIZE);
-                if (sent < 0)
-                {
-                    perror("Send failed");
-                    break;
-                }
+                // ssize_t sent = secure_send(sock, buffer, BLOCK_SIZE);
+                // if (sent < 0)
+                // {
+                //     perror("Send failed");
+                //     break;
+                // }
             }
         }
-        else
+        else if (i < NUM_NODES)
         { // data chunks
+            printf("data chunk\n");
             uint8_t buffer[CHUNK_BUFFER_SIZE];
             while ((bytes_read = fread(buffer, 1, CHUNK_BUFFER_SIZE, fp)) > 0)
             {
@@ -2060,7 +2069,11 @@ void preprocessing(sgx_enclave_id_t eid, int mode, char *fileChunkName, FileData
 
 
 
-void load_file_data(char *file_name, int num_blocks) {
+void load_file_data(char *file_name, int num_blocks, int mode , int k , int n) {
+
+    if (mode == 1){
+        initiate_rs(file_name, k, n, Shuffle_key, mode);
+    }
 
     int num_bits = ceil(log2(Number_Of_Blocks * K));
 
@@ -2070,7 +2083,13 @@ void load_file_data(char *file_name, int num_blocks) {
 
     ALL_DATA = malloc(chunk_size * N * sizeof(uint8_t));
 
-    char *file_path = "App/decentralize/chunks/current_file.bin";
+    char *file_path;
+    if (mode == 2){
+        file_path = "App/decentralize/chunks/current_file.bin";
+    }else if (mode == 1){
+        file_path = "App/decentralize/NF/data_0.dat";
+    }
+
     FILE *file = fopen(file_path, "rb");
     if (!file) {
         perror("Failed to open file");
@@ -2089,7 +2108,11 @@ void load_file_data(char *file_name, int num_blocks) {
     for(int i = 1; i < K; i++) {
         int permuted_index = permutation(i, num_bits, Number_Of_Blocks * (K));
         char chunk_path[256];  // allocate space
-        snprintf(chunk_path, sizeof(chunk_path), CHUNK_PATH_FORMAT, i);
+        if (mode == 2){
+            snprintf(chunk_path, sizeof(chunk_path), CHUNK_PATH_FORMAT, i);
+        }else if (mode == 1){
+            snprintf(chunk_path, sizeof(chunk_path), CHUNK_PATH_FORMAT2, i);
+        }
         FILE *chunk_file = fopen(chunk_path, "rb");
         if (!chunk_file) {
             perror("Failed to open chunk file");
@@ -2110,7 +2133,11 @@ void load_file_data(char *file_name, int num_blocks) {
     // this is for parity chunks
     for(int i = K; i < N; i++) {
         char chunk_path[256];  // allocate space
-        snprintf(chunk_path, sizeof(chunk_path), CHUNK_PATH_FORMAT, i);
+        if (mode == 2){
+            snprintf(chunk_path, sizeof(chunk_path), CHUNK_PATH_FORMAT, i);
+        }else if (mode == 1){
+            snprintf(chunk_path, sizeof(chunk_path), CHUNK_PATH_FORMAT2, i);
+        }
         FILE *chunk_file = fopen(chunk_path, "rb");
         if (!chunk_file) {
             perror("Failed to open chunk file");
@@ -2160,24 +2187,11 @@ void load_file_data(char *file_name, int num_blocks) {
 
         }
 
-             
-        
-        // if(fread(ALL_DATA + i * chunk_size, 1, chunk_size, chunk_file) != chunk_size) {
-        //     perror("Failed to read chunk file");
-        //     fclose(chunk_file);
-        //     free(ALL_DATA);
-        //     return;
-        // }
+
         fclose(chunk_file);
     }
 
-    // for(int i = 0; i < N; i++){
-    //     printf("this is the chunk: %d\n", i);
-    //     for(int j = 0; j < chunk_size; j++){
-    //         printf("%X ", ALL_DATA[i * chunk_size + j]);
-    //     }
-    //     printf("--------------------------------\n");
-    // }
+
 
 
 }

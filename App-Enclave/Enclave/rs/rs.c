@@ -26,123 +26,11 @@ long fileSize;
 int K;
 int N;
 
-// void get_file_size(FILE *file){
-//     fseek(file, 0 ,SEEK_END);
-//     long size = ftell(file);
-//     rewind(file);
-//     fileSize = size;
-
-// }
-
-// void write_file(uint16_t *chunks, int n, int chunk_size){
-//         for (int i = 0; i < n; i++) {
-//         char filename[20];
-//         sprintf(filename, "../decentralize/chunks/data_%d.dat", i);
-//         FILE *file = fopen(filename, "wb");
-//         fwrite(&chunks[i *chunk_size], sizeof(uint16_t), chunk_size, file);
-//         fclose(file);
-//     }
-// }
-
-// void recover(int chunk_size, int padding_size) {
-//     FILE *output_file = fopen("recovered.dat", "wb");
-//     if (output_file == NULL) {
-//         fprintf(stderr, "Failed to open output file\n");
-//         return;
-//     }
-
-//     size_t total_written = 0;
-//     size_t target_size = fileSize;  // Use the global fileSize to know when to stop
-
-//     for (int i = 0; i < K; i++) {
-//         uint16_t *buffer = (uint16_t *)malloc(chunk_size * sizeof(uint16_t));
-//         if (buffer == NULL) {
-//             fprintf(stderr, "Memory allocation failed\n");
-//             fclose(output_file);
-//             return;
-//         }
-
-//         char filename[20];
-//         sprintf(filename, "data_%d.dat", i);
-//         FILE *file = fopen(filename, "rb");
-//         if (file == NULL) {
-//             fprintf(stderr, "Failed to open %s\n", filename);
-//             free(buffer);
-//             continue;
-//         }
-
-//         size_t read_bytes = fread(buffer, sizeof(uint16_t), chunk_size, file);
-        
-//         // Calculate how many bytes to write
-//         size_t bytes_to_write;
-//         if (i == K - 1) {
-//             // For the last chunk, only write what's needed to reach the original file size
-//             bytes_to_write = (target_size - total_written) / sizeof(uint16_t);
-//             if (bytes_to_write > chunk_size) {
-//                 bytes_to_write = chunk_size;
-//             }
-//         } else {
-//             bytes_to_write = chunk_size;
-//         }
-
-//         fwrite(buffer, sizeof(uint16_t), bytes_to_write, output_file);
-//         total_written += bytes_to_write * sizeof(uint16_t);
-
-//         fclose(file);
-//         free(buffer);
-//     }
-
-//     fclose(output_file);
-// }
-
-// void encode(uint16_t *chunks, int n, int chunk_size) {
-//     int symSize = 16;
-//     int *matrix = reed_sol_vandermonde_coding_matrix(K, N-K, symSize);
-//     if (matrix == NULL) {
-//         fprintf(stderr, "Failed to create coding matrix\n");
-//         return;
-//     }
-
-//     for (int s = 0; s < chunk_size; s++) {
-//         char **data_ptrs = malloc(sizeof(char *) * K);
-//         char **coding_ptrs = malloc(sizeof(char *) * (N-K));
-
-//         // Allocate and initialize data pointers
-//         for (int i = 0; i < K; i++) {
-//             data_ptrs[i] = malloc(sizeof(uint16_t));
-//             *((uint16_t *)data_ptrs[i]) = chunks[i * chunk_size + s];
-//         }
-        
-//         // Allocate coding pointers
-//         for (int i = 0; i < N-K; i++) {
-//             coding_ptrs[i] = malloc(sizeof(uint16_t));
-//             memset(coding_ptrs[i], 0, sizeof(uint16_t));
-//         }
-
-//         // Encode
-//         jerasure_matrix_encode(K, N-K, symSize, matrix, data_ptrs, coding_ptrs, sizeof(uint16_t));
-
-//         // Store results
-//         for (int i = K; i < N; i++) {
-//             chunks[i * chunk_size + s] = *((uint16_t *)coding_ptrs[i-K]);
-//         }
-
-//         // Cleanup
-//         for (int i = 0; i < K; i++) free(data_ptrs[i]);
-//         for (int i = 0; i < N-K; i++) free(coding_ptrs[i]);
-//         free(data_ptrs);
-//         free(coding_ptrs);
-//     }
-
-//     write_file(chunks, N, chunk_size);
-//     free(matrix);
-// }
-
-
-
-
-
-
+static const int my_matrix[3][4] = {
+    {1, 1, 1, 34820}, // N = 4 , k = 2
+    {1, 1, 1, 1},
+    {1, 1, 1, 1}
+};
 
 
 int *erasures_to_erased(int k, int m, int *erasures)
@@ -309,76 +197,49 @@ void matrix_dotprod(int k, int w, int *matrix_row, int *src_ids, int dest_id, ch
     // assert(0);
   }
 
-  // ocall_printf("debug dot 1", 12, 0);
 
 
   init = 0;
 
   dptr = (dest_id < k) ? data_ptrs[dest_id] : coding_ptrs[dest_id-k];
 
-  // ocall_printf("debug dot 2", 12, 0);
 
   /* First copy or xor any data that does not need to be multiplied by a factor */
 
   for (i = 0; i < k; i++) {
-    // ocall_printf("matrix_decode1", 16, 0);
     if (matrix_row[i] == 1) {
       if (src_ids == NULL) {
-      // ocall_printf("matrix_decode20", 16, 0);
         sptr = data_ptrs[i];
       } else if (src_ids[i] < k) {
-      // ocall_printf("matrix_decode21", 16, 0);
-        // ocall_printf("debug dot 21", 12, 0);
         sptr = data_ptrs[src_ids[i]];
-        // ocall_printf("debug dot 22", 12, 0);
       } else {
-      // ocall_printf("matrix_decode22", 16, 0);
-        // ocall_printf("debug dot 23", 12, 0);
         sptr = coding_ptrs[src_ids[i]-k];
-        // ocall_printf("debug dot 24", 12, 0);
       }
-      // ocall_printf("matrix_decode23", 16, 0);
 
       if (init == 0) {
-        // ocall_printf("debug dot 25", 12, 0);
         memcpy(dptr, sptr, size);
-      // ocall_printf("matrix_decode24", 16, 0);
         total_memcpy_bytes += size;
         init = 1;
       } else {
-      // ocall_printf("debug dot 26", 12, 0);
-      // ocall_printf("matrix_decode25", 16, 0);
         galois_region_xor(sptr, dptr, size);
         total_xor_bytes += size;
       }
     }
   }
-  // ocall_printf("debug dot 3", 12, 0);
 
 
   /* Now do the data that needs to be multiplied by a factor */
 
   for (i = 0; i < k; i++) {
-    // ocall_printf("debug dot 4", 12, 0);
 
     if (matrix_row[i] != 0 && matrix_row[i] != 1) {
-      // ocall_printf("debug dot 5", 12, 0);
       if (src_ids == NULL) {
-        // ocall_printf("debug dot 6", 12, 0);
         sptr = data_ptrs[i];
       } else if (src_ids[i] < k) {
-        // ocall_printf("debug dot 7", 12, 0);
         sptr = data_ptrs[src_ids[i]];
       } else {
-        // ocall_printf("debug dot 8", 12, 0);
         sptr = coding_ptrs[src_ids[i]-k];
       }
-      // ocall_printf("debug dot 9", 12, 0);
-      // ocall_printf(sptr, 1, 1);
-      // ocall_printint(&matrix_row[i]);
-      // ocall_printint(&size);
-      // ocall_printf(dptr, 1, 1);
-      // ocall_printint(&init);
       switch (w) {
         case 8:  galois_w08_region_multiply(sptr, matrix_row[i], size, dptr, init); break;
         case 16: galois_w16_region_multiply(sptr, matrix_row[i], size, dptr, init); break;
@@ -410,35 +271,11 @@ int matrix_decode(int k, int m, int w, int *matrix, int *erasures, char **data_p
     int row_k_ones = 1;
 
     if (w != 8 && w != 16 && w != 32) return -1;
-    // ocall_printf("debug data 1", 13, 0);
 
-    // ocall_printf(*data_ptrs, 16, 1);
-    // ocall_printf("debug MAT 1", 12, 0);
-
-    // ocall_printf(matrix, 15, 1);
-    // ocall_printf("debug code 1", 13, 0);
-    // ocall_printf(*coding_ptrs, 16, 1);
-
-    // ocall_printf("debug erasures 1", 17, 0);
-    // ocall_printint(&erasures[0]);
-    // ocall_printint(&erasures[1]);
-    // ocall_printint(&erasures[2]);
-    // ocall_printint(&erasures[3]);
-    // ocall_printint(&erasures[4]);
-    // ocall_printf("This is size", 12,0);
-    // ocall_printint(&size);
-
-    // ocall_printf("This is K", 14, 0);
-    // ocall_printint(&k);
-    // ocall_printf("This is M", 14, 0);
-    // ocall_printint(&m);
-    // ocall_printf("This is w", 14, 0);
-    // ocall_printint(&w);
 
     erased = erasures_to_erased(k, m, erasures);
     if (erased == NULL) return -1;
 
-    // ocall_printf("debug ECC 2", 12, 0);
     /* Find the number of data drives failed */
 
     lastdrive = k;
@@ -462,7 +299,6 @@ int matrix_decode(int k, int m, int w, int *matrix, int *erasures, char **data_p
           return -1;
         }
 
-        // ocall_printf("debug ECC 3", 12, 0);
         decoding_matrix = talloc(int, k*k);
         if (decoding_matrix == NULL) {
           free(erased);
@@ -478,7 +314,6 @@ int matrix_decode(int k, int m, int w, int *matrix, int *erasures, char **data_p
         }
       }
 
-      // ocall_printf("debug ECC 4", 12, 0);
       /* Decode the data drives.  
          If row_k_ones is true and coding device 0 is intact, then only decode edd-1 drives.
          This is done by stopping at lastdrive.
@@ -492,7 +327,6 @@ int matrix_decode(int k, int m, int w, int *matrix, int *erasures, char **data_p
         }
       }
 
-      // ocall_printf("debug ECC 5", 12, 0);
 
       /* Then if necessary, decode drive lastdrive */
 
@@ -512,7 +346,6 @@ int matrix_decode(int k, int m, int w, int *matrix, int *erasures, char **data_p
         free(tmpids);
       }
 
-      // ocall_printf("debug ECC 6", 12, 0);
       /* Finally, re-encode any erased coding devices */
 
       for (i = 0; i < m; i++) {
@@ -521,15 +354,12 @@ int matrix_decode(int k, int m, int w, int *matrix, int *erasures, char **data_p
         }
       }
 
-      // ocall_printf("debug ECC 7", 12, 0);
 
       free(erased);
       if (dm_ids != NULL) free(dm_ids);
       if (decoding_matrix != NULL) free(decoding_matrix);
 
-      // ocall_printf("debug ECC 8", 12, 0);
 
-      // ocall_printf("matrix_decode6", 16, 0);
       return 0;
 }
 
@@ -556,12 +386,7 @@ void decode(int chunk_size, int *erasures, uint16_t *code_word, int *matrix, int
 	  matrix[6] = 1;
 	  matrix[7] = 61477;
 	  matrix[8] = 61476;
-	  // ocall_printint(&matrix[0]);
-	  // ocall_printint(&matrix[1]);
-	  // ocall_printint(&matrix[2]);
-	  // ocall_printint(&matrix[3]);
-	  // ocall_printint(&matrix[4]);
-	  // ocall_printint(&matrix[5]);
+
 
 
     ocall_printf("-------------------------- Decoding --------------------------", 62, 0);
@@ -576,11 +401,6 @@ void decode(int chunk_size, int *erasures, uint16_t *code_word, int *matrix, int
         coding_ptrs[i] = (char *)malloc(sizeof(uint16_t));
     }
 
-    // int *matrix = malloc(sizeof(int) * m * K);
-
-    // ocall_get_rs_matrix(K, m, 16, matrix, m * K);
-    
-    // uint16_t *recovered_data = talloc(uint16_t, chunk_size);
 
     // Process each symbol
     for (int s = 0; s < 2048; s++) {
@@ -594,7 +414,6 @@ void decode(int chunk_size, int *erasures, uint16_t *code_word, int *matrix, int
                     break;
                 }
             }
-            // ocall_printf("debug ECC 2", 12, 0);
             if (!is_erased) {
 
 
@@ -609,33 +428,12 @@ void decode(int chunk_size, int *erasures, uint16_t *code_word, int *matrix, int
                 } 
             }
         }
-        // ocall_printf("debug ECC 3", 12, 0);
         // Decode
         // int ret = jerasure_matrix_decode(K, N-K, symSize, matrix, 1, erasures, data_ptrs, coding_ptrs, sizeof(uint16_t));
         int ret = matrix_decode(K, N-K, symSize, matrix, erasures, data_ptrs, coding_ptrs, sizeof(uint16_t));
-        // ocall_printint(&N);
-        // ocall_printf("debug ECC 4", 12, 0);
-        
-        // ocall_printf("data_ptrs", 8, 0);
-        // ocall_printf(data_ptrs, 3, 1);
-        // ocall_printint(&ret);
 
         if (ret == 0) {
-        // ocall_printf("debug ECC ret", 14, 0);
-        // ocall_printint(&erasures[0]);
-        // ocall_printint(&erasures[1]);
 
-            // Write recovered data
-            // for (int i = 0; erasures[i] != -1; i++) {
-            //     int idx = erasures[i];
-                
-            //     // uint16_t value;
-            //     if (idx < K) {
-            //         recovered_data[i] = *((uint16_t *)data_ptrs[idx * 2048 + s]);
-            //     } else {
-            //         recovered_data[i] = *((uint16_t *)coding_ptrs[(idx-K) * 2048 + s]);
-            //     }
-            // }
             for (int i = 0; erasures[i] != -1; i++) {
                 int idx = erasures[i];
                     // ocall_printint(&idx);
@@ -668,170 +466,9 @@ void decode(int chunk_size, int *erasures, uint16_t *code_word, int *matrix, int
 }
 
 
-
-// void read_file(const char *filename, uint16_t **chunks, int *chunk_size, int *padding_size) {
-    
-    
-//     FILE *file = fopen(filename, "rb");
-//     if (file == NULL) {
-//         fprintf(stderr, "Failed to open input file\n");
-//         return;
-//     }
-
-//     get_file_size(file);
-
-//     // Calculate chunk size
-//     int temp = (((fileSize + K - 1) / K + 2) & ~1) / sizeof(uint16_t);
-//     *chunk_size = ((temp + PAGE_SIZE - 1) / PAGE_SIZE) * PAGE_SIZE;
-    
-//     // Calculate padding
-//     *padding_size = (K * (*chunk_size) * sizeof(uint16_t)) - fileSize;
-//     if (*padding_size == (*chunk_size) * sizeof(uint16_t)) {
-//         *padding_size = 0;
-//     }
-
-//     // Allocate memory
-//     *chunks = (uint16_t *)calloc(N * (*chunk_size), sizeof(uint16_t));
-//     if (*chunks == NULL) {
-//         fprintf(stderr, "Memory allocation failed\n");
-//         fclose(file);
-//         return;
-//     }
-
-//     // Read data
-//     for (int i = 0; i < K; i++) {
-//         size_t read_bytes = fread(&(*chunks)[i * (*chunk_size)], sizeof(uint16_t), *chunk_size, file);
-        
-//         // Handle padding for last chunk
-//         if (i == K - 1 && *padding_size > 0) {
-//             memset((uint8_t *)&(*chunks)[i * (*chunk_size)] + read_bytes * sizeof(uint16_t), 
-//                    0, *padding_size);
-//         }
-//     }
-
-    
-//     encode(*chunks, N, *chunk_size);
-//     fclose(file);
-// }
-
-// void remove_file(int index) {
-//     char filename[20];
-//     sprintf(filename, "data_%d.dat", index);
-    
-//     if (remove(filename) == 0) {
-//         printf("File %s successfully removed\n", filename);
-//     } else {
-//         fprintf(stderr, "Error removing file %s\n", filename);
-//     }
-// }
-
-// // And a function to remove multiple files:
-// void remove_files(int *indices) {
-//     for (int i = 0; indices[i] != -1; i++) {
-//         remove_file(indices[i]);
-//     }
-// }
-
-// int compare_files(const char *file1, const char *file2) {
-//     FILE *f1 = fopen(file1, "rb");
-//     FILE *f2 = fopen(file2, "rb");
-    
-//     if (f1 == NULL || f2 == NULL) {
-//         fprintf(stderr, "Error opening files for comparison\n");
-//         if (f1) fclose(f1);
-//         if (f2) fclose(f2);
-//         return -1;
-//     }
-
-//     int result = 0;
-//     size_t bytes_read1, bytes_read2;
-//     unsigned char buf1[4096], buf2[4096];
-//     size_t position = 0;
-
-//     while (1) {
-//         bytes_read1 = fread(buf1, 1, sizeof(buf1), f1);
-//         bytes_read2 = fread(buf2, 1, sizeof(buf2), f2);
-
-//         if (bytes_read1 != bytes_read2) {
-//             printf("Files have different sizes\n");
-//             result = -1;
-//             break;
-//         }
-
-//         if (bytes_read1 == 0) {
-//             break;  // Reached end of both files
-//         }
-
-//         for (size_t i = 0; i < bytes_read1; i++) {
-//             if (buf1[i] != buf2[i]) {
-//                 printf("Files differ at position %zu: %02X != %02X\n", 
-//                        position + i, buf1[i], buf2[i]);
-//                 result = -1;
-//                 goto end;  // Exit both loops
-//             }
-//         }
-//         position += bytes_read1;
-//     }
-//  end:
-//     fclose(f1);
-//     fclose(f2);
-    
-//     if (result == 0) {
-//         printf("Files are identical\n");
-//     }
-//     return result;
-// }   
-
-
 void initiate_rs(int k, int n){
     N = n;
     K = k;
-    // uint16_t *chunks;
-    // int padding_size;
-    // int chunk_size;
-    // read_file(original_file, &chunks, &chunk_size, &padding_size);
+    
 }
 
-
-// int main(){
-//     N = 5;
-//     K = 3;
-//     uint16_t *chunks;
-//     int padding_size;
-//     int chunk_size;
-//     const char *original_file = "/home/amoghad1/project/all-decentralized/my-code/Decentralized-Cloud-Storage-Self-Audit-Repair/App-Enclave/testFile2";
-
-//     printf("it's OK\n");
-//     read_file(original_file, &chunks, &chunk_size, &padding_size);
-//     // printf("padding_size %d \n", *chunks);
-//     // write_file(chunks,K,chunk_size);
-    
-//     int erasures[] = {0, 2, -1};  // -1 marks the end of the array
-//     remove_files(erasures);
-
-//     // char command[256];
-//     // snprintf(command, sizeof(command), "cp data_1.dat data_0.dat");
-//     // system(command);
-
-//     // int erasures2[] = {2, -1};  // -1 marks the end of the array
-    
-
-//     decode(chunk_size, erasures);
-
-//     recover(chunk_size,padding_size);
-
-
-//     printf("Comparing original and recovered files...\n");
-//     if (compare_files(original_file, "recovered.dat") == 0) {
-//         printf("Recovery successful!\n");
-//     } else {
-//         printf("Recovery failed - files are different\n");
-//     }
-
-//     if (chunks != NULL) {
-//         free(chunks);
-//     }
-
-
-//     return 1;
-// }

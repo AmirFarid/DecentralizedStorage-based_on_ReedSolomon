@@ -290,6 +290,8 @@ void get_sigma(BIGNUM *sigma, BIGNUM **data, BIGNUM **alpha, uint8_t blockNum, u
 
 int audit_block_group(int fileNum, int numBlocks, int *blockNums, BIGNUM **sigmas, Tag *tag, uint8_t *data) {
 
+	ocall_test_time();
+
     if (fileNum < 0 || numBlocks <= 0 || !blockNums || !sigmas || !tag || !data) {
         return -1; // Invalid input
     }
@@ -418,6 +420,8 @@ cleanup:
     BN_free(sigma2);
     BN_free(sum1);
     BN_free(sum2);
+
+	ocall_test_time();
 
     return result;
 }
@@ -3796,6 +3800,11 @@ void ecall_local_code_words(int fileNum, int code_word_id, uint8_t *data, int cw
 	local_code_words(fileNum, code_word_id, data, toggle);
 }
 
+void ecall_test_time() {}
+
+void ecall_test_time_2() {
+	ocall_test_time();
+}
 
 void ecall_retrieve_File(const char *fileName) {
 

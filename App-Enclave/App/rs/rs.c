@@ -39,7 +39,7 @@ void get_file_size(FILE *file){
 
 }
 
-void write_file(uint16_t *chunks, int n, int chunk_size){
+void write_file(uint16_t *chunks, int n, int chunk_size, int mode){
 
     //     char cwd[200];
 
@@ -52,7 +52,12 @@ void write_file(uint16_t *chunks, int n, int chunk_size){
 
         for (int i = 0; i < n; i++) {
         char filename[100];
-        snprintf(filename, sizeof(filename), "App/decentralize/chunks/data_%d.dat", i);
+        if (mode == 1){
+            snprintf(filename, sizeof(filename), "App/decentralize/chunks/data_%d.dat", i);
+        }else if (mode == 2){
+            snprintf(filename, sizeof(filename), "App/decentralize/NF/data_%d.dat", i);
+        }
+
         FILE *file = fopen(filename, "wb");
          if (!file) {
         perror("fopen failed");
@@ -161,7 +166,7 @@ void recover(int chunk_size, int padding_size) {
 // }
 
 
-void encode(uint16_t *chunks, int n, int chunk_size) {
+void encode(uint16_t *chunks, int n, int chunk_size, int mode) {
     int symSize = 16;
     int *matrix = reed_sol_vandermonde_coding_matrix(rs_K, rs_N-rs_K, symSize);
     if (matrix == NULL) {
@@ -208,7 +213,7 @@ void encode(uint16_t *chunks, int n, int chunk_size) {
     }
     }
     // only write the parity chunks
-    write_file(chunks, rs_N, chunk_size);
+    write_file(chunks, rs_N, chunk_size, mode);
     free(matrix);
 }
 
@@ -675,7 +680,7 @@ void decode(int chunk_size, int *erasures) {
     free(matrix);
 }
 
-void read_file(const char *filename, uint16_t **chunks, int *chunk_size, int *padding_size, uint8_t *Shuffle_key) {
+void read_file(const char *filename, uint16_t **chunks, int *chunk_size, int *padding_size, uint8_t *Shuffle_key, int mode) {
     
     FILE *file = fopen(filename, "rb");
     if (file == NULL) {
@@ -755,7 +760,7 @@ void read_file(const char *filename, uint16_t **chunks, int *chunk_size, int *pa
         //   break;
         // }
         // int permuted_index = feistel_prp(i, num_blocks, Shuffle_key, 31);
-        printf("i: %d, permuted_index: %d\n", i, permuted_index);
+        // printf("i: %d, permuted_index: %d\n", i, permuted_index);
         // for (int j = 0; j < 4096; j++) {
         //     printf("j ==> %d\n", j);
         //     printf("chunks_shuffled[i * 4096]: %d\n", &(*chunks)[permuted_index * 4096 + j]);
@@ -765,9 +770,9 @@ void read_file(const char *filename, uint16_t **chunks, int *chunk_size, int *pa
         //     chunks_shuffled[i * 2049 + j] = (*chunks)[permuted_index * 2049 + j];
         //     printf("chunks_shuffled[%d]: %hd | %hd\n", i * 2049 + j, chunks_shuffled[i * 2049 + j], (*chunks)[permuted_index * 2049 + j]);
         //   }
-        printf("=======================\n");
-        printf("before: chunks[%d]: %d\n", permuted_index * 2048 + 1, (*chunks)[permuted_index * 2048 + 1]);
-        printf("before chunks[%d]: %d\n", i * 2048 + 1, (*chunks)[i * 2048 + 1]);
+        // printf("=======================\n");
+        // printf("before: chunks[%d]: %d\n", permuted_index * 2048 + 1, (*chunks)[permuted_index * 2048 + 1]);
+        // printf("before chunks[%d]: %d\n", i * 2048 + 1, (*chunks)[i * 2048 + 1]);
         for (int j = 0; j < 2048; j++) {
           if (i <= permuted_index) {
             continue;
@@ -779,10 +784,10 @@ void read_file(const char *filename, uint16_t **chunks, int *chunk_size, int *pa
             // chunks_shuffled[i * 4096 + j] = (*chunks)[permuted_index * 4096 + j];
             // printf("chunks_shuffled[%d]: %d\n", i * 2048 + j, (*chunks)[permuted_index * 2048 + j]);
           }
-        printf("---------------------------------\n");
-        printf("after: chunks[%d]: %d\n", permuted_index * 2048 + 1, (*chunks)[permuted_index * 2048 + 1]);
-        printf("after chunks[%d]: %d\n", i * 2048 + 1, (*chunks)[i * 2048 + 1]);
-        printf("=======================\n");
+        // printf("---------------------------------\n");
+        // printf("after: chunks[%d]: %d\n", permuted_index * 2048 + 1, (*chunks)[permuted_index * 2048 + 1]);
+        // printf("after chunks[%d]: %d\n", i * 2048 + 1, (*chunks)[i * 2048 + 1]);
+        // printf("=======================\n");
             // printf("chunks_shuffled[%d]: %d\n", 110000, (*chunks)[110000]);
             // (*chunks)[110000] = 100;
 
@@ -854,7 +859,7 @@ void read_file(const char *filename, uint16_t **chunks, int *chunk_size, int *pa
     // printf("enter to continue\n");
 
     // getchar();
-    encode(*chunks, rs_N, *chunk_size);
+    encode(*chunks, rs_N, *chunk_size, mode);
     fclose(file);
 }
 
@@ -927,16 +932,16 @@ int compare_files(const char *file1, const char *file2) {
 }   
 
 
-int initiate_rs(const char *original_file, int k, int n, uint8_t *Shuffle_key){
-    printf("N: %d, K: %d\n", n, k);
+int initiate_rs(const char *original_file, int k, int n, uint8_t *Shuffle_key, int mode){
+    // printf("N: %d, K: %d\n", n, k);
     rs_N = n;
     rs_K = k;
-    printf("rs_N: %d, rs_K: %d\n", rs_N, rs_K);
+    // printf("rs_N: %d, rs_K: %d\n", rs_N, rs_K);
     uint16_t *chunks;
     int padding_size;
     int chunk_size;
     printf("original_file: %s\n", original_file);
-    read_file(original_file, &chunks, &chunk_size, &padding_size, Shuffle_key);
+    read_file(original_file, &chunks, &chunk_size, &padding_size, Shuffle_key, mode);
     free(chunks);
     return chunk_size/4096;
 }
