@@ -1,4 +1,4 @@
-/*
+/* 
  * Application side function for interaction between the trusted application running in an Enclave,
  * and the server which interacts directly with the storage device.
  */
@@ -448,14 +448,15 @@ int main(void)
     int n = 4;
     int k = 2;
     int m = n - k;
-    int mode = 1;
+    int mode = 2;
 
     
-    sgx_enclave_id_t eid;
-    sgx_status_t ret;
+    sgx_enclave_id_t eid = 0;
+    sgx_status_t ret = SGX_ERROR_UNEXPECTED;
+    int update = 0;
 
     // Initialize the Intel SGX runtime
-    ret = sgx_create_enclave("enclave.signed.so", SGX_DEBUG_FLAG, NULL, NULL, &eid, NULL);
+    ret = sgx_create_enclave("enclave.signed.so", SGX_DEBUG_FLAG, NULL, &update, &eid, NULL);
     if (ret != SGX_SUCCESS) {
         printf("Error creating enclave: %d\n", ret);
         return 1;
@@ -475,9 +476,8 @@ int main(void)
 // ---------------------------------- matrix test -----------------------------------------------
 
    
-    int *matrix_test_2 = malloc(sizeof(int) * m * k);
+    int *matrix_test_2 = reed_sol_vandermonde_coding_matrix(k, m, 16);
 
-    matrix_test_2 = reed_sol_vandermonde_coding_matrix(k, m, 16);
 
     printf("================ matrix_test_2 ================\n");
     jerasure_print_matrix(matrix_test_2, k, m, 16);
@@ -488,15 +488,17 @@ int main(void)
     }
     printf("} \\\\ N = %d, K = %d\n", n, k);
 
-
+    free(matrix_test_2);
 
 // --------------------------------------------------------------------------------- 
 
 
     char fileName[512];
-    strcpy(fileName, "/home/amoghad1/f/Decentralized-Cloud-Storage-Self-Audit-Repair/App-Enclave/testFile");
+    // strcpy(fileName, "/home/amoghad1/f/Decentralized-Cloud-Storage-Self-Audit-Repair/App-Enclave/testFile");
+    strncpy(fileName, "/home/amoghad1/f/Decentralized-Cloud-Storage-Self-Audit-Repair/App-Enclave/testFile", sizeof(fileName) - 1);
+    fileName[sizeof(fileName) - 1] = '\0';
 
-    NodeInfo nodes[NUM_NODES];
+    // NodeInfo nodes[NUM_NODES];
 
     FileDataTransfer *fileDataTransfer =  malloc(sizeof(FileDataTransfer));
 
@@ -515,6 +517,10 @@ int main(void)
     double s_time = start.tv_sec + (start.tv_nsec / 1e9);
     double e_time = end.tv_sec + (end.tv_nsec / 1e9);
 
+
+
+
+
     printf("Preprocessing time: %f seconds\n", e_time - s_time);
 
     load_file_data(fileName, fileDataTransfer->numBlocks, mode, k, n);
@@ -525,6 +531,12 @@ int main(void)
     // ------------------------------------  initialization ------------------------------------
     
     strcpy(fileName, fileDataTransfer->fileName);
+
+    printf("fileName: %s\n", fileName);
+    printf("fileDataTransfer->fileName: %s\n", fileDataTransfer->fileName);
+    printf("fileDataTransfer->nodes[0].ip: %s\n", fileDataTransfer->nodes[0].ip);
+    printf("fileDataTransfer->nodes[0].port: %d\n", fileDataTransfer->nodes[0].port);
+    printf("fileDataTransfer->nodes[0].chunk_id: %d\n", fileDataTransfer->nodes[0].chunk_id);
 
 
     printf("==== FTL INIT ====\n");

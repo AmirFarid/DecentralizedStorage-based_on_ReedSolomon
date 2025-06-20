@@ -41,7 +41,7 @@ void hmac_sha2(const uint8_t *k,  /* secret key */
 		ERR_clear_error();
 	}
 #else
-    SHA_CTX ictx, octx;
+    SHA256_CTX ictx, octx;
     uint8_t isha[SHA_DIGEST_LENGTH], osha[SHA_DIGEST_LENGTH];
     uint8_t key[SHA_DIGEST_LENGTH];
     uint8_t buf[SHA_BLOCKSIZE];

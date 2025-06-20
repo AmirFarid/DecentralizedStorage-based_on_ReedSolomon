@@ -42,9 +42,9 @@ typedef enum
 } RequestType;
 
 NodeInfo nodes[NUM_NODES] = {
-    {"141.219.209.11", 8080, -1, 0}, // This is the host node do not count it as a node
-    // {"141.219.210.172", 8080, -1, 0},
+    {"141.219.248.128", 8080, -1, 0}, // This is the host node do not count it as a node
     {"141.219.249.254", 8080, -1, 0},
+    // {"141.219.210.172", 8080, -1, 0},
     {"141.219.250.6", 8080, -1, 0},
     // {"141.219.250.6", 8080, -1, 0},
 
@@ -53,7 +53,7 @@ NodeInfo nodes[NUM_NODES] = {
     // {"141.219.250.6", 8080, -1, 0},
     // for the parity node I have to retrive it from the first node while if the parity was required in the first node I have to fake it from the second node and 
     // {"192.168.1.1", 8080, -1, 0}, // This is the host node do not count it as a node
-    {"141.219.209.11", 8080, -1, 0},
+    {"141.219.248.128", 8080, -1, 0},
 
     // {"141.219.210.172", 8080, -1, 0},
 
@@ -226,11 +226,11 @@ ssize_t secure_recv(int sock, void *buf, size_t len)
 #define NUM1 (1 << 24)
 #define NUM2 (1 << 16)
 #define NUM3 (1 << 8)
-int DecryptData(uint32_t* KEY,void* buffer, int dataLen)
+int DecryptData2(uint32_t* KEY,void* buffer, int dataLen)
 {
    //decrypt after read
     AesCtx ctx;
-    unsigned char iv[] = "1234"; // Needs to be same between FTL and SGX
+    unsigned char iv[] = "123456789abcdef"; // Needs to be same between FTL and SGX
     unsigned char key[16];
     uint8_t i;
     for(i=0;i<4;i++){    
@@ -248,11 +248,11 @@ int DecryptData(uint32_t* KEY,void* buffer, int dataLen)
 }
 
 
-int EncryptData(uint32_t *KEY, void *buffer, int dataLen)
+int EncryptData2(uint32_t *KEY, void *buffer, int dataLen)
 {
     // encrypt before writing
     AesCtx ctx;
-    unsigned char iv[] = "1234";
+    unsigned char iv[] = "123456789abcdef";
     // unsigned char key[] = "876543218765432";
     unsigned char key[16];
     uint8_t i;
@@ -339,14 +339,22 @@ ssize_t secure_send(int sock, const void *buf, size_t len)
     return total_sent; // All data sent successfully
 }
 
+// void ack_recv(int client_socket)
+// {
+//     char ack_buf[4];
+//     if (recv(client_socket, ack_buf, sizeof(ack_buf), 0) > 0) {
+//         printf("Received ACK: %s\n", ack_buf);
+//     }
+// }
 void ack_recv(int client_socket)
 {
-    char ack_buf[4];
-    if (recv(client_socket, ack_buf, sizeof(ack_buf), 0) > 0) {
+    char ack_buf[5] = {0};  // 4 bytes for data, 1 for '\0'
+    ssize_t len = recv(client_socket, ack_buf, 4, 0);
+    if (len > 0) {
+        ack_buf[len] = '\0';  // Ensure null-termination
         printf("Received ACK: %s\n", ack_buf);
     }
 }
-
 void ack_send(int client_socket)
 {
     secure_send(client_socket, "ACK", 3);
@@ -560,17 +568,19 @@ void ocall_get_shuffle_key(u_int8_t *Sh_key, u_int8_t *sig_key, u_int8_t *Kexcha
 
 
     secure_send(client_socket, Kexchange_PUB_KEY, PUB_SIZE);
+    printf("Kexchange_PUB_KEY: %s\n", Kexchange_PUB_KEY);
 
     secure_recv(client_socket, Kexchange_DataOwner_PUB_KEY, PUB_SIZE);
-
+    printf("Kexchange_DataOwner_PUB_KEY: %s\n", Kexchange_DataOwner_PUB_KEY);
     secure_recv(client_socket, Sh_key, KEY_SIZE);
-
-    secure_recv(client_socket, PARITY_AES_KEY, 32);
-
+    printf("Sh_key: %s\n", Sh_key);
+    secure_recv(client_socket, PARITY_AES_KEY, 16);
+    printf("PARITY_AES_KEY: %s\n", PARITY_AES_KEY);
     secure_recv(client_socket, sig_key, 32);
+    printf("sig_key: %s\n", sig_key);
 
     ack_send(client_socket);
-
+    printf("ACK sent\n");
     close(client_socket);
 }
 
@@ -606,6 +616,8 @@ void reciever_data_initialization(char *fileChunkName)
     close(client_socket);
     close(server_socket);
 }
+pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
 
 void initialize_peer2peer_connection(sgx_enclave_id_t eid, int client_socket)
 {
@@ -639,6 +651,22 @@ void initialize_peer2peer_connection(sgx_enclave_id_t eid, int client_socket)
     // printf("pubkey: %d\n", current_pubKey);
 
     int *current_id = malloc(sizeof(int));
+
+
+    while (1) {
+        pthread_mutex_lock(&lock);
+        int chunk_id = 0;
+        sgx_status_t ret = ecall_get_current_chunk_id(eid, &chunk_id);
+        if (ret != SGX_SUCCESS) {
+            printf("ECALL failed\n");
+        }
+        if (chunk_id >= 0) {
+            pthread_mutex_unlock(&lock);
+            break;
+        }
+        pthread_mutex_unlock(&lock);
+        usleep(1000); // 
+    }
 
     ecall_peer_init(eid, current_pubKey, sender_pubKey, ip_str, client_socket, sender_id, current_id);
 
@@ -759,8 +787,9 @@ void handle_key_exchange(sgx_enclave_id_t eid, int client_socket)
     
     
 
-    EncryptData(sharedKey, Shuffle_key_tmp, KEY_SIZE);
-    EncryptData(sharedKey, PC_KEY_tmp, 16);
+    EncryptData2(sharedKey, Shuffle_key_tmp, KEY_SIZE);
+    EncryptData2(sharedKey, PC_KEY_tmp, 16);    
+    EncryptData2(sharedKey, sig_key_tmp, 32);
 
     secure_send(client_socket, Shuffle_key_tmp, KEY_SIZE);
     secure_send(client_socket, PC_KEY_tmp, 16);
@@ -1689,7 +1718,7 @@ void initiate_Chunks(char *fileChunkName, char *current_file, int n, int k)
             {
                 memcpy(buffer, complete_buffer + (i * BLOCK_SIZE), BLOCK_SIZE);
 
-                EncryptData(PC_KEY, buffer, BLOCK_SIZE);
+                EncryptData2(PC_KEY, buffer, BLOCK_SIZE);
 
                 // ssize_t sent = secure_send(sock, buffer, BLOCK_SIZE);
                 // if (sent < 0)
@@ -1778,7 +1807,8 @@ void ocall_peer_init(uint8_t *current_pubKey, uint8_t *peer_pubKey, const char *
     server_addr.sin_family = AF_INET;
     server_addr.sin_port = htons(port);
 
-    
+    printf("ip: %s\n", ip);
+    printf("port: %d\n", port);
 
     if (inet_pton(AF_INET, ip, &server_addr.sin_addr) <= 0)
     {
@@ -1794,7 +1824,12 @@ void ocall_peer_init(uint8_t *current_pubKey, uint8_t *peer_pubKey, const char *
         return;
     }
 
-
+    printf("socket_fd: %d\n", socket_fd);
+    printf("current_id: %d\n", current_id);
+    printf("current_pubKey: %s\n", current_pubKey);
+    printf("peer_pubKey: %s\n", peer_pubKey);
+    printf("ip: %s\n", ip);
+    printf("port: %d\n", port);
 
     RequestType type = INIT;
 
@@ -2004,6 +2039,7 @@ void preprocessing(sgx_enclave_id_t eid, int mode, char *fileChunkName, FileData
 
     // ------------------------------------------------------------------------------
     //                                 rest of the code for all modes
+
     pthread_t listener_thread;
     sgx_enclave_id_t *eid_ptr = malloc(sizeof(sgx_enclave_id_t));
     // the reason for this is that the pthread_create only accepts pointer
@@ -2016,7 +2052,6 @@ void preprocessing(sgx_enclave_id_t eid, int mode, char *fileChunkName, FileData
     }
     pthread_detach(listener_thread);
 
-    printf("Preprocessing started\n");
 
     // // Generate a random K x N matrix A
     // int A[K][N];
@@ -2027,6 +2062,7 @@ void preprocessing(sgx_enclave_id_t eid, int mode, char *fileChunkName, FileData
 
 
 void load_file_data(char *file_name, int num_blocks, int mode , int k , int n) {
+
 
     if (mode == 1){
         initiate_rs(file_name, k, n, Shuffle_key, mode);
@@ -2039,16 +2075,16 @@ void load_file_data(char *file_name, int num_blocks, int mode , int k , int n) {
     int chunk_size = num_blocks * BLOCK_SIZE;
 
     ALL_DATA = malloc(chunk_size * N * sizeof(uint8_t));
-    SIGNATURES = malloc(32 * N * sizeof(uint8_t));
+    SIGNATURES = malloc(32 * N * sizeof(uint8_t) * Number_Of_Blocks);
 
 
 
 
-    char *file_path;
+    char file_path[256];
     if (mode == 2){
-        file_path = "App/decentralize/chunks/current_file.bin";
+        snprintf(file_path, sizeof(file_path), "App/decentralize/chunks/current_file.bin");
     }else if (mode == 1){
-        file_path = "App/decentralize/NF/data_0.dat";
+        snprintf(file_path, sizeof(file_path), "App/decentralize/NF/data_0.dat");
     }
 
     FILE *file = fopen(file_path, "rb");
@@ -2057,20 +2093,47 @@ void load_file_data(char *file_name, int num_blocks, int mode , int k , int n) {
         return;
     }
 
-    for (int i = 0; i < Number_Of_Blocks; i++){
-        u_int8_t buffer[BLOCK_SIZE];
-        if(fread(buffer, 1, chunk_size, file) != chunk_size) {
+
+    for (int j = 0; j < Number_Of_Blocks; j++){
+        printf("this is the block %d\n", j);
+        uint8_t *buffer = malloc(BLOCK_SIZE);
+
+        if(fread(buffer, 1, BLOCK_SIZE, file) != BLOCK_SIZE) {
             perror("Failed to read file");
             fclose(file);
             free(ALL_DATA);
             return;
         }
-        EncryptData(PC_KEY, buffer, BLOCK_SIZE);
-        int size = 32;
-        hmac_sha2(sig_key, 32, buffer, BLOCK_SIZE, SIGNATURES + i * 32, &size);
-        memcpy(ALL_DATA + i * BLOCK_SIZE, buffer, BLOCK_SIZE);
+        printf("this is the buffer\n");
+        for(int i = 0; i < 40; i++){
+            printf("%X ", buffer[i]);
+        }
+        printf("\n");
+        uint8_t *buffer2 = malloc(BLOCK_SIZE);
+        memcpy(buffer2, buffer, BLOCK_SIZE);
+        EncryptData2(PC_KEY, buffer2, BLOCK_SIZE);
+        ssize_t size = 32;
+        uint8_t *buffer3 = malloc(BLOCK_SIZE);
+        printf("this is the buffer2\n");
+        for(int i = 0; i < 40; i++){
+            printf("%X ", buffer2[i]);
+        }
+        printf("\n");
+        memcpy(buffer3, buffer2, BLOCK_SIZE);
+        hmac_sha2(sig_key, 32, (const uint8_t *)buffer3, BLOCK_SIZE, (uint8_t *)SIGNATURES + j * 32, &size);
+        printf("this is the buffer3\n");
+        for(int i = 0; i < 32; i++){
+            printf("%X ", SIGNATURES + j * 32 + i);
+        }
+        printf("\n");
+        memcpy(ALL_DATA + j * BLOCK_SIZE, buffer2, BLOCK_SIZE);
         free(buffer);
+        free(buffer2);
+        free(buffer3);
     }
+        // hmac_sha2(sig_key, 32, buffer, BLOCK_SIZE, SIGNATURES + j * 32, &size);
+
+    printf("=== Preprocessing started === %s\n", file_path);
     fclose(file);
 
     for(int i = 1; i < k; i++) {
@@ -2094,11 +2157,11 @@ void load_file_data(char *file_name, int num_blocks, int mode , int k , int n) {
                 free(ALL_DATA);
                 return;
             }
-            EncryptData(PC_KEY, buffer, BLOCK_SIZE);
-            int size = 32;
-            hmac_sha2(sig_key, 32, buffer, BLOCK_SIZE, SIGNATURES + i * 32, &size);
-            memcpy(ALL_DATA + i * chunk_size + j * BLOCK_SIZE, buffer, BLOCK_SIZE);
-            free(buffer);
+            // EncryptData2(PC_KEY, buffer, BLOCK_SIZE);
+            ssize_t size = 32;
+            // hmac_sha2(sig_key, 32, buffer, BLOCK_SIZE, SIGNATURES + i * 32, &size);
+            // memcpy(ALL_DATA + i * chunk_size + j * BLOCK_SIZE, buffer, BLOCK_SIZE);
+            // free(buffer);
         }
         fclose(chunk_file);
 
@@ -2129,8 +2192,8 @@ void load_file_data(char *file_name, int num_blocks, int mode , int k , int n) {
 
             ssize_t bytes_read = fread(buffer, 1, BLOCK_SIZE, chunk_file);
 
-            EncryptData(PC_KEY, buffer, BLOCK_SIZE);
-            int size = 32;
+            EncryptData2(PC_KEY, buffer, BLOCK_SIZE);
+            ssize_t size = 32;
             hmac_sha2(sig_key, 32, buffer, BLOCK_SIZE, SIGNATURES + (K * 32) + (permuted_index * 32), &size);
 
             memcpy(ALL_DATA + (K * chunk_size) + (permuted_index * BLOCK_SIZE), buffer, bytes_read);
@@ -2142,7 +2205,7 @@ void load_file_data(char *file_name, int num_blocks, int mode , int k , int n) {
             printf("\n--------------------------------\n");
             uint8_t buffer2[BLOCK_SIZE];
             memcpy(buffer2, ALL_DATA + (K * chunk_size) + (permuted_index * BLOCK_SIZE), BLOCK_SIZE);
-            DecryptData(PC_KEY, buffer2, BLOCK_SIZE);
+            DecryptData2(PC_KEY, buffer2, BLOCK_SIZE);
             printf("this is the buffer2: %d\n", j);
             for(int k = 0; k < 40; k++){
                 printf("%X ", buffer2[k]);

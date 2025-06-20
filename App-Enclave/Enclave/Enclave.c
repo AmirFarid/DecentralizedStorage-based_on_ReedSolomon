@@ -1309,6 +1309,11 @@ void ecall_init(FileDataTransfer *fileDataTransfer, int size)
 	return;
 }
 
+void ecall_get_current_chunk_id(int *chunk_id) {
+	
+	chunk_id = files[0].current_chunk_id;
+}
+
 
 // this function is called by the receiver-peer to initialize the connection with the sender-peer
 void ecall_peer_init(uint8_t *current_pubKey, uint8_t *sender_pubKey, const char *ip, int socket_fd, int sender_id, int *peer_id) {
@@ -1317,6 +1322,9 @@ void ecall_peer_init(uint8_t *current_pubKey, uint8_t *sender_pubKey, const char
 
 	// TODO: a golobal file ID should be defined for multi-file support
 	// this should be send to the receiver-peer for multi-file support
+
+	
+
 	int fileNum = 0;
 	ocall_printf("########################################################################################", 88, 0);
 	ocall_printf("files[fileNum].current_chunk_id: ", 34, 0);
@@ -1407,7 +1415,12 @@ int ecall_file_init(Tag *tag, uint8_t *sigma, FileDataTransfer *fileDataTransfer
 		files[fileNum].nodes[j].port = fileDataTransfer->nodes[j].port;
 		// ocall_printf("Debug 2", 7, 0);
 		files[fileNum].nodes[j].chunk_id = fileDataTransfer->current_id;
-		// ocall_printf("Debug 3", 7, 0);
+		ocall_printf("Debug 3", 7, 0);
+		// ocall_printf("files[fileNum].nodes[j].chunk_id: ", 34, 0);	
+		// ocall_printint(&files[fileNum].nodes[j].chunk_id);
+		// ocall_printf("fileDataTransfer->current_id: ", 34, 0);	
+		// ocall_printint(&fileDataTransfer->current_id);
+		ocall_printf("Debug 4", 7, 0);
 		files[fileNum].nodes[j].is_parity_peer = fileDataTransfer->nodes[j].is_parity_peer;
 		// ocall_printf("Debug 4", 7, 0);
 		files[fileNum].nodes[j].socket_fd = fileDataTransfer->nodes[j].socket_fd;

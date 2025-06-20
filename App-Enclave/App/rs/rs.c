@@ -52,9 +52,9 @@ void write_file(uint16_t *chunks, int n, int chunk_size, int mode){
 
         for (int i = 0; i < n; i++) {
         char filename[100];
-        if (mode == 1){
+        if (mode == 2){
             snprintf(filename, sizeof(filename), "App/decentralize/chunks/data_%d.dat", i);
-        }else if (mode == 2){
+        }else if (mode == 1){
             snprintf(filename, sizeof(filename), "App/decentralize/NF/data_%d.dat", i);
         }
 

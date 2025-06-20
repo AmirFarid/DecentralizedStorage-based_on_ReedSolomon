@@ -32,10 +32,12 @@
 ######## SGX SDK Settings ########
 
 
-SGX_SDK ?= /opt/intel/sgxsdk
+SGX_SDK ?= /opt/intel2/sgxsdk
 SGX_MODE ?= HW
 SGX_ARCH ?= x64
 SGX_DEBUG ?= 1
+ASAN ?= 0
+
 
 ifeq ($(shell getconf LONG_BIT), 32)
 	SGX_ARCH := x86
@@ -84,6 +86,7 @@ App_Include_Paths := -IApp -I$(SGX_SDK)/include -IApp/ccom -IEnclave -IApp/decen
 
 App_C_Flags := -fPIC -Wno-attributes $(App_Include_Paths)
 
+
 # Three configuration modes - Debug, prerelease, release
 #   Debug - Macro DEBUG enabled.
 #   Prerelease - Macro NDEBUG and EDEBUG enabled.
@@ -98,6 +101,10 @@ endif
 
 App_Link_Flags := -L$(SGX_LIBRARY_PATH) -l$(Urts_Library_Name) -lpthread -lssl -lcrypto -lJerasure -lgf_complete -lm
 
+ifeq ($(ASAN), 1)
+	App_C_Flags += -fsanitize=address -fno-omit-frame-pointer
+	App_Link_Flags += -fsanitize=address
+endif
 App_C_Objects := $(App_C_Files:.c=.o)
 
 App_Name := app 
@@ -124,7 +131,7 @@ endif
 Crypto_Library_Name := sgx_tcrypto
 
 Enclave_C_Files := Enclave/Enclave.c Enclave/eccDH/ecdh.c Enclave/cpor/cpor.c Enclave/aes/aes.c Enclave/rs/rs.c Enclave/rs/galois.c Enclave/sha/sha1.c Enclave/hmac/hmac_sha1.c Enclave/hmac/hmac_sha2.c Enclave/prp/prp.c Enclave/rs/gf.c Enclave/rs/gf_w16.c Enclave/rs/gf_wgen.c Enclave/rs/gf_cpu.c Enclave/rs/gf_w8.c Enclave/rs/gf_w32.c Enclave/rs/gf_w4.c
-Enclave_Include_Paths := -IEnclave/rs -IEnclave -I$(SGX_SDK)/include -I$(SGX_SDK)/include/libcxx -I$(SGX_SDK)/include/tlibc -IEnclave/eccDH -IEnclave/cpor -I/opt/intel/sgxssl/Linux/package/include -IEnclave/hmac -IEnclave/sha -IEnclave/aes -IEnclave/prp -I/usr/local/include -I/usr/lib/gcc/x86_64-linux-gnu/12/include
+Enclave_Include_Paths := -IEnclave/rs -IEnclave -I$(SGX_SDK)/include -I$(SGX_SDK)/include/libcxx -I$(SGX_SDK)/include/tlibc -IEnclave/eccDH -IEnclave/cpor -I/opt/intel2/sgxssl/Linux/package/include -IEnclave/hmac -IEnclave/sha -IEnclave/aes -IEnclave/prp -I/usr/local/include -I/usr/lib/gcc/x86_64-linux-gnu/12/include
 
 Enclave_C_Flags := -nostdinc -fvisibility=hidden -fpie -fstack-protector -fno-builtin-printf $(Enclave_Include_Paths)
 
@@ -142,7 +149,7 @@ Enclave_Security_Link_Flags := -Wl,-z,relro,-z,now,-z,noexecstack
 
 Enclave_Link_Flags := $(Enclave_Security_Link_Flags) \
     -Wl,--no-undefined -nostdlib -nodefaultlibs -nostartfiles -L$(SGX_LIBRARY_PATH)  \
-	-L/opt/intel/sgxssl/Linux/package/lib64 -Wl,--whole-archive -lsgx_tsgxssl -Wl,--no-whole-archive \
+	-L/opt/intel2/sgxssl/Linux/package/lib64 -Wl,--whole-archive -lsgx_tsgxssl -Wl,--no-whole-archive \
 	-lsgx_tsgxssl_crypto \
 	-Wl,--whole-archive -l$(Trts_Library_Name) -Wl,--no-whole-archive \
 	-Wl,--start-group -lsgx_pthread -lsgx_tstdc -lsgx_tcxx -l$(Crypto_Library_Name) -l$(Service_Library_Name) -lm -Wl,--end-group \

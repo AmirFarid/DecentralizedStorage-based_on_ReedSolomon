@@ -27,7 +27,7 @@ enclave {
 
 		public void ecall_test_time_2();
 
-
+		public void ecall_get_current_chunk_id([out] int *chunk_id);
 	};
 
 	untrusted {
