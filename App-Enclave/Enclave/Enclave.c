@@ -1717,6 +1717,14 @@ int ecall_file_init(Tag *tag, uint8_t *sigma, FileDataTransfer *fileDataTransfer
 void ecall_audit_file(const char *fileName, int *ret) 
 {
 
+	double *start_time = malloc(sizeof(double));
+	double *end_time = malloc(sizeof(double));
+	double *start_negetive_time = malloc(sizeof(double));
+	double *end_negetive_time = malloc(sizeof(double));
+	double *total_negetive_time = malloc(sizeof(double));
+	// ================================ Start time  ================================
+	ocall_test_time(start_time);
+
 	// Find file in files
 	int i;
 	for(i = 0; i < MAX_FILES; i++) {
@@ -1735,7 +1743,14 @@ void ecall_audit_file(const char *fileName, int *ret)
 	if(sgx_read_rand(challNum, KEY_SIZE) != SGX_SUCCESS) {
 		// Handle Error
 	}
+	// ================================ negative time  ================================
+	ocall_test_time(start_negetive_time);
+	//_______________________ Send nonce to data owner _______________________
 	ocall_send_nonce(challNum);
+	
+	ocall_test_time(end_negetive_time);
+	*total_negetive_time += *end_negetive_time - *start_negetive_time;
+	// ================================ negative time  ================================
 
 	// Generate challenge key using Akagi201/hmac-sha1
 	uint8_t challKey[KEY_SIZE] = {0};
@@ -1752,7 +1767,12 @@ void ecall_audit_file(const char *fileName, int *ret)
 	// Get tag from FTL (Note that tag is always  on final segment. This can be calculated easily)
 	uint8_t segData[SEGMENT_SIZE];
 	//ocall_printf("HERE??", 7, 0);
+	// ================================ negative time  ================================
+	ocall_test_time(start_negetive_time);
 	ocall_get_segment(fileName, tagSegNum, segData, 0); // ocall get segment will write segNum to addr 951396 then simply read the segment. it should have first 16 bytes encrypted.
+	ocall_test_time(end_negetive_time);
+	*total_negetive_time += *end_negetive_time - *start_negetive_time;
+	// ================================ negative time  ================================
 
 	DecryptData((uint32_t *)tempKey, segData, KEY_SIZE);
 
@@ -1833,7 +1853,12 @@ void ecall_audit_file(const char *fileName, int *ret)
  	   hmac_sha1(challKey, KEY_SIZE, (uint8_t *)&sigSeg, sizeof(uint8_t), tempKey, &len);
 
  	   uint8_t sigData[SEGMENT_SIZE];
+	   // ================================ negative time  ================================
+	   ocall_test_time(start_negetive_time);
  	   ocall_get_segment(fileName, sigSeg, sigData, 0);
+	   ocall_test_time(end_negetive_time);
+	   *total_negetive_time += *end_negetive_time - *start_negetive_time;
+	   // ================================ negative time  ================================
 
  	   DecryptData((uint32_t *)tempKey, sigData, KEY_SIZE);
 
@@ -1975,7 +2000,12 @@ void ecall_audit_file(const char *fileName, int *ret)
 			int segNum = (((uint8_t) indices[j] * SEGMENT_PER_BLOCK)) + k;
 
 	 		hmac_sha1(challKey, KEY_SIZE, (uint8_t *)&segNum, sizeof(uint8_t), tempKey, &len);
+			// ================================ negative time  ================================
+			ocall_test_time(start_negetive_time);
 	 		ocall_get_segment(fileName, segNum, segData, 0);
+			ocall_test_time(end_negetive_time);
+			*total_negetive_time += *end_negetive_time - *start_negetive_time;
+			// ================================ negative time  ================================
 	 		DecryptData((uint32_t *)tempKey, segData, KEY_SIZE);
 	 		BN_bin2bn(segData, SEGMENT_SIZE, bsigData);
 
@@ -2004,6 +2034,16 @@ void ecall_audit_file(const char *fileName, int *ret)
 	BN_mod_add(sigma2, sum1, sum2, bprime, ctx);
 	BN_CTX_end(ctx);
 
+	// ================================ time calculation  ================================
+	ocall_test_time(end_time);
+	double total_time = (*end_time - *start_time) - *total_negetive_time;
+	ocall_printdouble(&total_time);
+	ocall_printf("****************************************", 40, 0);
+	ocall_printf("******************************", 30, 0);
+	ocall_printf("********************", 20, 0);
+	ocall_printf("**********", 10, 0);
+	// ================================ time calculation  ================================
+
 	uint8_t sigs[PRIME_LENGTH / 8];
 	BN_bn2bin(sigma, sigs);
 	ocall_printf("SIGMA (1 and 2): ", 18, 0);
@@ -2013,6 +2053,12 @@ void ecall_audit_file(const char *fileName, int *ret)
 
 	// Compare the two calculations
 	*ret = BN_cmp(sigma, sigma2);
+
+	free(start_time);
+	free(end_time);
+	free(start_negetive_time);
+	free(end_negetive_time);
+	free(total_negetive_time);
 }
 
 
@@ -3105,9 +3151,18 @@ void ecall_small_corruption(const char *fileName, int blockNum) {
 
 
 	if (audit_block_group(fileNum, 1, &blockNum, sigmas, tag, blockData) != 0) {
+
+	// ================================ time calculation ================================
 		ocall_test_time(time_end);
-		ocall_printf("time_end", strlen("time_end"), 0);
-		ocall_printdouble(time_end);
+		ocall_printf("Total time : SMALL CORRUPTION CHECK FOR CORRUPTED DATA", strlen("Total time : SMALL CORRUPTION CHECK FOR CORRUPTED DATA"), 0);
+		double total_time = (*time_end - *time_start) - *negative_time;
+		ocall_printdouble(&total_time);
+		ocall_printf("****************************************", 40, 0);
+		ocall_printf("******************************", 30, 0);
+		ocall_printf("********************", 20, 0);
+		ocall_printf("**********", 10, 0);
+	// ================================ time calculation ================================
+
 
 		    ocall_printf("AUDIT FAILED!!", 15, 0);
 		    ocall_printf("==================================================", 50, 0);
@@ -3141,35 +3196,35 @@ void ecall_small_corruption(const char *fileName, int blockNum) {
 			}
 
 		} else {
+		// ================================ time calculation ================================
 			ocall_test_time(time_end);
+			ocall_printf("Total time : SMALL CORRUPTION CHECK FOR VALID DATA", strlen("Total time : SMALL CORRUPTION CHECK FOR VALID DATA"), 0);
+			double total_time = (*time_end - *time_start) - *negative_time;
+			ocall_printdouble(&total_time);
+			ocall_printf("****************************************", 40, 0);
+			ocall_printf("******************************", 30, 0);
+			ocall_printf("********************", 20, 0);
+			ocall_printf("**********", 10, 0);
+		// ================================ time calculation ================================
 
 		    ocall_printf("AUDIT SUCCESS!", 15, 0);
 		}
 
 	if (*toggle) ocall_init_parity(numBits);
 
-	ocall_printf("********************************************************************************", 80, 0);
-	ocall_printf("************************************************************", 60, 0);
-	ocall_printf("**************************************************", 50, 0);
-	ocall_printf("****************************************", 40, 0);
-	ocall_printf("******************************", 30, 0);
-	ocall_printf("********************", 20, 0);
-	ocall_printf("**********", 10, 0);
-
-	
-	double total_time = (*time_end - *time_start) - *negative_time;
-
-
-
-	ocall_printf("Total time : SMALL CORRUPTION", strlen("Total time : SMALL CORRUPTION"), 0);
-	ocall_printdouble(&total_time);
-
-
-
 
 	BN_free(sigmas[0]);
 	free(toggle);
 	free(tag);
+	free(time_start);
+	free(time_end);
+	free(time_ocall1_start);
+	free(time_ocall1_end);
+	free(time_ocall2_start);
+	free(time_ocall2_end);
+	free(time_ocall3_start);
+	free(time_ocall3_end);
+	free(negative_time);
 	
 
 }
