@@ -13,7 +13,7 @@ enclave {
 		public void ecall_audit_file([in, string] const char *fileName,[out] int *ret);
 		public void ecall_generate_file_parity(int fileNum);
 		public void ecall_decode_partition([in, string] const char *fileName, int blockNum);
-		public void ecall_peer_init([in, count=64] uint8_t *current_pubKey, [out,count=64] uint8_t *sender_pubKey, [in, string] const char *ip, int socket_fd, int current_id, [out] int *peer_id);
+		public void ecall_peer_init([out, size=64] uint8_t *current_pubKey, [in,size=64] uint8_t *sender_pubKey, [in, string] const char *ip, int current_id);
 		public void ecall_compare();
 		public void ecall_small_corruption([in, string] const char *fileName, int blockNum);
 		public void ecall_check_block(int fileNum, int blockNum, [out] uint8_t *stat, [out, size=32] uint8_t *signature, [out, size=recovered_block_size, count=recovered_block_count] uint8_t *recovered_block, int recovered_block_size , int recovered_block_count);
@@ -27,7 +27,13 @@ enclave {
 
 		public void ecall_test_time_2();
 
-		public void ecall_get_current_chunk_id([out] int *chunk_id);
+		public void ecall_get_currentID([out] int *chunk_id);
+
+		public void ecall_set_currentID(int chunk_id);
+	
+	    public void ecall_test_encrypt([in,count=n, size=chunk_size] uint8_t *data, int chunk_size, int n, [out, size=32, count=n] uint8_t *signatures, int n_signatures, [in, size=32] uint8_t *sig_key, [in, size=16] uint8_t *PC_KEY);
+
+		public void ecall_init_rs_matrix(int k, int n);
 	};
 
 	untrusted {
@@ -68,7 +74,9 @@ enclave {
 
 		void ocall_retrieve_code_words(int fileNum, [in, size=nodes_size, count=nodes_count] NodeInfo *nodes, int nodes_size, int nodes_count , [out, size=data_tmp_size, count= data_tmp_count] uint8_t *data_tmp, int data_tmp_size, int data_tmp_count, int num_retrieval_rq_per_peer, int num_code_words_counter, int num_code_words, int remainder);
 
-		void ocall_test_time();
+		void ocall_test_time([out] double *time);
+
+		void ocall_printdouble([in] double *time);
 
 	};
 };

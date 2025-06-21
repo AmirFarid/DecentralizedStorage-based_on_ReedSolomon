@@ -731,7 +731,7 @@ void read_file(const char *filename, uint16_t **chunks, int *chunk_size, int *pa
     // printf("chunk_size: %d\n", *chunk_size);
 
 
-    printf("enter to continue\n");
+    // printf("enter to continue\n");
     // getchar();
     // printf("size %d\n", rs_K * (*chunk_size));
     // // sleep(10);
@@ -744,7 +744,7 @@ void read_file(const char *filename, uint16_t **chunks, int *chunk_size, int *pa
 
     // }
 
-    uint16_t *chunks_shuffled = (uint16_t *)calloc(rs_N * (*chunk_size), sizeof(uint16_t));
+    // uint16_t *chunks_shuffled = (uint16_t *)calloc(rs_N * (*chunk_size), sizeof(uint16_t));
 
     int permuted_index;
 

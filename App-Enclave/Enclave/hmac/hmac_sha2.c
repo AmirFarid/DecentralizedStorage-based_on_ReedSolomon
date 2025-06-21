@@ -18,6 +18,8 @@
 #define SHA_BLOCKSIZE   (64)
 #endif
 
+#define USE_OPENSSL
+
 
 /**
 * Function to compute the digest
@@ -37,7 +39,7 @@ void hmac_sha2(const uint8_t *k,  /* secret key */
         size_t *t) {
 #ifdef USE_OPENSSL
 
-	if (!HMAC(EVP_sha1(), k, (int)lk, d, ld, out, t)) {
+	if (!HMAC(EVP_sha256(), k, (int)lk, d, ld, out, t)) {
 		ERR_clear_error();
 	}
 #else

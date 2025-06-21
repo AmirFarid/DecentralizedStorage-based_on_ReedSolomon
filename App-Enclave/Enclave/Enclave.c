@@ -290,7 +290,6 @@ void get_sigma(BIGNUM *sigma, BIGNUM **data, BIGNUM **alpha, uint8_t blockNum, u
 
 int audit_block_group(int fileNum, int numBlocks, int *blockNums, BIGNUM **sigmas, Tag *tag, uint8_t *data) {
 
-	ocall_test_time();
 
     if (fileNum < 0 || numBlocks <= 0 || !blockNums || !sigmas || !tag || !data) {
         return -1; // Invalid input
@@ -421,7 +420,6 @@ cleanup:
     BN_free(sum1);
     BN_free(sum2);
 
-	ocall_test_time();
 
     return result;
 }
@@ -1217,7 +1215,6 @@ void ecall_init(FileDataTransfer *fileDataTransfer, int size)
 
 
 
-
 	// Diffie hellman key exchange with FTL
 	uint8_t sgx_privKey[ECC_PRV_KEY_SIZE];
 	uint8_t sgx_pubKey[ECC_PUB_KEY_SIZE] = {0};
@@ -1309,14 +1306,42 @@ void ecall_init(FileDataTransfer *fileDataTransfer, int size)
 	return;
 }
 
-void ecall_get_current_chunk_id(int *chunk_id) {
+void ecall_get_currentID(int *chunk_id) {
 	
-	chunk_id = files[0].current_chunk_id;
+	*chunk_id = files[0].current_chunk_id;
 }
 
+void ecall_set_currentID(int chunk_id) {
+	files[0].current_chunk_id = chunk_id;
+}
+
+void ecall_test_encrypt(uint8_t *data, int chunk_size, int n, uint8_t *signatures, int n_signatures, uint8_t *sig_key, uint8_t *PC_KEY) {
+
+
+	uint8_t *sigtemp = malloc(32);
+	size_t len = 32;
+	hmac_sha2(sig_key, 32, data, chunk_size, sigtemp, &len);
+
+	uint8_t *data2 = malloc(chunk_size);
+	memcpy(data2, data, chunk_size);
+	DecryptData(PC_KEY, data2, chunk_size);
+
+
+
+	ocall_printf("this is the data", strlen("this is the data"), 0);
+	ocall_printf(data2, 40, 1);		
+	
+	ocall_printf("this is the encryption", strlen("this is the encryption"), 0);
+	ocall_printf(data, 40, 1);
+
+	ocall_printf("this is the sigtemp", strlen("this is the sigtemp"), 0);
+	ocall_printf(sigtemp, 32, 1);
+
+
+}
 
 // this function is called by the receiver-peer to initialize the connection with the sender-peer
-void ecall_peer_init(uint8_t *current_pubKey, uint8_t *sender_pubKey, const char *ip, int socket_fd, int sender_id, int *peer_id) {
+void ecall_peer_init(uint8_t *current_pubKey, uint8_t *sender_pubKey, const char *ip, int sender_id) {
 
 	uint8_t current_privKey[ECC_PRV_KEY_SIZE];
 
@@ -1332,6 +1357,7 @@ void ecall_peer_init(uint8_t *current_pubKey, uint8_t *sender_pubKey, const char
 	ocall_printf("IP: ", 4, 0);
 	ocall_printf(ip,16,0);	
 	ocall_printf("########################################################################################", 88, 0);
+
 	for(int i = 0; i < ECC_PRV_KEY_SIZE; ++i) {
 		current_privKey[i] = prng_next();
 	}
@@ -1356,14 +1382,13 @@ void ecall_peer_init(uint8_t *current_pubKey, uint8_t *sender_pubKey, const char
 		if (equal) {
 			// files[fileNum].nodes[i].dh_sharedKey_peer2peer = malloc(ECC_PUB_KEY_SIZE * sizeof(uint8_t));
 		    ecdh_shared_secret(current_privKey, sender_pubKey, files[fileNum].nodes[i].dh_sharedKey_peer2peer);
-			files[fileNum].nodes[i].socket_fd = socket_fd;
+			// files[fileNum].nodes[i].socket_fd = socket_fd;
 			files[fileNum].nodes[i].chunk_id = sender_id;
 		}
 	}
 
 
 
-	*peer_id = files[fileNum].current_chunk_id;
 
 	// Authentication
 	// 	uint8_t keyNonce[KEY_SIZE];
@@ -1413,19 +1438,12 @@ int ecall_file_init(Tag *tag, uint8_t *sigma, FileDataTransfer *fileDataTransfer
 		// files[i].nodes[j].ip[15] = '\0';  // Ensure null-termination
 		// ocall_printf("Debug 1", 7, 0);
 		files[fileNum].nodes[j].port = fileDataTransfer->nodes[j].port;
-		// ocall_printf("Debug 2", 7, 0);
-		files[fileNum].nodes[j].chunk_id = fileDataTransfer->current_id;
-		ocall_printf("Debug 3", 7, 0);
-		// ocall_printf("files[fileNum].nodes[j].chunk_id: ", 34, 0);	
-		// ocall_printint(&files[fileNum].nodes[j].chunk_id);
-		// ocall_printf("fileDataTransfer->current_id: ", 34, 0);	
-		// ocall_printint(&fileDataTransfer->current_id);
-		ocall_printf("Debug 4", 7, 0);
+
 		files[fileNum].nodes[j].is_parity_peer = fileDataTransfer->nodes[j].is_parity_peer;
 		// ocall_printf("Debug 4", 7, 0);
 		files[fileNum].nodes[j].socket_fd = fileDataTransfer->nodes[j].socket_fd;
 	}
-
+	files[fileNum].current_chunk_id = fileDataTransfer->current_id;
 
 	files[fileNum].n = fileDataTransfer->n;
 	files[fileNum].k = fileDataTransfer->k;
@@ -1547,7 +1565,8 @@ int ecall_file_init(Tag *tag, uint8_t *sigma, FileDataTransfer *fileDataTransfer
 // 									END TEST
 
 		DecryptData(dh_sharedKey_DataOwner, Shuffle_key, 16);
-		DecryptData(dh_sharedKey_DataOwner, PC_KEY, 32);
+		DecryptData(dh_sharedKey_DataOwner, PC_KEY, 16);
+		DecryptData(dh_sharedKey_DataOwner, sig_key, 32);
 
 		ocall_printf("Shuffle_key: ", 13, 0);
 		ocall_printf(Shuffle_key, 16, 1);
@@ -1558,7 +1577,8 @@ int ecall_file_init(Tag *tag, uint8_t *sigma, FileDataTransfer *fileDataTransfer
 
 
 		memcpy(files[fileNum].shuffel_key, Shuffle_key, 16);
-		memcpy(files[fileNum].PC_Key, PC_KEY, 32);
+		memcpy(files[fileNum].PC_Key, PC_KEY, 16);
+		memcpy(files[fileNum].sig_Key, sig_key, 32);
 		ocall_printf("----------------------------------------", 42, 0);
 
 	}
@@ -2541,7 +2561,9 @@ void test_decode(char *data, int k, int n, int *erasures) {
     free(matrix);
 }
 
-
+void ecall_init_rs_matrix(int k, int n){
+	initiate_rs(k, n);
+}
 
 
 void recover_block(int fileNum, int blockNum, uint8_t *blockData, int *toggle){
@@ -2645,7 +2667,7 @@ void recover_block(int fileNum, int blockNum, uint8_t *blockData, int *toggle){
 		}
 
 
-		if (tmp_index == permuted_index) {
+		if (tmp_index == blockNumInFile) {
 			rb_indicies[i - j].is_corrupted = 1;
 			erasures[0] = i - j;
 		} else {
@@ -2666,28 +2688,29 @@ void recover_block(int fileNum, int blockNum, uint8_t *blockData, int *toggle){
 			rb_indicies[i - j].is_local = 0;
 		}
 				// print data
-		// ocall_printf("*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=", 42, 0);
-		// ocall_printf("the rquested block is:", 22, 0);
-		// ocall_printint(&blockNum);
-		// ocall_printf("the I is:", 9, 0);
-		// ocall_printint(&i);
-		// ocall_printf("the tmp_index is:", 17, 0);
-		// ocall_printint(&tmp_index);
-		// ocall_printint(&permuted_index);
-		// ocall_printf("**********", 10, 0);
-		// ocall_printf("the node index is:", 18, 0);
-		// ocall_printint(&rb_indicies[i - j].node_index);
-		// ocall_printf("the current chunk id is:", 24, 0);
-		// ocall_printint(&files[fileNum].current_chunk_id);
-		// ocall_printf("the internal block index is:", 28, 0);
-		// ocall_printint(&rb_indicies[i - j].internal_block_index);
-		// ocall_printf("the code word number is:", 24, 0);
-		// ocall_printint(&rb_indicies[i - j].code_word_number);
+		ocall_printf("*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=", strlen("*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*="), 0);
+		ocall_printf("the rquested block is:", strlen("the rquested block is:"), 0);
+		ocall_printint(&blockNum);
+		ocall_printf("the I is:", strlen("the I is:"), 0);
+		ocall_printint(&i);
+		ocall_printint(&j);
+		ocall_printf("the tmp_index is:", strlen("the tmp_index is:"), 0);
+		ocall_printint(&tmp_index);
+		ocall_printint(&permuted_index);
+		ocall_printf("**********", strlen("**********"), 0);
+		ocall_printf("the node index is:", strlen("the node index is:"), 0);
+		ocall_printint(&rb_indicies[i - j].node_index);
+		ocall_printf("the current chunk id is:", strlen("the current chunk id is:"), 0);
+		ocall_printint(&files[fileNum].current_chunk_id);
+		ocall_printf("the internal block index is:", strlen("the internal block index is:"), 0);
+		ocall_printint(&rb_indicies[i - j].internal_block_index);
+		ocall_printf("the code word number is:", strlen("the code word number is:"), 0);
+		ocall_printint(&rb_indicies[i - j].code_word_number);
 		
 		
 	}
 	
-	// ocall_printf("*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=", 42, 0);
+	ocall_printf("*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=", strlen("*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*="), 0);
 
 	int total_parity_blocks = files[fileNum].numBlocks * (files[fileNum].n - files[fileNum].k);
 
@@ -2767,11 +2790,9 @@ void recover_block(int fileNum, int blockNum, uint8_t *blockData, int *toggle){
 		
 		if (rb_indicies[i].is_local == 1) {
 			if (*toggle) {
-				ocall_test_time();
 				ocall_printf("negetive test", 10, 0);
 				ocall_init_parity(numBits);
 				*toggle = 0;
-				ocall_test_time();
 			}
 			// ocall_printf("###########################Local Block DETECTED###############################", 78, 0);
 			// ocall_printf("the real block index is:", 24, 0);
@@ -2788,136 +2809,163 @@ void recover_block(int fileNum, int blockNum, uint8_t *blockData, int *toggle){
 					code_word_tmp[i * BLOCK_SIZE + j] = tmpcode_word[j];
 				}
 			}else{
-				// find the first empty space in the code_word_index
-				// and assign the index to it as the index of the code word is corrupted
-				for (int j = 0; j < files[fileNum].k; j++) {
-					if (code_word_index[j] == -1) {
-						code_word_index[j] = i;
-						break;
-					}
-				}
 				ocall_printf("local block is corrupted", 15, 0);
 			}
 	
 		}else{
+			code_word_index[i] = 1;
 			counter_outside_data++;
 		}
 
 		free(tmpcode_word);
 	}
-	ocall_test_time();
-
-
 
 	ocall_printf("=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-= Request Block =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=", 77, 0);
+
+	sgx_status_t ocall_ret = ocall_get_batch_blocks(fileNum, rb_indicies, sizeof(recoverable_block_indicies), files[fileNum].n, signatures, code_word, code_word_index, nodes, cw_size, cw_count, sizeof(NodeInfo));
 	
-		// if (counter_outside_data > 0) {
-		sgx_status_t ocall_ret = ocall_get_batch_blocks(fileNum, rb_indicies, sizeof(recoverable_block_indicies), files[fileNum].n, signatures, code_word, code_word_index, nodes, cw_size, cw_count, sizeof(NodeInfo));
+	printEnclaveError(ocall_ret);
+	
+	ocall_get_rs_matrix(k, m, symSize, matrix, m*k);
+
+	ocall_printf("=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=  =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=", strlen("=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=  =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-="), 0);
+	ocall_printint(&files[fileNum].n);
+	ocall_printf("=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=  =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=", strlen("=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=  =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-="), 0);
+	for (int i = 0; i < files[fileNum].n; i++) {
+
+		if ( rb_indicies[i].is_local == 1) {
+		ocall_printf("# # # # # # ## # # # # # # Local Block # # # # # # ## # # # # # #", strlen("# # # # # # ## # # # # # # Local Block # # # # # # ## # # # # # #"), 0);
+		ocall_printf("THIS IS BLOCK INDEX: ", strlen("THIS IS BLOCK INDEX: "), 0);
+		ocall_printint(&i);
+		ocall_printf("THIS IS BLOCK: ", strlen("THIS IS BLOCK: "), 0);
+		ocall_printf(code_word_tmp + i * BLOCK_SIZE, 50, 1);
+		}else{
+		ocall_printf("# # # # # # ## # # # # # # Foreign Block # # # # # # ## # # # # # #", strlen("# # # # # # ## # # # # # # Foreign Block # # # # # # ## # # # # # #"), 0);
+		ocall_printf("THIS IS BLOCK INDEX: ", strlen("THIS IS BLOCK INDEX: "), 0);
+		ocall_printint(&i);
+		ocall_printf("THIS IS BLOCK: ", strlen("THIS IS BLOCK: "), 0);
+		ocall_printf(code_word + i * BLOCK_SIZE, 50, 1);
+
+		ocall_printf("THIS IS Signature: ", strlen("THIS IS Signature: "), 0);
+		ocall_printf(signatures + (i * 32), 32, 1);
 		
-		printEnclaveError(ocall_ret);
-		// }
+		}
+ocall_printf("=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=  =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=", strlen("=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=  =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-="), 0);
+
+	}
+	
+	double *time_start = malloc(sizeof(double));
+	double *time_end = malloc(sizeof(double));
+
+	// ================================ start time ================================
+	ocall_test_time(time_start);
+
+
+	int counter_index = 0;
 
 	for (int i = 0; i < files[fileNum].n; i++) {
+	// ================================ verify signatures ================================
 		if (rb_indicies[i].is_local) { ocall_printf("Local Signature", 15, 0); continue;}
 		uint8_t signature2[32] = {0};
 		ocall_printf("Generating signature", 20, 0);
-		int data_len2 = 32;
-		hmac_sha2(files[fileNum].PC_Key, 32, code_word_tmp + (i * BLOCK_SIZE), BLOCK_SIZE, signature2, &data_len2);
+		size_t data_len2 = 32;
 
-		if (memcmp(signatures[i], signature2, 32) == 0) {
+		uint8_t *tmp_for_signature = malloc(32);
+		memcpy(tmp_for_signature, signatures + (i * 32), 32);
+
+		hmac_sha2(files[fileNum].sig_Key, 32, code_word + (i * BLOCK_SIZE), BLOCK_SIZE, signature2, &data_len2);
+
+		ocall_printf("signature2", 10, 0);
+		ocall_printf(signature2, 32, 1);
+		ocall_printf("tmp_for_signature", 18, 0);
+		ocall_printf(tmp_for_signature, 32, 1);
+
+		if (memcmp(tmp_for_signature, signature2, 32) == 0) {
 			ocall_printf("Signature match", 15, 0);
 			ocall_printint(&i);
 		} else {
 			ocall_printf("Signature mismatch", 18, 0);
 			ocall_printint(&i);
 		}
-	}
-	
-
-	ocall_get_rs_matrix(k, m, symSize, matrix, m*k);
-	
-
-	for (int i = 0; i < files[fileNum].n; i++) {
+		free(tmp_for_signature);
+	// ================================ decrypt code word ================================
 		
-		if (i >= files[fileNum].k){
 			// ocall_printf(" this is parity",15,0);
-			uint8_t *tmp = malloc(BLOCK_SIZE);
-			for (int j = 0; j < BLOCK_SIZE; j++) {
-				tmp[j] = code_word[i * BLOCK_SIZE + j];
+			if (code_word_index[i] == -1) {
+				uint8_t *tmp_for_decrypt = malloc(BLOCK_SIZE);
+				memcpy(tmp_for_decrypt, code_word_tmp + (i * BLOCK_SIZE), BLOCK_SIZE);
+				DecryptData(files[fileNum].PC_Key, tmp_for_decrypt, BLOCK_SIZE);
+				memcpy(code_word_tmp + (i * BLOCK_SIZE), tmp_for_decrypt, BLOCK_SIZE);
+				free(tmp_for_decrypt);
+			}else{
+				uint8_t *tmp_for_decrypt = malloc(BLOCK_SIZE);
+				memcpy(tmp_for_decrypt, code_word+ (i * BLOCK_SIZE), BLOCK_SIZE);
+				DecryptData(files[fileNum].PC_Key, tmp_for_decrypt, BLOCK_SIZE);
+				memcpy(code_word_tmp + (i * BLOCK_SIZE), tmp_for_decrypt, BLOCK_SIZE);
+				free(tmp_for_decrypt);
+				counter_index++;
 			}
-			
-			DecryptData(files[fileNum].PC_Key, tmp, BLOCK_SIZE);
-			// ocall_printf(tmp, BLOCK_SIZE, 1);
-			for (int j = 0; j < BLOCK_SIZE; j++) {
-				code_word_tmp[i * BLOCK_SIZE + j] = tmp[j];
-			}
-			free(tmp);
-		}
-		else if (rb_indicies[i].is_local == 0){
-			ocall_printf(" this is normal block",15,0);
-			// ocall_printint(&i);
-			for (int j = 0; j < BLOCK_SIZE; j++) {
-				code_word_tmp[i * BLOCK_SIZE + j] = code_word[i * BLOCK_SIZE + j];
-			}
-			// ocall_printf(&code_word[i * BLOCK_SIZE], BLOCK_SIZE, 1);
-		}
 
 	}
 
 
-	ocall_printf("code_word_tmp 0 ", 23, 0);
+	ocall_printf("code_word_tmp 0 ", strlen("code_word_tmp 0 "), 0);
 	ocall_printf(code_word_tmp, BLOCK_SIZE, 1);
-	ocall_printf("code_word_tmp 1 ", 23, 0);
+	ocall_printf("code_word_tmp 1 ", strlen("code_word_tmp 1 "), 0);
 	ocall_printf(code_word_tmp + BLOCK_SIZE, BLOCK_SIZE, 1);
-	ocall_printf("code_word_tmp 2 ", 23, 0);
+	ocall_printf("code_word_tmp 2 ", strlen("code_word_tmp 2 "), 0);
 	ocall_printf(code_word_tmp + 2 * BLOCK_SIZE, BLOCK_SIZE, 1);
-	ocall_printf("code_word_tmp 3 ", 23, 0);
+	ocall_printf("code_word_tmp 3 ", strlen("code_word_tmp 3 "), 0);
 	ocall_printf(code_word_tmp + 3 * BLOCK_SIZE, BLOCK_SIZE, 1);
-	ocall_printf("code_word_tmp 4 ", 23, 0);
-	ocall_printf(code_word_tmp + 4 * BLOCK_SIZE, BLOCK_SIZE, 1);
 
-	// uint16_t *rrrrb = malloc((BLOCK_SIZE/2) * sizeof(uint16_t) * files[fileNum].n);
-	// int ccc = 0;
-	// for (int i = 0; i < BLOCK_SIZE / 2; i++) {
-	// 	rrrrb[i] = ((uint16_t)(code_word_tmp[ccc] << 8) | code_word_tmp[ccc + 1]);
-	// 	ccc += 2;
-	// }
 
-	// int erasures[2];
-	// erasures[0] = 0;
-	// erasures[1] = -1;
-	// free(code_word);
+	ocall_test_time(time_end);
+	ocall_printf("erasure[0]", strlen("erasure[0]"), 0);
+	ocall_printint(&erasures[0]);
 
-	// ocall_printf("=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-NEXT  NEXT=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=", 60, 0);
-	// ocall_printint(&files[fileNum].k);
-	// ocall_printint(&files[fileNum].n);
 
 	initiate_rs(files[fileNum].k, files[fileNum].n);
 	// INJA
 
-	ocall_printint(&erasures[0]);
-	ocall_printint(&erasures[1]);
-	ocall_printint(&erasures[2]);
-	ocall_printint(&erasures[3]);
-	ocall_printint(&erasures[4]);
+	uint16_t *code_word_tmp_uint16 = (uint16_t *)code_word_tmp;
 	// decode(BLOCK_SIZE, code_word_index, recovered_block, code_word, matrix, files[fileNum].current_chunk_id, recovered_block);
-	decode(BLOCK_SIZE, erasures, code_word_tmp, matrix, files[fileNum].current_chunk_id);
+	decode(BLOCK_SIZE, erasures, code_word_tmp_uint16, matrix, files[fileNum].current_chunk_id);
 	// test_decode(code_word_tmp, 3, 5, err);
 	// decode(int chunk_size, int *erasures, uint16_t *code_word, int *matrix, int current_chunk_id, uint16_t *recovered_data) {
 
+	// ================================ end time ================================
 
-	ocall_printf("Recovered block after", 21, 0);
+	code_word_tmp = (uint8_t *) code_word_tmp_uint16;
+
+	ocall_printf("Recovered block after", strlen("Recovered block after"), 0);
 	ocall_printf(code_word_tmp + (erasures[0] * BLOCK_SIZE), BLOCK_SIZE, 1);
 	
 	// store the recovered block
 	memcpy(blockData, code_word_tmp + (erasures[0] * BLOCK_SIZE), BLOCK_SIZE);
 
+	ocall_printf("Total time : RECOVERY", strlen("Total time : RECOVERY"), 0);
+	double total_time = (*time_end - *time_start);
+	ocall_printdouble(&total_time);
 
 }
 
 
 
 void ecall_small_corruption(const char *fileName, int blockNum) {
+
+
+	double *time_start = malloc(sizeof(double));
+	double *time_end = malloc(sizeof(double));
+	double *time_ocall1_start = malloc(sizeof(double));
+	double *time_ocall1_end = malloc(sizeof(double));
+	double *time_ocall2_start = malloc(sizeof(double));
+	double *time_ocall2_end = malloc(sizeof(double));
+	double *time_ocall3_start = malloc(sizeof(double));
+	double *time_ocall3_end = malloc(sizeof(double));
+	double *negative_time = malloc(sizeof(double));
+	*negative_time = 0;
+
+
 
 	int fileNum;
 	for(fileNum = 0; fileNum < MAX_FILES; fileNum++) {
@@ -2943,6 +2991,9 @@ void ecall_small_corruption(const char *fileName, int blockNum) {
 	sgx_read_rand(keyNonce, KEY_SIZE);
 
 	ocall_send_nonce(keyNonce);
+
+// ================================ START TIME ================================
+	ocall_test_time(time_start);
 
 	size_t len = KEY_SIZE;
 	hmac_sha1(dh_sharedKey, ECC_PUB_KEY_SIZE, keyNonce, KEY_SIZE, sharedKey, &len);
@@ -2972,7 +3023,12 @@ void ecall_small_corruption(const char *fileName, int blockNum) {
 		for (int segment = 0; segment < SEGMENT_PER_BLOCK / PAGE_PER_BLOCK; segment++) {
 
 			segNum = (permutedPageNum * SEGMENT_PER_PAGE) + segment;
+			// ================================ negative time ================================
+			ocall_test_time(time_ocall1_start);
 			ocall_get_segment(files[fileNum].fileName, segNum, segData, 0);
+			ocall_test_time(time_ocall1_end);
+			*negative_time = *negative_time + (*time_ocall1_end - *time_ocall1_start);
+			// ================================ negative time ================================
 			DecryptData((uint32_t *)sharedKey, segData, SEGMENT_SIZE); 					
 			
 
@@ -2983,8 +3039,8 @@ void ecall_small_corruption(const char *fileName, int blockNum) {
 
 
 
-
-
+	// ================================ negative time ================================
+		ocall_test_time(time_ocall2_start);
 		const int totalSegments = (files[fileNum].numBlocks * SEGMENT_PER_BLOCK);
 	    int sigPerSeg = floor((double)SEGMENT_SIZE / ((double)PRIME_LENGTH / 8));
 	    int tagSegNum = totalSegments + ceil((double)files[fileNum].numBlocks /(double) sigPerSeg);
@@ -2995,7 +3051,9 @@ void ecall_small_corruption(const char *fileName, int blockNum) {
 																					// so numBits may be wrong
 
 		ocall_get_segment(files[fileNum].fileName, tagSegNum, segData, 0);
-
+		ocall_test_time(time_ocall2_end);
+		*negative_time = *negative_time + (*time_ocall2_end - *time_ocall2_start);
+		// ================================ negative time ================================
 		DecryptData((uint32_t *)sharedKey, segData, SEGMENT_SIZE); 
 
 
@@ -3011,7 +3069,8 @@ void ecall_small_corruption(const char *fileName, int blockNum) {
 		// for(int i = 0; i < 1; i++) {
  		   sigmas[0] = BN_new();
 		    BN_zero(sigmas[0]);
-
+			// ================================ negative time ================================
+			ocall_test_time(time_ocall3_start);	
 		    int startSeg = totalSegments;
 		    int sigSegNum = floor(blockNum/ sigPerSeg) + startSeg;
 		    int sigPageNum = floor(sigSegNum / SEGMENT_PER_PAGE);
@@ -3024,6 +3083,10 @@ void ecall_small_corruption(const char *fileName, int blockNum) {
 
 		    uint8_t sigData[SEGMENT_SIZE];
 		    ocall_get_segment(files[fileNum].fileName, permutedSigSegNum, sigData, 0);
+			ocall_test_time(time_ocall3_end);
+			*negative_time = *negative_time + (*time_ocall3_end - *time_ocall3_start);
+			// ================================ negative time ================================
+
 
 
 		    DecryptData((uint32_t *)sharedKey, sigData, SEGMENT_SIZE);
@@ -3034,23 +3097,17 @@ void ecall_small_corruption(const char *fileName, int blockNum) {
 	uint8_t Datatest[BLOCK_SIZE];
 	memcpy(Datatest, blockData, BLOCK_SIZE);
 
-	if (blockNum == 2) {
+	if (blockNum == 1) {
 		blockData[0] = 0x00;
 		blockData[1] = 0x00;
 	}
 
-	ocall_printf("********************************************************************************", 80, 0);
-	ocall_printf("************************************************************", 60, 0);
-	ocall_printf("**************************************************", 50, 0);
-	ocall_printf("****************************************", 40, 0);
-	ocall_printf("******************************", 30, 0);
-	ocall_printf("********************", 20, 0);
-	ocall_printf("**********", 10, 0);
 
 
-	ocall_test_time();
 	if (audit_block_group(fileNum, 1, &blockNum, sigmas, tag, blockData) != 0) {
-		ocall_test_time();
+		ocall_test_time(time_end);
+		ocall_printf("time_end", strlen("time_end"), 0);
+		ocall_printdouble(time_end);
 
 		    ocall_printf("AUDIT FAILED!!", 15, 0);
 		    ocall_printf("==================================================", 50, 0);
@@ -3070,7 +3127,7 @@ void ecall_small_corruption(const char *fileName, int blockNum) {
     		}
 			// end of temporary
 
-			recover_block(fileNum, pi, Datatest2, toggle);
+			recover_block(fileNum, blockNumInFile2, Datatest2, toggle);
 
 			ocall_printf("blockData", 10, 0);
 			ocall_printf(Datatest2, BLOCK_SIZE, 1);
@@ -3084,12 +3141,31 @@ void ecall_small_corruption(const char *fileName, int blockNum) {
 			}
 
 		} else {
-			ocall_test_time();
+			ocall_test_time(time_end);
 
 		    ocall_printf("AUDIT SUCCESS!", 15, 0);
 		}
 
 	if (*toggle) ocall_init_parity(numBits);
+
+	ocall_printf("********************************************************************************", 80, 0);
+	ocall_printf("************************************************************", 60, 0);
+	ocall_printf("**************************************************", 50, 0);
+	ocall_printf("****************************************", 40, 0);
+	ocall_printf("******************************", 30, 0);
+	ocall_printf("********************", 20, 0);
+	ocall_printf("**********", 10, 0);
+
+	
+	double total_time = (*time_end - *time_start) - *negative_time;
+
+
+
+	ocall_printf("Total time : SMALL CORRUPTION", strlen("Total time : SMALL CORRUPTION"), 0);
+	ocall_printdouble(&total_time);
+
+
+
 
 	BN_free(sigmas[0]);
 	free(toggle);
@@ -3627,26 +3703,34 @@ void local_code_words(int fileNum, int code_word_id, uint8_t *blockData, int *to
 
 
 	for (int i = 0; i < files[fileNum].n; i++) {
+		// get signature
 		if (rb_indicies[i].is_local) { ocall_printf("Local Signature", 15, 0); continue;}
-		uint8_t signature2[32] = {0};
-		ocall_printf("Generating signature", 20, 0);
-		int data_len2 = 32;
-		hmac_sha2(files[fileNum].PC_Key, 32, code_word_tmp + (i * BLOCK_SIZE), BLOCK_SIZE, signature2, &data_len2);
 
-		if (memcmp(signatures[i], signature2, 32) == 0) {
+		// uint8_t signature2[32] = {0};
+		uint8_t *signature2 = malloc(32);
+		ocall_printf("Generating signature", 20, 0);
+		size_t data_len2 = 32;
+		hmac_sha2(files[fileNum].sig_Key, 32, code_word + (i * BLOCK_SIZE), BLOCK_SIZE, signature2, &data_len2);
+
+		uint8_t *signature_tmp = malloc(32);
+		memcpy(signature_tmp, signatures + (i * 32), 32);
+
+		if (memcmp(signature_tmp, signature2, 32) == 0) {
 			ocall_printf("Signature match", 15, 0);
 			ocall_printint(&i);
 		} else {
 			ocall_printf("Signature mismatch", 18, 0);
 			ocall_printint(&i);
 		}
+		free(signature2);
+		free(signature_tmp);
 	}
-	
-
 
 	for (int i = 0; i < files[fileNum].n; i++) {
+
+		// get block
 		
-		if (i >= files[fileNum].k){
+		if (rb_indicies[i].is_local != 1){
 			// ocall_printf(" this is parity",15,0);
 			uint8_t *tmp = malloc(BLOCK_SIZE);
 			for (int j = 0; j < BLOCK_SIZE; j++) {
@@ -3659,14 +3743,6 @@ void local_code_words(int fileNum, int code_word_id, uint8_t *blockData, int *to
 				code_word_tmp[i * BLOCK_SIZE + j] = tmp[j];
 			}
 			free(tmp);
-		}
-		else if (rb_indicies[i].is_local == 0){
-			ocall_printf(" this is normal block",15,0);
-			// ocall_printint(&i);
-			for (int j = 0; j < BLOCK_SIZE; j++) {
-				code_word_tmp[i * BLOCK_SIZE + j] = code_word[i * BLOCK_SIZE + j];
-			}
-			// ocall_printf(&code_word[i * BLOCK_SIZE], BLOCK_SIZE, 1);
 		}
 
 	}
@@ -3724,7 +3800,6 @@ void ecall_local_code_words(int fileNum, int code_word_id, uint8_t *data, int cw
 void ecall_test_time() {}
 
 void ecall_test_time_2() {
-	ocall_test_time();
 }
 
 void ecall_retrieve_File(const char *fileName) {

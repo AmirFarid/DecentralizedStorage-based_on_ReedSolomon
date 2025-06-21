@@ -56,7 +56,8 @@ typedef struct File {
 	uint8_t shuffel_key[KEY_SIZE];
 	// uint8_t AES_Parity_Key[KEY_SIZE];
 	// uint8_t parity_shuffel_key[32];
-	uint8_t PC_Key[32];
+	uint8_t PC_Key[16];
+	uint8_t sig_Key[32];
 	// owner info
 	uint8_t dh_sharedKey_DataOwner[64];
 	char owner_ip[30];

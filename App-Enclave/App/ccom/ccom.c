@@ -31,7 +31,7 @@ void connect_to_server(int client_fd) {
     // Set server address and port
     serv_addr.sin_family = AF_INET;
     serv_addr.sin_port = htons(PORT);
-    serv_addr.sin_addr.s_addr = inet_addr("172.16.49.160");
+    serv_addr.sin_addr.s_addr = inet_addr("172.16.49.161");
 
     // Connect to server
     if (connect(client_fd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) {

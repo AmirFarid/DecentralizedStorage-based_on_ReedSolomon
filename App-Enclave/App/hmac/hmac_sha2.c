@@ -12,6 +12,8 @@
 
 #include <hmac/hmac.h>
 
+#define USE_OPENSSL
+
 
 /** SHA-1 Block size */
 #ifndef SHA_BLOCKSIZE
@@ -37,7 +39,7 @@ void hmac_sha2(const uint8_t *k,  /* secret key */
         size_t *t) {
 #ifdef USE_OPENSSL
 
-	if (!HMAC(EVP_sha1(), k, (int)lk, d, ld, out, t)) {
+	if (!HMAC(EVP_sha256(), k, (int)lk, d, ld, out, t)) {
 		ERR_clear_error();
 	}
 #else

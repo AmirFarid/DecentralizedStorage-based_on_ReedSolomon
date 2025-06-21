@@ -26,11 +26,6 @@ long fileSize;
 int K;
 int N;
 
-static const int my_matrix[3][4] = {
-    {1, 1, 1, 34820}, // N = 4 , k = 2
-    {1, 1, 1, 1},
-    {1, 1, 1, 1}
-};
 
 
 int *erasures_to_erased(int k, int m, int *erasures)
@@ -363,33 +358,36 @@ int matrix_decode(int k, int m, int w, int *matrix, int *erasures, char **data_p
       return 0;
 }
 
+int *my_matrix;
 
-
-
-
+void print_matrix(int *matrix, int k, int m) {
+  if (!matrix) {
+    ocall_printf("Error: my_matrix not initialized!", strlen("Error: my_matrix not initialized!"), 0);
+    return;
+}
+    ocall_printf("Matrix:", strlen("Matrix:"), 0);
+    for (int i = 0; i < m; i++) {
+        for (int j = 0; j < k; j++) {
+            ocall_printint(&matrix[i*k + j]);
+        }
+    }
+}
 
 
 // void decode(int chunk_size, int *erasures, uint16_t *code_word, int *matrix, int current_chunk_id, uint16_t *recovered_data) {
-void decode(int chunk_size, int *erasures, uint16_t *code_word, int *matrix, int current_chunk_id) {
+void decode(int chunk_size, int *erasures, char *code_word, int *matrix, int current_chunk_id) {
 
 
     int m = N - K;
     // ocall_printint(K);
     int symSize = 16;
 
-    matrix[0] = 1;
-	  matrix[1] = 1;
-	  matrix[2] = 1;
-	  matrix[3] = 1;
-	  matrix[4] = 24578;
-	  matrix[5] = 40964;
-	  matrix[6] = 1;
-	  matrix[7] = 61477;
-	  matrix[8] = 61476;
+    print_matrix(my_matrix, K, N-K);
 
 
 
     ocall_printf("-------------------------- Decoding --------------------------", 62, 0);
+
 
     char **data_ptrs = (char **)malloc(sizeof(char *) * K);
     char **coding_ptrs = (char **)malloc(sizeof(char *) * (N-K));
@@ -403,6 +401,7 @@ void decode(int chunk_size, int *erasures, uint16_t *code_word, int *matrix, int
 
 
     // Process each symbol
+    ocall_printf("Processing each symbol", 28, 0);
     for (int s = 0; s < 2048; s++) {
         // Read available chunks
         for (int i = 0; i < N; i++) {
@@ -418,11 +417,15 @@ void decode(int chunk_size, int *erasures, uint16_t *code_word, int *matrix, int
 
 
                 if (i < K) {
+                    // data_ptrs[i] = (char *)code_word [ (i * 2048) + s];
                     *((uint16_t *)data_ptrs[i]) = code_word [ (i * 2048) + s];
+                    
                     // *((char *)data_ptrs[i]) = 1;
 
                 } else {                  
+                    // coding_ptrs[i-K] = (char *)code_word [ i * 2048 + s];
                     *((uint16_t *)coding_ptrs[i-K]) = code_word [ i * 2048 + s];
+                    
                     // *((char *)coding_ptrs[i-K]) = 0;
 
                 } 
@@ -430,20 +433,23 @@ void decode(int chunk_size, int *erasures, uint16_t *code_word, int *matrix, int
         }
         // Decode
         // int ret = jerasure_matrix_decode(K, N-K, symSize, matrix, 1, erasures, data_ptrs, coding_ptrs, sizeof(uint16_t));
-        int ret = matrix_decode(K, N-K, symSize, matrix, erasures, data_ptrs, coding_ptrs, sizeof(uint16_t));
+        int ret = matrix_decode(K, N-K, symSize, my_matrix, erasures, data_ptrs, coding_ptrs, sizeof(uint16_t));
+
+        ocall_printf("Ret", 4, 0);
+        ocall_printint(&ret);
 
         if (ret == 0) {
 
             for (int i = 0; erasures[i] != -1; i++) {
                 int idx = erasures[i];
-                    // ocall_printint(&idx);
+                    ocall_printint(&idx);
                 if (idx < K) {
                     // ocall_printint(&data_ptrs[idx]);
                     // recovered_data[s] = *((uint16_t *)data_ptrs[idx]);
-                    code_word[(i * 2048) + s] = *((uint16_t *)data_ptrs[idx]);
+                    code_word[(erasures[i] * 2048) + s] = *((uint16_t *)data_ptrs[idx]);
                 } else {
                     // recovered_data[s] = *((uint16_t *)coding_ptrs[idx-K]);
-                    code_word[(i * 2048) +s] = *((uint16_t *)coding_ptrs[idx-K]);
+                    code_word[(erasures[i] * 2048) +s] = *((uint16_t *)coding_ptrs[idx-K]);
                 }
             }
 
@@ -462,13 +468,121 @@ void decode(int chunk_size, int *erasures, uint16_t *code_word, int *matrix, int
     }
     free(data_ptrs);
     free(coding_ptrs);
-    free(matrix);
 }
 
 
 void initiate_rs(int k, int n){
+
+  // int l = 0;
+  // ocall_printint(&l);
+
+  ocall_printf("Initiating RS", strlen("Initiating RS"), 0);
+
     N = n;
     K = k;
-    
+    my_matrix = malloc(sizeof(int) * (n-k) * k);
+
+if (k == 2 && n == 4) {
+  my_matrix[0] = 1; my_matrix[1] = 1; 
+  my_matrix[2] = 1; my_matrix[3] = 34820;
+}else if (k == 3 && n == 6) {
+  my_matrix[0] = 1; my_matrix[1] = 1; my_matrix[2] = 1; 
+  my_matrix[3] = 1; my_matrix[4] = 24578; my_matrix[5] = 40964; 
+  my_matrix[6] = 1; my_matrix[7] = 61447; my_matrix[8] = 61446; 
+}else if (k == 4 && n == 8) {
+  my_matrix[0] = 1; my_matrix[1] = 1; my_matrix[2] = 1; my_matrix[3] = 1; 
+  my_matrix[4] = 1; my_matrix[5] = 30466; my_matrix[6] = 13750; my_matrix[7] = 60935; 
+  my_matrix[8] = 1; my_matrix[9] = 13750; my_matrix[10] = 52230; my_matrix[11] = 30722; 
+  my_matrix[12] = 1; my_matrix[13] = 52230; my_matrix[14] = 34820; my_matrix[15] = 17411; 
+}else if (k == 2 && n == 6) {
+	my_matrix[0] = 1; my_matrix[1] = 1; 
+	my_matrix[2] = 1; my_matrix[3] = 52230; 
+	my_matrix[4] = 1; my_matrix[5] = 61447; 
+	my_matrix[6] = 1; my_matrix[7] = 34820; 
+}else if (k == 3 && n == 9) {
+	my_matrix[0] = 1; my_matrix[1] = 1; my_matrix[2] = 1; 
+	my_matrix[3] = 1; my_matrix[4] = 24578; my_matrix[5] = 40964; 
+	my_matrix[6] = 1; my_matrix[7] = 34820; my_matrix[8] = 48562; 
+	my_matrix[9] = 1; my_matrix[10] = 48563; my_matrix[11] = 34821; 
+	my_matrix[12] = 1; my_matrix[13] = 40965; my_matrix[14] = 24579; 
+	my_matrix[15] = 1; my_matrix[16] = 61447; my_matrix[17] = 61446; 
+}else if (k == 4 && n == 12) {
+	my_matrix[0] = 1; my_matrix[1] = 1; my_matrix[2] = 1; my_matrix[3] = 1; 
+	my_matrix[4] = 1; my_matrix[5] = 30466; my_matrix[6] = 13750; my_matrix[7] = 60935; 
+	my_matrix[8] = 1; my_matrix[9] = 13750; my_matrix[10] = 52230; my_matrix[11] = 30722; 
+	my_matrix[12] = 1; my_matrix[13] = 60935; my_matrix[14] = 30722; my_matrix[15] = 47877; 
+	my_matrix[16] = 1; my_matrix[17] = 27503; my_matrix[18] = 61447; my_matrix[19] = 30153; 
+	my_matrix[20] = 1; my_matrix[21] = 37252; my_matrix[22] = 42172; my_matrix[23] = 53766; 
+	my_matrix[24] = 1; my_matrix[25] = 53620; my_matrix[26] = 43525; my_matrix[27] = 34820; 
+	my_matrix[28] = 1; my_matrix[29] = 52230; my_matrix[30] = 34820; my_matrix[31] = 17411; 
+}else if (k == 2 && n == 8) {
+	my_matrix[0] = 1; my_matrix[1] = 1; 
+	my_matrix[2] = 1; my_matrix[3] = 52230; 
+	my_matrix[4] = 1; my_matrix[5] = 61447; 
+	my_matrix[6] = 1; my_matrix[7] = 43525; 
+	my_matrix[8] = 1; my_matrix[9] = 55005; 
+	my_matrix[10] = 1; my_matrix[11] = 34820; 
+}else if (k == 3 && n == 12) {
+	my_matrix[0] = 1; my_matrix[1] = 1; my_matrix[2] = 1; 
+	my_matrix[3] = 1; my_matrix[4] = 24578; my_matrix[5] = 40964; 
+	my_matrix[6] = 1; my_matrix[7] = 34820; my_matrix[8] = 48562; 
+	my_matrix[9] = 1; my_matrix[10] = 48563; my_matrix[11] = 34821; 
+	my_matrix[12] = 1; my_matrix[13] = 40965; my_matrix[14] = 24579; 
+	my_matrix[15] = 1; my_matrix[16] = 52075; my_matrix[17] = 12289; 
+	my_matrix[18] = 1; my_matrix[19] = 17411; my_matrix[20] = 45793; 
+	my_matrix[21] = 1; my_matrix[22] = 45792; my_matrix[23] = 17410; 
+	my_matrix[24] = 1; my_matrix[25] = 61447; my_matrix[26] = 61446; 
+}else if (k == 4 && n == 16) {
+	my_matrix[0] = 1; my_matrix[1] = 1; my_matrix[2] = 1; my_matrix[3] = 1; 
+	my_matrix[4] = 1; my_matrix[5] = 30466; my_matrix[6] = 13750; my_matrix[7] = 60935; 
+	my_matrix[8] = 1; my_matrix[9] = 13750; my_matrix[10] = 52230; my_matrix[11] = 30722; 
+	my_matrix[12] = 1; my_matrix[13] = 60935; my_matrix[14] = 30722; my_matrix[15] = 47877; 
+	my_matrix[16] = 1; my_matrix[17] = 27503; my_matrix[18] = 61447; my_matrix[19] = 30153; 
+	my_matrix[20] = 1; my_matrix[21] = 37252; my_matrix[22] = 42172; my_matrix[23] = 53766; 
+	my_matrix[24] = 1; my_matrix[25] = 53620; my_matrix[26] = 43525; my_matrix[27] = 34820; 
+	my_matrix[28] = 1; my_matrix[29] = 8704; my_matrix[30] = 58218; my_matrix[31] = 15232; 
+	my_matrix[32] = 1; my_matrix[33] = 29605; my_matrix[34] = 55005; my_matrix[35] = 40965; 
+	my_matrix[36] = 1; my_matrix[37] = 21763; my_matrix[38] = 55302; my_matrix[39] = 26114; 
+	my_matrix[40] = 1; my_matrix[41] = 30722; my_matrix[42] = 17411; my_matrix[43] = 45526; 
+	my_matrix[44] = 1; my_matrix[45] = 52230; my_matrix[46] = 34820; my_matrix[47] = 17411; 
+}else if (k == 2 && n == 3) {
+	my_matrix[0] = 1; my_matrix[1] = 1; 
+}else if (k == 3 && n == 4) {
+	my_matrix[0] = 1; my_matrix[1] = 1; my_matrix[2] = 1; 
+}else if (k == 4 && n == 5) {
+	my_matrix[0] = 1; my_matrix[1] = 1; my_matrix[2] = 1; my_matrix[3] = 1; 
+}else if (k == 2 && n == 4) {
+	my_matrix[0] = 1; my_matrix[1] = 1; 
+	my_matrix[2] = 1; my_matrix[3] = 34820; 
+}else if (k == 3 && n == 5) {
+	my_matrix[0] = 1; my_matrix[1] = 1; my_matrix[2] = 1; 
+	my_matrix[3] = 1; my_matrix[4] = 61447; my_matrix[5] = 61446; 
+}else if (k == 4 && n == 6) {
+	my_matrix[0] = 1; my_matrix[1] = 1; my_matrix[2] = 1; my_matrix[3] = 1; 
+	my_matrix[4] = 1; my_matrix[5] = 52230; my_matrix[6] = 34820; my_matrix[7] = 17411; 
+}else if (k == 2 && n == 5) {
+	my_matrix[0] = 1; my_matrix[1] = 1; 
+	my_matrix[2] = 1; my_matrix[3] = 52230; 
+	my_matrix[4] = 1; my_matrix[5] = 34820; 
+}else if (k == 3 && n == 6) {
+	my_matrix[0] = 1; my_matrix[1] = 1; my_matrix[2] = 1; 
+	my_matrix[3] = 1; my_matrix[4] = 24578; my_matrix[5] = 40964; 
+	my_matrix[6] = 1; my_matrix[7] = 61447; my_matrix[8] = 61446; 
+}else if (k == 4 && n == 7) {
+	my_matrix[0] = 1; my_matrix[1] = 1; my_matrix[2] = 1; my_matrix[3] = 1; 
+	my_matrix[4] = 1; my_matrix[5] = 30466; my_matrix[6] = 13750; my_matrix[7] = 60935; 
+	my_matrix[8] = 1; my_matrix[9] = 52230; my_matrix[10] = 34820; my_matrix[11] = 17411; 
+}
+
+
+
+
+
+
+
+
+
+
+
 }
 

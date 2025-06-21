@@ -26,7 +26,7 @@
 
 void ocall_send_parity(int startPage, uint8_t *parityData, size_t size)
 {
-    send_data_to_server("send_parity", 12);
+    send_data_to_server("send_parity", strlen("send_parity"));
 	send_data_to_server(&size, sizeof(size_t));
 	send_data_to_server(&startPage, sizeof(int));
     send_data_to_server(parityData, sizeof(uint8_t) * size);
@@ -36,26 +36,26 @@ void ocall_send_parity(int startPage, uint8_t *parityData, size_t size)
 
 void ocall_init_parity(int numBits) 
 {
-	send_data_to_server("state_2", 8);
+	send_data_to_server("state_2", strlen("state_2"));
 	send_data_to_server(&numBits, sizeof(int)); // TODO: write response on server side in VM.
 }
 
 void ocall_write_partition(int numBits)
 {
-    send_data_to_server("write_partition", 16);
+    send_data_to_server("write_partition", strlen("write_partition"));
     send_data_to_server(&numBits, sizeof(int));
 }
 
 void ocall_write_page(int pageNum, uint8_t *pageData) 
 {
-    send_data_to_server("write_page", 11);
+    send_data_to_server("write_page", strlen("write_page"));
     send_data_to_server(&pageNum, sizeof(int));
     send_data_to_server(pageData, sizeof(uint8_t) * PAGE_SIZE);
 }
 
 void ocall_end_genPar() 
 {
-	send_data_to_server("end_genPar", 11);
+	send_data_to_server("end_genPar", strlen("end_genPar"));
 }
 
 
@@ -71,7 +71,7 @@ void ocall_send_nonce(uint8_t *nonce)
 
 
 	/* Call server function get_nonce*/
-	send_data_to_server("get_nonce", 12); // TODO: Change this on server side to nonce.
+	send_data_to_server("get_nonce", strlen("get_nonce")); // TODO: Change this on server side to nonce.
 
 	/* Send nonce to server */
 	send_data_to_server(nonce, sizeof(uint8_t) * KEY_SIZE);
@@ -81,7 +81,7 @@ void ocall_get_segment(const char *fileName, int segNum, uint8_t *segData, int t
 {
 
     /* Call server function get_segment */
-    send_data_to_server("get_segment", 11);
+    send_data_to_server("get_segment", strlen("get_segment"));
 
     /* Send fileName to server*/
     send_data_to_server(fileName, strlen(fileName));
@@ -218,13 +218,21 @@ void ocall_printf(unsigned char *buffer, size_t size, int type)
 
 void ocall_printint(int *buffer) 
 {
+    if (!buffer) {
+        printf("Error: NULL pointer passed to ocall_printint\n");
+        return;
+    }
 
 	printf("%d\n",*buffer);
 
-	
-
 }
 
+void ocall_printdouble(double *buffer) 
+{
+
+	printf("%f\n",*buffer);
+
+}
 
 
 /*  
@@ -412,6 +420,9 @@ printf("sigma_mem size = %zu\n", numBlocks * (PRIME_LENGTH / 8) * sizeof(uint8_t
     // free(fileDataTransfer);
 	/* server function file_init has now completed execution, it does not require any more data */
 	printf("generate parity!\n");
+    free(tag);
+    free(sigma);
+    free(sigma_mem);
 
     // our logics are the same ----
     
@@ -425,16 +436,15 @@ printf("sigma_mem size = %zu\n", numBlocks * (PRIME_LENGTH / 8) * sizeof(uint8_t
 #include "jerasure/reed_sol.h"
 #include <time.h>
 
-void ocall_test_time() {
+void ocall_test_time(double *time) {
 
     struct timespec currentTime;
 
     clock_gettime(CLOCK_MONOTONIC, &currentTime);
 
-    double time_in_seconds = currentTime.tv_sec + (currentTime.tv_nsec / 1e9);
-    printf("Current time: %f seconds\n", time_in_seconds);
-    
+    // printf("time: %f\n", currentTime.tv_sec + (currentTime.tv_nsec / 1e9));
 
+    *time = (currentTime.tv_sec + (currentTime.tv_nsec / 1e9));
 
 }
 
@@ -462,6 +472,9 @@ int main(void)
         return 1;
     }
 
+    // ecall_init_rs_matrix(eid, k, n);
+
+    // getchar();
     // ---------------------------------------------------------------------------------
 
     // gettimeofday(&start_time, NULL);
@@ -476,19 +489,26 @@ int main(void)
 // ---------------------------------- matrix test -----------------------------------------------
 
    
-    int *matrix_test_2 = reed_sol_vandermonde_coding_matrix(k, m, 16);
+    // int *matrix_test_2 = reed_sol_vandermonde_coding_matrix(k, m, 16);
 
 
-    printf("================ matrix_test_2 ================\n");
-    jerasure_print_matrix(matrix_test_2, k, m, 16);
+    // printf("================ matrix_test_2 ================\n");
+    // jerasure_print_matrix(matrix_test_2, k, m, 16);
 
-    printf("{");
-    for (int i = 0; i < m *k; i++) {
-        printf("%d, ", matrix_test_2[i]);
-    }
-    printf("} \\\\ N = %d, K = %d\n", n, k);
+    // printf("else if (k == %d && n == %d) {\n", k, n);
 
-    free(matrix_test_2);
+    // for (int i = 0; i < m; i++) {
+    //     printf("\t");
+    //     for (int j = 0; j < k; j++) {
+    //         printf("my_matrix[%d] = %d; ",i*k + j, matrix_test_2[i*k + j]);
+    //     }
+    //     printf("\n");
+    // }
+    // printf("}\n");
+
+    // free(matrix_test_2);
+
+    // getchar();
 
 // --------------------------------------------------------------------------------- 
 
@@ -523,7 +543,7 @@ int main(void)
 
     printf("Preprocessing time: %f seconds\n", e_time - s_time);
 
-    load_file_data(fileName, fileDataTransfer->numBlocks, mode, k, n);
+    load_file_data(fileName, fileDataTransfer->numBlocks, mode, k, n, eid);
 
     printf("Press enter to continue for initialization\n");
     getchar();

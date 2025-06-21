@@ -37,6 +37,7 @@ SGX_MODE ?= HW
 SGX_ARCH ?= x64
 SGX_DEBUG ?= 1
 ASAN ?= 0
+W ?= 0
 
 
 ifeq ($(shell getconf LONG_BIT), 32)
@@ -73,7 +74,7 @@ SGX_COMMON_FLAGS += -Wall -Wextra -Winit-self -Wpointer-arith -Wreturn-type \
                     -Waddress -Wsequence-point -Wformat-security \
                     -Wmissing-include-dirs -Wfloat-equal -Wundef -Wshadow \
                     -Wcast-align -Wcast-qual -Wconversion -Wredundant-decls
-SGX_COMMON_CFLAGS := $(SGX_COMMON_FLAGS) -Wjump-misses-init -Wstrict-prototypes -Wunsuffixed-float-constants
+SGX_COMMON_CFLAGS := $(SGX_COMMON_FLAGS) -Wjump-misses-init -Wstrict-prototypes -Wunsuffixed-float-constants -w
 
 ifneq ($(SGX_MODE), HW)
 	Urts_Library_Name := sgx_urts_sim
@@ -101,10 +102,6 @@ endif
 
 App_Link_Flags := -L$(SGX_LIBRARY_PATH) -l$(Urts_Library_Name) -lpthread -lssl -lcrypto -lJerasure -lgf_complete -lm
 
-ifeq ($(ASAN), 1)
-	App_C_Flags += -fsanitize=address -fno-omit-frame-pointer
-	App_Link_Flags += -fsanitize=address
-endif
 App_C_Objects := $(App_C_Files:.c=.o)
 
 App_Name := app 
@@ -133,10 +130,11 @@ Crypto_Library_Name := sgx_tcrypto
 Enclave_C_Files := Enclave/Enclave.c Enclave/eccDH/ecdh.c Enclave/cpor/cpor.c Enclave/aes/aes.c Enclave/rs/rs.c Enclave/rs/galois.c Enclave/sha/sha1.c Enclave/hmac/hmac_sha1.c Enclave/hmac/hmac_sha2.c Enclave/prp/prp.c Enclave/rs/gf.c Enclave/rs/gf_w16.c Enclave/rs/gf_wgen.c Enclave/rs/gf_cpu.c Enclave/rs/gf_w8.c Enclave/rs/gf_w32.c Enclave/rs/gf_w4.c
 Enclave_Include_Paths := -IEnclave/rs -IEnclave -I$(SGX_SDK)/include -I$(SGX_SDK)/include/libcxx -I$(SGX_SDK)/include/tlibc -IEnclave/eccDH -IEnclave/cpor -I/opt/intel2/sgxssl/Linux/package/include -IEnclave/hmac -IEnclave/sha -IEnclave/aes -IEnclave/prp -I/usr/local/include -I/usr/lib/gcc/x86_64-linux-gnu/12/include
 
-Enclave_C_Flags := -nostdinc -fvisibility=hidden -fpie -fstack-protector -fno-builtin-printf $(Enclave_Include_Paths)
+Enclave_C_Flags := -nostdinc -fvisibility=hidden -fpie -fstack-protector -fno-builtin-printf -Wno-pointer-sign $(Enclave_Include_Paths)
 
 #Enable the security flags
 Enclave_Security_Link_Flags := -Wl,-z,relro,-z,now,-z,noexecstack
+
 
 # To generate a proper enclave, it is recommended to follow below guideline to link the trusted libraries:
 #    1. Link sgx_trts with the `--whole-archive' and `--no-whole-archive' options,
@@ -160,6 +158,18 @@ Enclave_Link_Flags := $(Enclave_Security_Link_Flags) \
 	-lfec -L/usr/local/lib
 
  
+
+ifeq ($(ASAN), 1)
+	App_C_Flags += -fsanitize=address -fno-omit-frame-pointer -w
+	App_Link_Flags += -fsanitize=address
+	Enclave_C_Flags += -w
+
+endif
+
+ifeq ($(W), 1)
+	App_C_Flags += -w
+	Enclave_C_Flags += -w
+endif
 
 
 
