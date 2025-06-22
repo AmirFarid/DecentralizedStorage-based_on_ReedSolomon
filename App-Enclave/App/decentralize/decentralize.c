@@ -894,15 +894,16 @@ void handle_code_word_retrival_request(sgx_enclave_id_t eid, int client_socket)
     secure_recv(client_socket, &code_word_id, sizeof(int));
 
     uint8_t *buffer = malloc(BLOCK_SIZE * K);
-    ecall_local_code_words(Geid, file_id, code_word_id, buffer, BLOCK_SIZE * K);
+    uint8_t *signature = malloc(K * 32);
+    ecall_local_code_words(Geid, file_id, code_word_id, buffer, BLOCK_SIZE * K, signature, K);
     
     secure_send(client_socket, buffer, BLOCK_SIZE * K);
-
+    secure_send(client_socket, signature, K * 32);
 
 
     ack_recv(client_socket);
     free(buffer);
-
+    free(signature);
 }
 
 pthread_mutex_t global_lock = PTHREAD_MUTEX_INITIALIZER;
@@ -1085,8 +1086,10 @@ void *get_code_word(void *arg)
     // this is the code_word_number that we want to retrieve not the block number
     secure_send(sock, &args->blockNum, sizeof(int));
 
-        uint8_t *buffer = malloc(BLOCK_SIZE * K);
-        secure_recv(sock, buffer, BLOCK_SIZE * K);
+    uint8_t *buffer = malloc(BLOCK_SIZE * K);
+    uint8_t *signature = malloc(K * 32);
+    secure_recv(sock, buffer, BLOCK_SIZE * K);
+    secure_recv(sock, signature, K * 32);
 
             printf("this is the time of sending the code word\n");
     printf("=============================================================\n");
@@ -1116,9 +1119,11 @@ void *get_code_word(void *arg)
 
         pthread_mutex_lock(&shared_args->lock);
         memcpy(shared_args->output_code_word_buffer + args->blockNum * K *  BLOCK_SIZE, buffer, K *BLOCK_SIZE);
+        memcpy(shared_args->output_signature_list + args->blockNum * K * 32, signature, K * 32);
         // for(int j = 0; j < BLOCK_SIZE; j++) args->output_code_word_buffer[index * BLOCK_SIZE + j] = buffer[j];
         pthread_mutex_unlock(&shared_args->lock);
         free(buffer);
+        free(signature);
 
 
     ack_send(sock);
@@ -1144,6 +1149,7 @@ void ocall_retrieve_code_words(int fileNum, NodeInfo *nodes, int node_size, int 
     // args->output_code_word_buffer = malloc(N * BLOCK_SIZE * sizeof(uint8_t));
     // args->output_index_list = malloc(N * sizeof(uint8_t));
     args->output_code_word_buffer = malloc((k * num_code_words) * BLOCK_SIZE * sizeof(uint8_t));
+    args->output_signature_list = malloc((k * num_code_words) * 32 * sizeof(uint8_t));
     args->output_index_list = malloc(num_code_words * K * sizeof(uint8_t));
 
 
@@ -1198,14 +1204,14 @@ void ocall_retrieve_code_words(int fileNum, NodeInfo *nodes, int node_size, int 
 
 
 
-    for (int i = 0; i < thread_idx; i++)
+    for (int i =0 ; i < thread_idx; i++)
     {
         printf("joining thread %d\n", i);
         pthread_join(threads[i], NULL);
         printf("joined thread %d\n", i);
     }
 
-    for(int i = 0; i < num_code_words * k ; i++){
+    for(int i = num_retrieval_rq_per_peer * k; i < num_code_words * k ; i++){
         memcpy(data_tmp + i * BLOCK_SIZE, args->output_code_word_buffer + i * BLOCK_SIZE, BLOCK_SIZE);
     }
 

@@ -3378,158 +3378,6 @@ void ecall_test_rs(char *data, int k, int n, int *erasures) {
 	return;
 }
 
-// void local_code_words(int fileNum, int code_word_id, uint8_t *data, int *indices) {
-
-// 	ocall_printf("local 1", 7, 0);
-
-// 	int k_cached = files[fileNum].k;
-// 	int n_cached = files[fileNum].n;
-// 	int numBlocks_cached = files[fileNum].numBlocks;
-// 	int symSize = 16;
-// 	int m = n_cached - k_cached;
-
-// 	int counter = k_cached;
-
-
-// 	uint8_t *data_recovered = (uint8_t *)malloc(BLOCK_SIZE * sizeof(uint8_t) * n_cached);
-// 	int *erasures = (int *)malloc(sizeof(int) * k_cached);
-// 	for (int j = 0; j < k_cached; j++) erasures[j] = -1;
-
-
-
-// 	for(int i = code_word_id * k_cached; i < (code_word_id +1 ) * k_cached; i++) {
-		
-// 		uint8_t *data_tmp = (uint8_t *)malloc(BLOCK_SIZE * sizeof(uint8_t));
-// 		uint8_t *status = (uint8_t *)malloc(sizeof(uint8_t));
-		
-// 		int node_index = indices[i] / numBlocks_cached;
-// 		int internal_block_index = indices[i] % k_cached;
-		
-// 		if (node_index == current_id) {
-// 			ocall_printf("local 3", 7, 0);
-// 			check_block(fileNum, internal_block_index, data_tmp, status);
-// 			if (status == 1) {
-// 					for (int k = 0; k < k_cached; k++) {
-// 						if (erasures[k] == -1) {
-// 							erasures[k] = internal_block_index;
-// 							break;
-// 						}
-// 					}
-// 			}
-// 			continue;
-// 		}else{
-// 			ocall_printf("local 4", 7, 0);
-
-// 			NodeInfo *node = (NodeInfo *)malloc(sizeof(NodeInfo));
-// 			for (int j = 0; j < 16; j++) node->ip[j] = files[fileNum].nodes[node_index].ip[j];
-// 			node->port = files[fileNum].nodes[node_index].port;
-// 			node->chunk_id = files[fileNum].nodes[node_index].chunk_id;
-// 			node->is_parity_peer = files[fileNum].nodes[node_index].is_parity_peer;
-// 			node->socket_fd = files[fileNum].nodes[node_index].socket_fd;
-			
-// 			// recoverable_block_indicies *recoverable_block_indicies = (recoverable_block_indicies *) malloc(sizeof(recoverable_block_indicies));
-// 			recoverable_block_indicies *rbi = (recoverable_block_indicies *)malloc(sizeof(recoverable_block_indicies));
-// 			rbi->node_index = node_index;
-// 			rbi->internal_block_index = indices[i] % k_cached;
-// 			rbi->code_word_number = code_word_id;
-// 			rbi->total_blocks_index = indices[i];
-// 			rbi->is_corrupted = 0;
-// 			rbi->is_local = 0;
-// 			ocall_printf("local 4.1", 7, 0);
-			
-// 			ocall_retrieve_block(fileNum, rbi, node, status, data_tmp, BLOCK_SIZE, sizeof(node), sizeof(rbi));
-// 			ocall_printf("local 4.2", 7, 0);
-// 			rbi->is_corrupted = status;
-			
-// 			if (status == 1) {
-// 				ocall_printf("local 5", 7, 0);
-// 					for (int k = 0; k < k_cached; k++) {
-// 						if (erasures[k] == -1) {
-// 							erasures[k] = rbi->internal_block_index;
-// 							break;
-// 						}
-// 					}
-// 				}
-
-
-// 			free(rbi);
-// 			free(node);
-// 			free(status);
-// 		}
-
-// 		ocall_printf("local 6", 7, 0);
-// 		for (int j = 0; j < BLOCK_SIZE; j++) {
-// 			// here i minus the code_word_id * k_cached to get the correct index and start from the zero index
-// 			data_recovered[(i - (code_word_id * k_cached)) * BLOCK_SIZE + j] = data_tmp[j];
-// 		}
-
-// 		ocall_printf("local 7", 7, 0);
-// 		free(data_tmp);
-// 		free(status);
-// 	}
-
-// 	ocall_printf("local 8", 7, 0);
-// 	uint8_t *retrieved_data = (uint8_t *)malloc(BLOCK_SIZE * sizeof(uint8_t));
-
-// 	ocall_printf("local 9", 7, 0);
-// 	if (erasures[0] != -1) {
-		
-// 		int m = n_cached - k_cached;
-//     	int *matrix = (int *)malloc(sizeof(int) * m * k_cached);
-
-// 		for (int i = 0; i < m ; i++) {
-// 			uint8_t *data_tmp = (uint8_t *)malloc(BLOCK_SIZE * sizeof(uint8_t));
-// 			uint8_t *status = (uint8_t *)malloc(sizeof(uint8_t));
-
-// 			NodeInfo *node = (NodeInfo *)malloc(sizeof(NodeInfo));
-// 			for (int j = 0; j < 16; j++) node->ip[j] = files[fileNum].nodes[NUM_NODES + 1].ip[j];
-// 			node->port = files[fileNum].nodes[NUM_NODES + 1].port;
-// 			node->chunk_id = files[fileNum].nodes[NUM_NODES + 1].chunk_id;
-// 			node->is_parity_peer = files[fileNum].nodes[NUM_NODES + 1].is_parity_peer;
-// 			node->socket_fd = files[fileNum].nodes[NUM_NODES + 1].socket_fd;
-			
-// 			// recoverable_block_indicies *recoverable_block_indicies = (recoverable_block_indicies *) malloc(sizeof(recoverable_block_indicies));
-// 			recoverable_block_indicies *rbi = (recoverable_block_indicies *)malloc(sizeof(recoverable_block_indicies));
-// 			rbi->node_index = NUM_NODES + 1;
-// 			rbi->internal_block_index = i % k_cached;
-// 			rbi->code_word_number = code_word_id;
-// 			rbi->total_blocks_index = i;
-// 			rbi->is_corrupted = 0;
-// 			rbi->is_local = 0;
-			
-// 			ocall_retrieve_block(fileNum, rbi, node, status, data_tmp, BLOCK_SIZE, sizeof(node), sizeof(rbi));
-
-// 			for (int j = 0; j < BLOCK_SIZE; j++) {
-// 				data_recovered[k_cached * BLOCK_SIZE + i * BLOCK_SIZE + j] = data_tmp[j];
-// 			}
-
-// 			free(rbi);
-// 			free(node);
-// 			free(status);
-// 			free(data_tmp);
-// 		}
-
-// 		ocall_printf("local 10", 7, 0);
-// 		ocall_get_rs_matrix(k_cached, m, 16, matrix, m * k_cached);
-// 		ocall_printf("local 11", 7, 0);
-// 		// INJA
-// 		decode(BLOCK_SIZE, erasures, data_recovered, matrix, files[fileNum].current_chunk_id);
-
-
-// 	}
-
-// 	ocall_printf("local 12", 7, 0);
-// 	for (int i = 0; i < k_cached; i++) {
-// 		for (int j = 0; j < BLOCK_SIZE; j++) {
-// 			data[i * BLOCK_SIZE + j] = data_recovered[i * BLOCK_SIZE + j];
-// 		}
-// 	}
-
-// 	ocall_printf("local 13", 7, 0);
-// 	free(data_recovered);
-// 	free(indices);
-	
-// }
 
 
 void local_code_words(int fileNum, int code_word_id, uint8_t *blockData, int *toggle){
@@ -3721,13 +3569,11 @@ void local_code_words(int fileNum, int code_word_id, uint8_t *blockData, int *to
 	for (int i = 0; i < files[fileNum].k; i++) {
 		uint8_t *tmpcode_word = (uint8_t *)malloc(BLOCK_SIZE);
 		
-	ocall_printf("local 9", 7, 0);
-	ocall_printf("the toggle is:", 14, 0);
-	ocall_printint(toggle);
+
 		if (rb_indicies[i].is_local == 1) {
-	ocall_printf("local 10", 8, 0);
+
 			if (*toggle == 1) {
-		ocall_printf("local 11", 8, 0);
+				ocall_printf("local 11", 8, 0);
 				ocall_init_parity(numBits);
 				*toggle = 0;
 			}
@@ -3748,20 +3594,12 @@ void local_code_words(int fileNum, int code_word_id, uint8_t *blockData, int *to
 					code_word_tmp[i * BLOCK_SIZE + j] = tmpcode_word[j];
 				}
 			}else{
-				ocall_printf("local 14", 8, 0);
-				// find the first empty space in the code_word_index
-				// and assign the index to it as the index of the code word is corrupted
-				for (int j = 0; j < files[fileNum].k; j++) {
-					if (code_word_index[j] == -1) {
-						code_word_index[j] = i;
-						break;
-					}
-				}
+			
 				ocall_printf("local block is corrupted", 15, 0);
 			}
 	
 		}else{
-			ocall_printf("local 15", 8, 0);
+			code_word_index[i] = 1;
 			counter_outside_data++;
 		}
 
@@ -3781,47 +3619,51 @@ void local_code_words(int fileNum, int code_word_id, uint8_t *blockData, int *to
 
 
 	for (int i = 0; i < files[fileNum].n; i++) {
-		// get signature
+	// ================================ verify signatures ================================
 		if (rb_indicies[i].is_local) { ocall_printf("Local Signature", 15, 0); continue;}
-
-		// uint8_t signature2[32] = {0};
 		uint8_t *signature2 = malloc(32);
 		ocall_printf("Generating signature", 20, 0);
 		size_t data_len2 = 32;
+
+		uint8_t *tmp_for_signature = malloc(32);
+		memcpy(tmp_for_signature, signatures + (i * 32), 32);
+
 		hmac_sha2(files[fileNum].sig_Key, 32, code_word + (i * BLOCK_SIZE), BLOCK_SIZE, signature2, &data_len2);
 
-		uint8_t *signature_tmp = malloc(32);
-		memcpy(signature_tmp, signatures + (i * 32), 32);
+		ocall_printf("signature2", 10, 0);
+		ocall_printf(signature2, 32, 1);
+		ocall_printf("tmp_for_signature", 18, 0);
+		ocall_printf(tmp_for_signature, 32, 1);
 
-		if (memcmp(signature_tmp, signature2, 32) == 0) {
+		if (memcmp(tmp_for_signature, signature2, 32) == 0) {
 			ocall_printf("Signature match", 15, 0);
 			ocall_printint(&i);
 		} else {
 			ocall_printf("Signature mismatch", 18, 0);
 			ocall_printint(&i);
 		}
-		free(signature2);
-		free(signature_tmp);
-	}
+		free(tmp_for_signature);
 
-	for (int i = 0; i < files[fileNum].n; i++) {
+	// ================================ decrypt code word ================================
 
 		// get block
-		
-		if (rb_indicies[i].is_local != 1){
-			// ocall_printf(" this is parity",15,0);
-			uint8_t *tmp = malloc(BLOCK_SIZE);
-			for (int j = 0; j < BLOCK_SIZE; j++) {
-				tmp[j] = code_word[i * BLOCK_SIZE + j];
-			}
-			
-			DecryptData(files[fileNum].PC_Key, tmp, BLOCK_SIZE);
-			// ocall_printf(tmp, BLOCK_SIZE, 1);
-			for (int j = 0; j < BLOCK_SIZE; j++) {
-				code_word_tmp[i * BLOCK_SIZE + j] = tmp[j];
-			}
-			free(tmp);
+
+		if (code_word_index[i] == -1) {
+			uint8_t *tmp_for_decrypt = malloc(BLOCK_SIZE);
+			memcpy(tmp_for_decrypt, code_word_tmp + (i * BLOCK_SIZE), BLOCK_SIZE);
+			DecryptData(files[fileNum].PC_Key, tmp_for_decrypt, BLOCK_SIZE);
+			memcpy(code_word_tmp + (i * BLOCK_SIZE), tmp_for_decrypt, BLOCK_SIZE);
+			free(tmp_for_decrypt);
+		}else{
+			uint8_t *tmp_for_decrypt = malloc(BLOCK_SIZE);
+			memcpy(tmp_for_decrypt, code_word+ (i * BLOCK_SIZE), BLOCK_SIZE);
+			DecryptData(files[fileNum].PC_Key, tmp_for_decrypt, BLOCK_SIZE);
+			memcpy(code_word_tmp + (i * BLOCK_SIZE), tmp_for_decrypt, BLOCK_SIZE);
+			free(tmp_for_decrypt);
+			// counter_index++;
 		}
+		
+		
 
 	}
 
@@ -3850,25 +3692,48 @@ void local_code_words(int fileNum, int code_word_id, uint8_t *blockData, int *to
 	// decode(int chunk_size, int *erasures, uint16_t *code_word, int *matrix, int current_chunk_id, uint16_t *recovered_data) {
 
 
-	ocall_printf("Recovered block after", 21, 0);
-	ocall_printf(code_word_tmp, BLOCK_SIZE, 1);
+	ocall_printf("=======================THIS ALL data IN a code word========================", strlen("=======================THIS ALL data IN a code word========================"), 0);
+	ocall_printf(code_word_tmp, k *BLOCK_SIZE, 1);
 	
 	// store the recovered block
-	memcpy(blockData, code_word_tmp + (code_word_id * BLOCK_SIZE + k), k * BLOCK_SIZE);
-	ocall_printf("Recovered block", 15, 0);
+	memcpy(blockData, code_word_tmp, k * BLOCK_SIZE);
+
+
+
+	free(code_word_tmp);
+	free(code_word_index);
+	free(rb_indicies);
+	free(signatures);
+	free(code_word);
+	free(status);
+	// free(toggle);
 
 	return;
 }
 
 
 // TODO: fileNum should be removed to file name or unique identifier
-void ecall_local_code_words(int fileNum, int code_word_id, uint8_t *data, int cw_size) {
+void ecall_local_code_words(int fileNum, int code_word_id, uint8_t *data, int cw_size, uint8_t *signature, int sig_count) {
 
 
 	int *toggle = malloc(sizeof(int));
 	*toggle = 0;
 
 	local_code_words(fileNum, code_word_id, data, toggle);
+
+	uint8_t *tmp_for_encrypt = malloc(files[fileNum].k * BLOCK_SIZE);
+	memcpy(tmp_for_encrypt, data, files[fileNum].k * BLOCK_SIZE);
+	EncryptData(files[fileNum].PC_Key, tmp_for_encrypt, files[fileNum].k * BLOCK_SIZE);
+	memcpy(data, tmp_for_encrypt, files[fileNum].k * BLOCK_SIZE);
+	free(tmp_for_encrypt);
+
+	uint8_t *signature_tmp = malloc(files[fileNum].k * 32);
+	size_t data_len2 = 32;
+	hmac_sha2(files[fileNum].sig_Key, 32, data, files[fileNum].k * BLOCK_SIZE, signature_tmp, &data_len2);
+	memcpy(signature, signature_tmp, files[fileNum].k * 32);
+	free(signature_tmp);
+
+
 	return;
 }
 
@@ -3918,7 +3783,6 @@ void ecall_retrieve_File(const char *fileName) {
 	int data_tmp_size = BLOCK_SIZE;
 	uint8_t *data_tmp = (uint8_t *)malloc( sizeof(uint8_t) * BLOCK_SIZE * data_tmp_count);
 
-	uint8_t *local_data_tmp = (uint8_t *)malloc(num_retrieval_rq_per_peer * BLOCK_SIZE * sizeof(uint8_t) * k_cached);
 
 	int num_code_words_counter = 0;
 
@@ -3927,7 +3791,11 @@ void ecall_retrieve_File(const char *fileName) {
 		// if (files[fileNum].nodes[i].ip == current_ip) {
 		if (i == 0) {
 			for(int j = 0; j < num_retrieval_rq_per_peer; j++) {
+				uint8_t *local_data_tmp = (uint8_t *)malloc(BLOCK_SIZE * sizeof(uint8_t) * k_cached);
 				local_code_words(fileNum, j, local_data_tmp, toggle);
+				// ================================ Decrypt the code word ================================
+				memcpy(data_tmp + (j * BLOCK_SIZE * k_cached), local_data_tmp, k_cached * BLOCK_SIZE);
+				free(local_data_tmp);
 				num_code_words_counter++;
 			}
 			continue;
@@ -3947,14 +3815,14 @@ void ecall_retrieve_File(const char *fileName) {
 	ocall_retrieve_code_words(fileNum, nodes, sizeof(NodeInfo), nodes_count, data_tmp, data_tmp_size, data_tmp_count, num_retrieval_rq_per_peer, num_code_words_counter, num_code_words, remainder);
 
 
-	for (int i = 0; i < num_retrieval_rq_per_peer * k_cached; i++) {
-		for (int j = 0; j < BLOCK_SIZE; j++) {
-			data[indices[i] * BLOCK_SIZE + j] = local_data_tmp[i * BLOCK_SIZE + j];
-		}
+	// for (int i = 0; i < num_retrieval_rq_per_peer * k_cached; i++) {
+	// 	for (int j = 0; j < BLOCK_SIZE; j++) {
+	// 		data[indices[i] * BLOCK_SIZE + j] = local_data_tmp[i * BLOCK_SIZE + j];
+	// 	}
 
-		ocall_printf("data[indices[i] * BLOCK_SIZE + j]:", strlen("data[indices[i] * BLOCK_SIZE + j]:"), 0);
-		ocall_printf(data + indices[i] * BLOCK_SIZE, BLOCK_SIZE, 1);
-	}
+	// 	ocall_printf("data[indices[i] * BLOCK_SIZE + j]:", strlen("data[indices[i] * BLOCK_SIZE + j]:"), 0);
+	// 	ocall_printf(data + indices[i] * BLOCK_SIZE, BLOCK_SIZE, 1);
+	// }
 
 	for (int i = num_retrieval_rq_per_peer * k_cached; i < numBlocks_cached * k_cached; i++) {
 		for (int j = 0; j < BLOCK_SIZE; j++) {
@@ -3965,6 +3833,13 @@ void ecall_retrieve_File(const char *fileName) {
 	}
 
 	ocall_write_recovered_file(data, numBlocks_cached * BLOCK_SIZE * k_cached);
+
+	if (*toggle == 1) {
+		ocall_init_parity(numBits);
+		ocall_printf("Recovered file", 15, 0);
+
+
+	}
 
 
 	return;

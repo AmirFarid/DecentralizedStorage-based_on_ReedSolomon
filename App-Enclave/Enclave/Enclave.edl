@@ -19,7 +19,7 @@ enclave {
 		public void ecall_check_block(int fileNum, int blockNum, [out] uint8_t *stat, [out, size=32] uint8_t *signature, [out, size=recovered_block_size, count=recovered_block_count] uint8_t *recovered_block, int recovered_block_size , int recovered_block_count);
 		public void ecall_test_rs([in, size=n] char *data, int k, int n, [in, count=2] int *erasures);
 
-		public void ecall_local_code_words(int fileNum, int code_word_id, [out, size=cw_size] uint8_t *data, int cw_size);
+		public void ecall_local_code_words(int fileNum, int code_word_id, [out, size=cw_size] uint8_t *data, int cw_size, [out, size=32, count=sig_count] uint8_t *signature, int sig_count);
 
 		public void ecall_retrieve_File([in, string] const char *fileName);
 
