@@ -641,7 +641,7 @@ int main(void)
         return 1;
     }
 
-    free(fileDataTransfer);
+    // free(fileDataTransfer);
 
     return 0;
 }

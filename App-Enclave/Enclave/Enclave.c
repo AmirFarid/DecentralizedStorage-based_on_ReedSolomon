@@ -3764,24 +3764,14 @@ void ecall_retrieve_File(const char *fileName) {
 
 	int remainder = num_code_words % NUM_NODES;
 	// int remainder = num_code_words % k_cached;
-
-	int *indices = (int *)malloc(sizeof(int) * k_cached * numBlocks_cached);
-
-	// INJA2
-	for (int i = 0; i < numBlocks_cached * k_cached; i++) {
-		int permuted_index = feistel_network_prp(files[fileNum].shuffel_key, i, numBits);
-        while (permuted_index >= numBlocks_cached * k_cached) {
-			permuted_index = feistel_network_prp(files[fileNum].shuffel_key, permuted_index, numBits);
-		}
-		indices[i] = permuted_index;
-	}
-
+		
 	int nodes_count = NUM_NODES;
 	NodeInfo *nodes = (NodeInfo *)malloc(sizeof(NodeInfo) * NUM_NODES);
 
 	int data_tmp_count = numBlocks_cached *  k_cached;
 	int data_tmp_size = BLOCK_SIZE;
 	uint8_t *data_tmp = (uint8_t *)malloc( sizeof(uint8_t) * BLOCK_SIZE * data_tmp_count);
+	uint8_t *print_local_data_tmp = (uint8_t *)malloc(BLOCK_SIZE * sizeof(uint8_t) * k_cached * num_retrieval_rq_per_peer);
 
 
 	int num_code_words_counter = 0;
@@ -3794,7 +3784,9 @@ void ecall_retrieve_File(const char *fileName) {
 				uint8_t *local_data_tmp = (uint8_t *)malloc(BLOCK_SIZE * sizeof(uint8_t) * k_cached);
 				local_code_words(fileNum, j, local_data_tmp, toggle);
 				// ================================ Decrypt the code word ================================
-				memcpy(data_tmp + (j * BLOCK_SIZE * k_cached), local_data_tmp, k_cached * BLOCK_SIZE);
+				memcpy(print_local_data_tmp + (j * BLOCK_SIZE * k_cached), local_data_tmp, k_cached * BLOCK_SIZE);
+				
+				// memcpy(data_tmp + (j * BLOCK_SIZE * k_cached), local_data_tmp, k_cached * BLOCK_SIZE);
 				free(local_data_tmp);
 				num_code_words_counter++;
 			}
@@ -3824,14 +3816,50 @@ void ecall_retrieve_File(const char *fileName) {
 	// 	ocall_printf(data + indices[i] * BLOCK_SIZE, BLOCK_SIZE, 1);
 	// }
 
-	for (int i = num_retrieval_rq_per_peer * k_cached; i < numBlocks_cached * k_cached; i++) {
-		for (int j = 0; j < BLOCK_SIZE; j++) {
-			data[indices[i] * BLOCK_SIZE + j] = data_tmp[i * BLOCK_SIZE + j];
-		}
-		ocall_printf("not local data[indices[i] * BLOCK_SIZE + j]:", strlen("not local data[indices[i] * BLOCK_SIZE + j]:"), 0);
-		ocall_printf(data + indices[i] * BLOCK_SIZE, BLOCK_SIZE, 1);
+	for (int i = num_retrieval_rq_per_peer; i < num_code_words; i++) {
+
+		uint8_t *tmp_decrypted_data = malloc(BLOCK_SIZE * sizeof(uint8_t) * k_cached);
+		memcpy(tmp_decrypted_data, data_tmp + (i * BLOCK_SIZE * k_cached), k_cached * BLOCK_SIZE);
+		DecryptData(files[fileNum].PC_Key, tmp_decrypted_data, k_cached * BLOCK_SIZE);
+		memcpy(data_tmp + (i * BLOCK_SIZE * k_cached), tmp_decrypted_data, k_cached * BLOCK_SIZE);
+		free(tmp_decrypted_data);
+
 	}
 
+	for (int i = 0; i < numBlocks_cached * k_cached; i++) {
+
+		int permuted_index = feistel_network_prp(files[fileNum].shuffel_key, i, numBits);
+        while (permuted_index >= numBlocks_cached * k_cached) {
+			permuted_index = feistel_network_prp(files[fileNum].shuffel_key, permuted_index, numBits);
+		}
+
+		ocall_printf("permuted_index", strlen("permuted_index"), 0);
+		ocall_printint(&permuted_index);
+		ocall_printf("i", strlen("i"), 0);
+		ocall_printint(&i);
+	
+		if (i < num_retrieval_rq_per_peer * k_cached) {
+			for (int j = 0; j < BLOCK_SIZE; j++) {
+				data[i * BLOCK_SIZE + j] = print_local_data_tmp[i * BLOCK_SIZE + j];
+			}
+		}else{
+			for (int j = 0; j < BLOCK_SIZE; j++) {
+				data[i * BLOCK_SIZE + j] = data_tmp[i * BLOCK_SIZE + j];
+			}
+		}
+	}
+	ocall_printf("=============================================================", strlen("============================================================="), 0);
+	ocall_printf("The complete data before storing in the file", strlen("The complete data before storing in the file"), 0);
+	ocall_printf("=============================================================", strlen("============================================================="), 0);
+	for (int i = 0; i < numBlocks_cached * k_cached; i++) {
+		ocall_printf("=====================", strlen("====================="), 0);
+		ocall_printf("BLOCK", strlen("BLOCK"), 0);
+		ocall_printint(&i);
+		ocall_printf("=====================", strlen("====================="), 0);
+		
+		ocall_printf(data + i * BLOCK_SIZE, BLOCK_SIZE, 1);
+	}
+	ocall_printf("=============================================================", strlen("============================================================="), 0);
 	ocall_write_recovered_file(data, numBlocks_cached * BLOCK_SIZE * k_cached);
 
 	if (*toggle == 1) {
