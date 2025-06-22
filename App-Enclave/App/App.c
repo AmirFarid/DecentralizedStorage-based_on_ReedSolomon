@@ -580,6 +580,13 @@ int main(void)
     printf("==== FILE INIT ====\n");
     app_file_init(eid, fileDataTransfer);
 
+
+    ecall_small_corruption(eid, fileName, 1);
+
+
+    printf("Press enter to continue for FILE\n");
+    getchar();
+
     ecall_retrieve_File(eid, fileName);
 
 

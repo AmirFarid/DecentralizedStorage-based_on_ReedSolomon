@@ -3605,7 +3605,7 @@ void local_code_words(int fileNum, int code_word_id, uint8_t *blockData, int *to
 		}
 
 
-		if (tmp_index == permuted_index) {
+		if (tmp_index == blockNumInFile) {
 			rb_indicies[i - j].is_corrupted = 1;
 			erasures[0] = i - j;
 		} else {

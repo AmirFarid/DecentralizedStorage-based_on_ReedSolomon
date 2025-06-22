@@ -6,6 +6,7 @@
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <unistd.h>
+#include <stdatomic.h>
 
 #include "decentralize.h"
 #include "sgx_urts.h"
@@ -849,7 +850,10 @@ void handle_block_retrival_request(sgx_enclave_id_t eid, int client_socket)
     secure_recv(client_socket, &file_id, sizeof(int));
     secure_recv(client_socket, &block_id, sizeof(int));
 
-    ecall_check_block(eid, file_id, block_id, status, signature, recovered_block, BLOCK_SIZE, 1);
+    printf("file_id: %d\n", file_id);
+    printf("block_id: %d\n", block_id);
+
+    ecall_check_block(Geid, file_id, block_id, status, signature, recovered_block, BLOCK_SIZE, 1);
 
     // comment this out for testing
     // printf("the recovered block is: ");

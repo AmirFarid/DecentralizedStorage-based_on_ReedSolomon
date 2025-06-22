@@ -435,8 +435,8 @@ void decode(int chunk_size, int *erasures, char *code_word, int *matrix, int cur
         // int ret = jerasure_matrix_decode(K, N-K, symSize, matrix, 1, erasures, data_ptrs, coding_ptrs, sizeof(uint16_t));
         int ret = matrix_decode(K, N-K, symSize, my_matrix, erasures, data_ptrs, coding_ptrs, sizeof(uint16_t));
 
-        ocall_printf("Ret", 4, 0);
-        ocall_printint(&ret);
+        // ocall_printf("Ret", 4, 0);
+        // ocall_printint(&ret);
 
         if (ret == 0) {
 
