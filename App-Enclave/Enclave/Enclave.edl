@@ -30,6 +30,7 @@ enclave {
 	    public void ecall_test_encrypt([in,count=n, size=chunk_size] uint8_t *data, int chunk_size, int n, [out, size=32, count=n] uint8_t *signatures, int n_signatures, [in, size=32] uint8_t *sig_key, [in, size=16] uint8_t *PC_KEY);
 
 		public void ecall_init_rs_matrix(int k, int n);
+		
 	};
 
 	untrusted {

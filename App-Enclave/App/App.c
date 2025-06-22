@@ -563,7 +563,7 @@ int main(void)
     
     ret = ecall_init(eid, fileDataTransfer, sizeof(FileDataTransfer));
     
-
+    getchar();
 
 
 	//gettimeofday(&end_time, NULL);
@@ -580,8 +580,9 @@ int main(void)
     printf("==== FILE INIT ====\n");
     app_file_init(eid, fileDataTransfer);
 
-
     ecall_retrieve_File(eid, fileName);
+
+
 
     printf("Press enter to continue for small corruption Block 0\n");
     getchar();
@@ -632,6 +633,8 @@ int main(void)
         printf("Error destroying enclave: %d\n", ret);
         return 1;
     }
+
+    free(fileDataTransfer);
 
     return 0;
 }

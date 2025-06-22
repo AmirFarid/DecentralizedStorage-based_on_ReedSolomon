@@ -24,7 +24,7 @@
 
 int Number_Of_Blocks;
 int Current_Chunk_ID;
-
+sgx_enclave_id_t Geid;
 uint8_t *ALL_DATA;
 uint8_t *SIGNATURES;
 int N;
@@ -644,8 +644,8 @@ void initialize_peer2peer_connection(sgx_enclave_id_t eid, int client_socket)
 {
 
     int sender_id;
-    uint8_t sender_pubKey[PUB_SIZE];
-    uint8_t current_pubKey[PUB_SIZE];
+    uint8_t sender_pubKey[PUB_SIZE] = {0};
+    uint8_t current_pubKey[PUB_SIZE] = {0};
 
     secure_recv(client_socket, &sender_id, sizeof(sender_id));
 
@@ -678,10 +678,36 @@ void initialize_peer2peer_connection(sgx_enclave_id_t eid, int client_socket)
 
     int current_id;
 
-    ecall_get_currentID(eid, &current_id);
+    sgx_status_t status2 = ecall_get_currentID(eid, &current_id);
+    if(status2 != SGX_SUCCESS){
+        printf("Error in ecall_get_currentID\n");
+        return;
+    }
+    printf("########################Before#################################\n");
+    printf("sends to ip: %s\n", ip_str);
+    printf("sends to port: %d\n", port);
+    printf("current_id: %d\n", current_id);
+    printf("sender_id: %d\n", sender_id);
+    printf("sender_pubKey: ");
+    for(int i = 0; i < PUB_SIZE; i++){
+        printf("%X", sender_pubKey[i]);
+    }
+    printf("\n");
+    printf("sender_pubKey size: %d\n", sizeof(sender_pubKey));
+    printf("current_pubKey: ");
+    for(int i = 0; i < PUB_SIZE; i++){
+        printf("%X", current_pubKey[i]);
+    }
+    printf("\n");
+    printf("current_pubKey size: %d\n", sizeof(current_pubKey));
 
-
-    ecall_peer_init(eid, current_pubKey, sender_pubKey, ip_str, sender_id);
+    printf("########################before#################################\n");
+    
+    sgx_status_t status = ecall_peer_init(eid, current_pubKey, sender_pubKey, ip_str, sender_id);
+    if(status != SGX_SUCCESS){
+        printf("Error in ecall_peer_init %d\n", status);
+        return;
+    }
 
     secure_send(client_socket, current_pubKey, PUB_SIZE);
 
@@ -864,25 +890,26 @@ void handle_code_word_retrival_request(sgx_enclave_id_t eid, int client_socket)
     secure_recv(client_socket, &code_word_id, sizeof(int));
 
     uint8_t *buffer = malloc(BLOCK_SIZE * K);
-    ecall_local_code_words(eid, file_id, code_word_id, buffer, BLOCK_SIZE * K);
+    ecall_local_code_words(Geid, file_id, code_word_id, buffer, BLOCK_SIZE * K);
     
     secure_send(client_socket, buffer, BLOCK_SIZE * K);
 
+
+
     ack_recv(client_socket);
     free(buffer);
-    // int index;
-    // for (int i = 0; i < K; i++) {
-    //     uint8_t *buffer = malloc(BLOCK_SIZE);
-    //     secure_send(client_socket, &index, sizeof(int));
-    //     secure_send(client_socket, buffer, BLOCK_SIZE);
-    //     free(buffer);
-    // }
 
 }
+
 pthread_mutex_t global_lock = PTHREAD_MUTEX_INITIALIZER;
+atomic_int active_threads = 0;
+pthread_mutex_t close_lock = PTHREAD_MUTEX_INITIALIZER;
+
 void *handle_client(void *args_ptr)
 {
+    atomic_fetch_add(&active_threads, 1);  // increase count
     server_args *args = (server_args *)args_ptr;
+    
     sgx_enclave_id_t eid = args->eid;
     int client_socket = args->client_socket;
 
@@ -952,6 +979,13 @@ void *handle_client(void *args_ptr)
     }
     pthread_mutex_unlock(&global_lock);
     free(args);
+    int remaining = atomic_fetch_sub(&active_threads, 1) - 1;
+    if (remaining == 0) {
+        pthread_mutex_lock(&close_lock);
+        printf("Last thread closing the connection\n");
+        close(client_socket);
+        pthread_mutex_unlock(&close_lock);
+    }
     // n--;
     // if(n <= 0) 
     // close(client_socket);
@@ -1050,8 +1084,34 @@ void *get_code_word(void *arg)
         uint8_t *buffer = malloc(BLOCK_SIZE * K);
         secure_recv(sock, buffer, BLOCK_SIZE * K);
 
+            printf("this is the time of sending the code word\n");
+    printf("=============================================================\n");
+    printf("=============================================================\n");
+    printf("=============================================================\n");
+    printf("=============================================================\n");
+    printf("=============================================================\n");
+    printf("=============================================================\n");
+    printf("=============================================================\n");
+    printf("=============================================================\n");
+    printf("=============================================================\n");
+    printf("=============================================================\n");
+    printf("=============================================================\n");
+    printf("=============================================================\n");
+    printf("=============================================================\n");
+    printf("=============================================================\n");
+    printf("=============================================================\n");
+    printf("=============================================================\n");
+    printf("=============================================================\n");
+    printf("=============================================================\n");
+
+    for(int i = 0; i < BLOCK_SIZE * K; i++){
+        printf("%X", buffer[i]);
+    }
+    printf("\n");
+
+
         pthread_mutex_lock(&shared_args->lock);
-        memcpy(shared_args->output_code_word_buffer + args->blockNum * K *  BLOCK_SIZE, buffer, BLOCK_SIZE);
+        memcpy(shared_args->output_code_word_buffer + args->blockNum * K *  BLOCK_SIZE, buffer, K *BLOCK_SIZE);
         // for(int j = 0; j < BLOCK_SIZE; j++) args->output_code_word_buffer[index * BLOCK_SIZE + j] = buffer[j];
         pthread_mutex_unlock(&shared_args->lock);
         free(buffer);
@@ -1079,8 +1139,8 @@ void ocall_retrieve_code_words(int fileNum, NodeInfo *nodes, int node_size, int 
 
     // args->output_code_word_buffer = malloc(N * BLOCK_SIZE * sizeof(uint8_t));
     // args->output_index_list = malloc(N * sizeof(uint8_t));
-    args->output_code_word_buffer = malloc((num_code_words * num_retrieval_rq_per_peer) * BLOCK_SIZE * sizeof(uint8_t));
-    args->output_index_list = malloc(num_code_words * num_retrieval_rq_per_peer * sizeof(uint8_t));
+    args->output_code_word_buffer = malloc((k * num_code_words) * BLOCK_SIZE * sizeof(uint8_t));
+    args->output_index_list = malloc(num_code_words * K * sizeof(uint8_t));
 
 
     pthread_mutex_init(&args->lock, NULL);
@@ -1136,10 +1196,12 @@ void ocall_retrieve_code_words(int fileNum, NodeInfo *nodes, int node_size, int 
 
     for (int i = 0; i < thread_idx; i++)
     {
+        printf("joining thread %d\n", i);
         pthread_join(threads[i], NULL);
+        printf("joined thread %d\n", i);
     }
 
-    for(int i = 0; i < num_code_words; i++){
+    for(int i = 0; i < num_code_words * k ; i++){
         memcpy(data_tmp + i * BLOCK_SIZE, args->output_code_word_buffer + i * BLOCK_SIZE, BLOCK_SIZE);
     }
 
@@ -1220,10 +1282,12 @@ void *request_data_from_node(void *arg)
         printf("Buffer allocated\n");
         secure_recv(sock, buffer, BLOCK_SIZE);
         secure_recv(sock, signature, 32);
-
+        printf("Time of putting \n");
         pthread_mutex_lock(&shared_args->lock);
-        memcpy(shared_args->output_code_word_buffer + args->offset , buffer, BLOCK_SIZE);
-        memcpy(shared_args->output_index_list + args->offset/BLOCK_SIZE * 32, signature, 32);
+        printf("Time of putting 2\n");
+        memcpy(shared_args->output_code_word_buffer + args->offset * BLOCK_SIZE, buffer, BLOCK_SIZE);
+        printf("Time of putting 3\n");
+        memcpy(shared_args->output_signature_list + args->offset * 32, signature, 32);
         pthread_mutex_unlock(&shared_args->lock);
 
         printf("successfully copied the block to the output buffer\n");
@@ -1235,10 +1299,10 @@ void *request_data_from_node(void *arg)
 
         pthread_mutex_lock(&shared_args->lock);
         for(int i = 0; i < K; i++){
-            if(shared_args->output_index_list[i] == -1){
-                shared_args->output_index_list[i] = args->offset/BLOCK_SIZE;
-                break;
-            }
+            // if(shared_args->output_index_list[i] == -1){
+            //     shared_args->output_index_list[i] = args->offset/BLOCK_SIZE;
+            //     break;
+            // }
         }
         pthread_mutex_unlock(&shared_args->lock);
     }
@@ -1457,7 +1521,7 @@ void ocall_get_batch_blocks(int fileNum, recoverable_block_indicies *rb_indicies
                     wrapper_args[counter].node_port = nodes[j].port;
                     wrapper_args[counter].shared_args = args;
                     wrapper_args[counter].fake = 0;
-                    wrapper_args[counter].offset = i * BLOCK_SIZE;
+                    wrapper_args[counter].offset = i;
                     pthread_create(&threads[counter], NULL, request_data_from_node, &wrapper_args[counter]);
                     counter++;
 
@@ -2040,6 +2104,7 @@ void preprocessing(sgx_enclave_id_t eid, int mode, char *fileChunkName, FileData
     sgx_enclave_id_t *eid_ptr = malloc(sizeof(sgx_enclave_id_t));
     // the reason for this is that the pthread_create only accepts pointer
     *eid_ptr = eid;
+    Geid = eid;
     if (pthread_create(&listener_thread, NULL, listener_thread_func, eid_ptr) != 0)
     {
         perror("Failed to create listener thread");
