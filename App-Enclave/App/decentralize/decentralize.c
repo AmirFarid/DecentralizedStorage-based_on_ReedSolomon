@@ -362,6 +362,26 @@ void ack_send(int client_socket)
 
 }
 
+
+
+
+void ocall_write_recovered_file(uint8_t *data, size_t file_size) {
+    FILE *fp = fopen("recovered.bin", "wb");
+    if (fp == NULL) {
+        perror("Failed to open recovered.bin");
+        return;
+    }
+
+    size_t written = fwrite(data, 1, file_size, fp);
+    if (written != file_size) {
+        fprintf(stderr, "Warning: only wrote %zu of %zu bytes\n", written, file_size);
+    } else {
+        printf("Successfully wrote %zu bytes to recovered.bin\n", file_size);
+    }
+
+    fclose(fp);
+}
+
 /**
  * @brief this functin recieve first the file type and then the file size and then the file data
  * @param client_socket the client socket
@@ -1048,7 +1068,7 @@ void *get_code_word(void *arg)
 
 void ocall_retrieve_code_words(int fileNum, NodeInfo *nodes, int node_size, int node_counts, uint8_t *data_tmp, int data_tmp_size, int data_tmp_count, int num_retrieval_rq_per_peer, int num_code_words_counter, int num_code_words, int remainder)
 {
-
+// INJI
     int k = K;
     int n = N;
     int symSize = 16;
@@ -1074,34 +1094,158 @@ void ocall_retrieve_code_words(int fileNum, NodeInfo *nodes, int node_size, int 
     pthread_t *threads = malloc((num_code_words * num_retrieval_rq_per_peer) * sizeof(pthread_t));
 
     int thread_idx = 0;
-    for (int i = 1 ; i < k - 1; i++)
+    for (int i = 1 ; i < k; i++)
     {
 
-        int j;
-        for(j = 0; j < num_retrieval_rq_per_peer && num_code_words_counter < num_code_words; j++){
-            wrapper_args[thread_idx].fileNum = fileNum;
-            wrapper_args[thread_idx].blockNum = num_code_words_counter;
-            wrapper_args[thread_idx].node_id = nodes[i].chunk_id;
-            memcpy(wrapper_args[thread_idx].node_ip, nodes[i].ip, 16);
-            wrapper_args[thread_idx].node_port = nodes[i].port;
-            wrapper_args[thread_idx].shared_args = args;
-            pthread_create(&threads[thread_idx], NULL, get_code_word, &wrapper_args[thread_idx]);
-            num_code_words_counter ++;
-            thread_idx ++;
+
+            printf("==============================================\n");
+            printf("this is NORMAL turn: %d\n", i);
+            printf("==============================================\n");
+            int j;
+            for(j = 0; j < num_retrieval_rq_per_peer && num_code_words_counter < num_code_words; j++){
+                wrapper_args[thread_idx].fileNum = fileNum;
+                wrapper_args[thread_idx].blockNum = num_code_words_counter;
+                wrapper_args[thread_idx].node_id = nodes[i].chunk_id;
+                memcpy(wrapper_args[thread_idx].node_ip, nodes[i].ip, 16);
+                wrapper_args[thread_idx].node_port = nodes[i].port;
+                wrapper_args[thread_idx].shared_args = args;
+                wrapper_args[thread_idx].fake = 0;
+                pthread_create(&threads[thread_idx], NULL, get_code_word, &wrapper_args[thread_idx]);
+                num_code_words_counter ++;
+                thread_idx ++;
+            }
+            if(counter > 0){
+                wrapper_args[thread_idx].fileNum = fileNum;
+                wrapper_args[thread_idx].blockNum = num_code_words_counter;
+                wrapper_args[thread_idx].node_id = nodes[i].chunk_id;
+                memcpy(wrapper_args[thread_idx].node_ip, nodes[i].ip, 16);
+                wrapper_args[thread_idx].node_port = nodes[i].port;
+                wrapper_args[thread_idx].shared_args = args;
+                wrapper_args[thread_idx].fake = 0;
+                pthread_create(&threads[thread_idx], NULL, get_code_word, &wrapper_args[thread_idx]);
+                counter--;
+                num_code_words_counter ++;
+                thread_idx ++;
+            }
+    }
+
+    for (int i = 0; i < count; i++)
+    {
+        /* code */
+    }
+    
+
+    // before
+
+       int counter = 0;
+    for (i = 0; i < K; i++)
+    {
+        printf("this is the i : %d\n", i);
+        if(rb_indicies[i].is_local == 1){
+            printf("this is the node index inside: %d\n", rb_indicies[i].node_index);
+            continue;
         }
-        if(counter > 0){
-            wrapper_args[thread_idx].fileNum = fileNum;
-            wrapper_args[thread_idx].blockNum = num_code_words_counter;
-            wrapper_args[thread_idx].node_id = nodes[i].chunk_id;
-            memcpy(wrapper_args[thread_idx].node_ip, nodes[i].ip, 16);
-            wrapper_args[thread_idx].node_port = nodes[i].port;
-            wrapper_args[thread_idx].shared_args = args;
-            pthread_create(&threads[thread_idx], NULL, get_code_word, &wrapper_args[thread_idx]);
-            counter--;
-            num_code_words_counter ++;
-            thread_idx ++;
+        printf("this is the node index outside: %d\n", rb_indicies[i].node_index);
+        if(rb_indicies[i].node_index < NUM_NODES){
+
+
+            for(int j = 0; j < NUM_NODES; j++){
+
+                if(rb_indicies[i].node_index == nodes[j].chunk_id){
+                    wrapper_args[counter].fileNum = fileNum;
+                    wrapper_args[counter].blockNum = rb_indicies[i].internal_block_index;
+                    wrapper_args[counter].total_blocks_index = rb_indicies[i].total_blocks_index;
+                    wrapper_args[counter].node_id = nodes[j].chunk_id;
+                    for(int k = 0; k < 16; k++) wrapper_args[counter].node_ip[k] = nodes[j].ip[k];
+                    wrapper_args[counter].node_port = nodes[j].port;
+                    wrapper_args[counter].shared_args = args;
+                    wrapper_args[counter].fake = 0;
+                    wrapper_args[counter].offset = i * BLOCK_SIZE;
+                    pthread_create(&threads[counter], NULL, request_data_from_node, &wrapper_args[counter]);
+                    counter++;
+
+                }
+
+            }
+        }else{
+
+            printf("==============================================\n");
+            printf("this is FAKE turn: %d\n", i);
+            printf("==============================================\n");
+
+            // this is the fake node
+            wrapper_args[counter].fileNum = fileNum;
+            wrapper_args[counter].blockNum = 0;
+            wrapper_args[counter].total_blocks_index = rb_indicies[i].total_blocks_index;
+            wrapper_args[counter].node_id = nodes[1].chunk_id;
+            wrapper_args[counter].offset = i;
+            wrapper_args[counter].fake = 1;
+            for(int k = 0; k < 16; k++) wrapper_args[counter].node_ip[k] = nodes[1].ip[k];
+            wrapper_args[counter].node_port = nodes[1].port;
+            wrapper_args[counter].shared_args = args;
+            pthread_create(&threads[counter], NULL, request_data_from_node, &wrapper_args[counter]);
+            counter++;
+
+            // pthread_mutex_lock(&args->lock);    
+            //     memcpy(args->output_code_word_buffer + i * BLOCK_SIZE, ALL_DATA + rb_indicies[i].total_blocks_index * BLOCK_SIZE, BLOCK_SIZE);
+            // pthread_mutex_unlock(&args->lock);
+
         }
     }
+
+    for(int i = K; i < N; i++){
+            printf("==============================================\n");
+            printf("this is Parity turn: %d\n", i);
+            printf("==============================================\n");
+
+            // this is the fake node
+            wrapper_args[counter].fileNum = fileNum;
+            wrapper_args[counter].blockNum = 0;
+            wrapper_args[counter].total_blocks_index = rb_indicies[i].total_blocks_index;
+            wrapper_args[counter].node_id = nodes[1].chunk_id;
+            wrapper_args[counter].offset = i;
+            wrapper_args[counter].fake = 2;
+            for(int k = 0; k < 16; k++) wrapper_args[counter].node_ip[k] = nodes[1].ip[k];
+            wrapper_args[counter].node_port = nodes[1].port;
+            wrapper_args[counter].shared_args = args;
+            pthread_create(&threads[counter], NULL, request_data_from_node, &wrapper_args[counter]);
+            counter++;
+
+            // pthread_mutex_lock(&args->lock);
+            //     for(int j = 0; j < BLOCK_SIZE; j++){
+            //         args->output_code_word_buffer[i * BLOCK_SIZE + j] = *((uint8_t *)(ALL_DATA + (K * Number_Of_Blocks * BLOCK_SIZE) + (rb_indicies[i].total_blocks_index * BLOCK_SIZE) + j));
+            //         // args->output_code_word_buffer[i * BLOCK_SIZE + j] = ALL_DATA + (K * Number_Of_Blocks * BLOCK_SIZE) + (rb_indicies[i].total_blocks_index * BLOCK_SIZE) + j;
+            //     }
+            //     // memcpy(args->output_code_word_buffer + i * BLOCK_SIZE, ALL_DATA + (K * Number_Of_Blocks * BLOCK_SIZE) + (rb_indicies[i].total_blocks_index * BLOCK_SIZE), BLOCK_SIZE);
+            // pthread_mutex_unlock(&args->lock);
+
+            // pthread_mutex_lock(&args->lock);
+
+            // pthread_mutex_unlock(&args->lock);
+
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     for (int i = 0; i < thread_idx; i++)
     {

@@ -580,11 +580,8 @@ int main(void)
     printf("==== FILE INIT ====\n");
     app_file_init(eid, fileDataTransfer);
 
-    int stat = 1;
-    ecall_audit_file(eid, fileName, &stat);
 
-    ecall_audit_file(eid, fileName, &stat);
-
+    ecall_retrieve_File(eid, fileName);
 
     printf("Press enter to continue for small corruption Block 0\n");
     getchar();

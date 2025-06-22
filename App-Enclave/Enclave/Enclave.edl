@@ -23,10 +23,6 @@ enclave {
 
 		public void ecall_retrieve_File([in, string] const char *fileName);
 
-		public void ecall_test_time();
-
-		public void ecall_test_time_2();
-
 		public void ecall_get_currentID([out] int *chunk_id);
 
 		public void ecall_set_currentID(int chunk_id);
@@ -77,6 +73,8 @@ enclave {
 		void ocall_test_time([out] double *time);
 
 		void ocall_printdouble([in] double *time);
+
+		void ocall_write_recovered_file([in, size=file_size] uint8_t *data, size_t file_size);
 
 	};
 };

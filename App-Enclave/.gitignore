@@ -11,4 +11,6 @@ Enclave/Enclave_private_test.pem
 Enclave/Enclave_t.c
 Enclave/Enclave_t.h
 App/decentralize/chunks/*
+recovered.bin
 app
+

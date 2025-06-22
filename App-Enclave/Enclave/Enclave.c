@@ -3852,11 +3852,6 @@ void ecall_local_code_words(int fileNum, int code_word_id, uint8_t *data, int cw
 	local_code_words(fileNum, code_word_id, data, toggle);
 }
 
-void ecall_test_time() {}
-
-void ecall_test_time_2() {
-}
-
 void ecall_retrieve_File(const char *fileName) {
 
 	int *toggle = malloc(sizeof(int));
@@ -3892,6 +3887,7 @@ void ecall_retrieve_File(const char *fileName) {
 		}
 		indices[i] = permuted_index;
 	}
+
 	int nodes_count = NUM_NODES;
 	NodeInfo *nodes = (NodeInfo *)malloc(sizeof(NodeInfo) * NUM_NODES);
 
@@ -3920,7 +3916,8 @@ void ecall_retrieve_File(const char *fileName) {
 		nodes[i].is_parity_peer = files[fileNum].nodes[i].is_parity_peer;
 		nodes[i].socket_fd = files[fileNum].nodes[i].socket_fd;
 		// TODO: Calculate the number of code words to retrieve in local node
-		}
+	
+	}
 	
 	// ocall_retrieve_code_words(fileName, num_code_words_counter, num_code_words, data_tmp, remainder, nodes, num_retrieval_rq_per_peer, sizeof(NodeInfo), NUM_NODES - 1, data_tmp_count);
 
@@ -3939,8 +3936,7 @@ void ecall_retrieve_File(const char *fileName) {
 		}
 	}
 
-
-
+	ocall_write_recovered_file(data, numBlocks_cached * BLOCK_SIZE * k_cached);
 
 
 
