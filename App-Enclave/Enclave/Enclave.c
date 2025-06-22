@@ -3874,8 +3874,11 @@ void ecall_retrieve_File(const char *fileName) {
 	uint8_t *data = (uint8_t *)malloc(numBlocks_cached * BLOCK_SIZE * sizeof(uint8_t) * k_cached);
 
 	int num_code_words = numBlocks_cached;
-	int num_retrieval_rq_per_peer = num_code_words / k_cached;
-	int remainder = num_code_words % k_cached;
+	int num_retrieval_rq_per_peer = num_code_words / NUM_NODES;
+	// int num_retrieval_rq_per_peer = num_code_words / k_cached;
+
+	int remainder = num_code_words % NUM_NODES;
+	// int remainder = num_code_words % k_cached;
 
 	int *indices = (int *)malloc(sizeof(int) * k_cached * numBlocks_cached);
 
@@ -3928,6 +3931,9 @@ void ecall_retrieve_File(const char *fileName) {
 		for (int j = 0; j < BLOCK_SIZE; j++) {
 			data[indices[i] * BLOCK_SIZE + j] = local_data_tmp[i * BLOCK_SIZE + j];
 		}
+
+		ocall_printf("data[indices[i] * BLOCK_SIZE + j]: ", 23, 0);
+		ocall_printf(data + indices[i] * BLOCK_SIZE, BLOCK_SIZE, 1);
 	}
 
 	for (int i = num_retrieval_rq_per_peer * k_cached; i < numBlocks_cached * k_cached; i++) {
