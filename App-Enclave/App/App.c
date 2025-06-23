@@ -596,6 +596,7 @@ int main(void)
     
     ret = ecall_init(eid, fileDataTransfer, sizeof(FileDataTransfer));
     
+    printf("Press enter to continue for File INIT\n");
     getchar();
 
 
@@ -614,11 +615,14 @@ int main(void)
     app_file_init(eid, fileDataTransfer);
 
 
-    ecall_small_corruption(eid, fileName, 1);
 
 
-    printf("Press enter to continue for FILE\n");
+    printf("OTHER PEERS HAVE TO STAY HERE\n");
     getchar();
+    getchar();
+    getchar();
+
+    ecall_small_corruption(eid, fileName, 1);
 
     ecall_retrieve_File(eid, fileName);
 
