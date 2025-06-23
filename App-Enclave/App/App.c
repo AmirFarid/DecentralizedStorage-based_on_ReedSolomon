@@ -448,6 +448,39 @@ void ocall_test_time(double *time) {
 
 }
 
+
+#define LOG_FILE "logfile.txt"
+
+void ocall_log_double(const char *format, double value) {
+    FILE *log_fp = fopen(LOG_FILE, "a");
+    if (log_fp == NULL) {
+        perror("Failed to open log file");
+        return;
+    }
+
+    // Add timestamp
+    time_t now = time(NULL);
+    struct tm *t = localtime(&now);
+
+    
+    if (strcmp(format, "=") == 0) {
+        fprintf(log_fp, "===============================================\n");
+    }else{
+        fprintf(log_fp, "[%04d-%02d-%02d %02d:%02d:%02d] ",
+            t->tm_year + 1900, t->tm_mon + 1, t->tm_mday,
+            t->tm_hour, t->tm_min, t->tm_sec);
+        fprintf(log_fp, format, value);
+        fprintf(log_fp, "\n");
+    }
+
+    // Log the formatted string with the double value
+
+    fclose(log_fp);
+}
+
+
+
+
 int main(void) 
 {
     struct timespec start, end;

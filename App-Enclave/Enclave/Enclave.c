@@ -3739,6 +3739,17 @@ void ecall_local_code_words(int fileNum, int code_word_id, uint8_t *data, int cw
 
 void ecall_retrieve_File(const char *fileName) {
 
+	double *start_time = malloc(sizeof(double));
+	double *end_time = malloc(sizeof(double));
+	double *neg_start_time = malloc(sizeof(double));
+	double *neg_end_time = malloc(sizeof(double));
+	double *total_neg_time = malloc(sizeof(double));
+
+
+	// ================================ start time ================================
+	ocall_test_time(start_time);
+
+
 	int *toggle = malloc(sizeof(int));
 	*toggle = 0;
 
@@ -3815,7 +3826,8 @@ void ecall_retrieve_File(const char *fileName) {
 	// 	ocall_printf("data[indices[i] * BLOCK_SIZE + j]:", strlen("data[indices[i] * BLOCK_SIZE + j]:"), 0);
 	// 	ocall_printf(data + indices[i] * BLOCK_SIZE, BLOCK_SIZE, 1);
 	// }
-
+	// ============================================= start neg time =============================================
+	ocall_test_time(neg_start_time);
 	for (int i = num_retrieval_rq_per_peer; i < num_code_words; i++) {
 
 		uint8_t *tmp_decrypted_data = malloc(BLOCK_SIZE * sizeof(uint8_t) * k_cached);
@@ -3860,6 +3872,13 @@ void ecall_retrieve_File(const char *fileName) {
 		ocall_printf(data + i * BLOCK_SIZE, BLOCK_SIZE, 1);
 	}
 	ocall_printf("=============================================================", strlen("============================================================="), 0);
+	
+
+	// ================================ Code word end time ================================
+	ocall_test_time(neg_end_time);
+	*total_neg_time = *neg_end_time - *neg_start_time;
+
+
 	ocall_write_recovered_file(data, numBlocks_cached * BLOCK_SIZE * k_cached);
 
 	if (*toggle == 1) {
@@ -3869,6 +3888,16 @@ void ecall_retrieve_File(const char *fileName) {
 
 	}
 
+	ocall_test_time(end_time);
+
+	double total_time = (*end_time - *start_time) - *total_neg_time;
+	ocall_printf("===============================================", strlen("==============================================="), 0);
+	ocall_printf("Total time For retrieve Entire file", strlen("Total time For retrieve Entire file"), 0);
+	ocall_printdouble(total_time);
+	ocall_log_double("=", 0);
+	ocall_log_double("Total time For retrieve Entire file: %f", total_time);
+	ocall_log_double("=", 0);
+	ocall_printf("===============================================", strlen("==============================================="), 0);
 
 	return;
 }
