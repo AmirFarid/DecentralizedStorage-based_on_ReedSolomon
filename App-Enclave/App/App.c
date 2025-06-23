@@ -491,7 +491,7 @@ int main(void)
     int n = 4;
     int k = 2;
     int m = n - k;
-    int mode = 2;
+    int mode = 1;
 
     
     sgx_enclave_id_t eid = 0;

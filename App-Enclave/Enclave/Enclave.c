@@ -1210,8 +1210,12 @@ for (int currentSymbol = 0; currentSymbol < nroots; currentSymbol++) {
 */
 void ecall_init(FileDataTransfer *fileDataTransfer, int size) 
 {	
+	double *time_start = malloc(sizeof(double));
+	double *time_end = malloc(sizeof(double));
 
 
+	// ================================ start time ================================
+	ocall_test_time(time_start);
 
 	ocall_printf("Init", 5, 0);
 
@@ -1283,20 +1287,20 @@ void ecall_init(FileDataTransfer *fileDataTransfer, int size)
 	// 	// ocall_printf("Peer %d Public Key: ", 20, 0);
 	// 	// ocall_printf(currentPeerPubKey, ECC_PUB_KEY_SIZE, 1);
 	// }
-	for(int i = 0; i < NUM_NODES; i++) {
+	// for(int i = 0; i < NUM_NODES; i++) {
 		
-		ocall_printf("---------------Initialize Peers info---------------",51, 0);
-		ocall_printf("PEER", 5,0);
-		ocall_printint(&i);
+	// 	ocall_printf("---------------Initialize Peers info---------------",51, 0);
+	// 	ocall_printf("PEER", 5,0);
+	// 	ocall_printint(&i);
 
-		ocall_printf("IP", 3, 0);
-		ocall_printf(fileDataTransfer->nodes[i].ip, 20, 0);
+	// 	ocall_printf("IP", 3, 0);
+	// 	ocall_printf(fileDataTransfer->nodes[i].ip, 20, 0);
 
-		ocall_printf("PORT", 5, 0);
-		ocall_printint(&fileDataTransfer->nodes[i].port);
+	// 	ocall_printf("PORT", 5, 0);
+	// 	ocall_printint(&fileDataTransfer->nodes[i].port);
 
-	}
-		ocall_printf("---------------------------------------------------",51, 0);
+	// }
+	// 	ocall_printf("---------------------------------------------------",51, 0);
 
 	int fileNum = 0;
 	files[fileNum].nodes = (NodeInfo *)malloc(NUM_NODES * sizeof(NodeInfo));
@@ -1317,9 +1321,9 @@ void ecall_init(FileDataTransfer *fileDataTransfer, int size)
 		files[fileNum].nodes[j].socket_fd = fileDataTransfer->nodes[j].socket_fd;
 	}
 
-		ocall_printf("---------------------------------------------------",51, 0);
-		ocall_printf("---------------------------------------------------",51, 0);
-		ocall_printf("---------------------------------------------------",51, 0);
+		// ocall_printf("---------------------------------------------------",51, 0);
+		// ocall_printf("---------------------------------------------------",51, 0);
+		// ocall_printf("---------------------------------------------------",51, 0);
 
 
 	porSK = por_init();
@@ -1327,6 +1331,22 @@ void ecall_init(FileDataTransfer *fileDataTransfer, int size)
 		files[i].inUse = 0;
 	}
 	// end Amir MM Farid
+
+	// ================================ end time ================================
+	ocall_test_time(time_end);
+	
+	ocall_printf("==================================================", strlen("=================================================="), 0);
+	double total_time = (*time_end - *time_start);
+	
+	ocall_printf("Total time for Init:", strlen("Total time for Init:"), 0);
+	ocall_printdouble(&total_time);
+
+	ocall_log_double("=", 0);
+	ocall_log_double("Total time for Init: %f", total_time);
+	ocall_log_double("=", 0);
+	ocall_printf("==================================================", strlen("=================================================="), 0);
+	free(time_start);
+	free(time_end);
 	return;
 }
 
@@ -1372,7 +1392,8 @@ void ecall_test_encrypt(uint8_t *data, int chunk_size, int n, uint8_t *signature
 // this function is called by the receiver-peer to initialize the connection with the sender-peer
 void ecall_peer_init(uint8_t *current_pubKey, uint8_t *sender_pubKey, const char *ip, int sender_id) {
 
-	uint8_t current_privKey[ECC_PRV_KEY_SIZE] = {0};
+	double *time_start = malloc(sizeof(double));
+	double *time_end = malloc(sizeof(double));
 
 	// TODO: a golobal file ID should be defined for multi-file support
 	// this should be send to the receiver-peer for multi-file support
@@ -1387,6 +1408,7 @@ void ecall_peer_init(uint8_t *current_pubKey, uint8_t *sender_pubKey, const char
 	ocall_printf(ip,16,0);	
 	ocall_printf("########################################################################################", 88, 0);
 
+	uint8_t current_privKey[ECC_PRV_KEY_SIZE] = {0};
 	for(int i = 0; i < ECC_PRV_KEY_SIZE; ++i) {
 		current_privKey[i] = prng_next();
 	}
@@ -1436,6 +1458,15 @@ void ecall_peer_init(uint8_t *current_pubKey, uint8_t *sender_pubKey, const char
 int ecall_file_init(Tag *tag, uint8_t *sigma, FileDataTransfer *fileDataTransfer, int numBlocks, int size) 
 {
 
+	double *time_start = malloc(sizeof(double));
+	double *time_end = malloc(sizeof(double));
+	double *neg_start_time = malloc(sizeof(double));
+	double *neg_end_time = malloc(sizeof(double));
+	double *total_neg_time = malloc(sizeof(double));
+
+	// ================================ start time ================================
+	ocall_test_time(time_start);
+
     int i, j;
     uint8_t blockNum;
     BIGNUM *prime;
@@ -1468,6 +1499,8 @@ int ecall_file_init(Tag *tag, uint8_t *sigma, FileDataTransfer *fileDataTransfer
 	files[fileNum].owner_ip[15] = '\0';
 	files[fileNum].owner_port = fileDataTransfer->owner_port;
 
+	// ================================ start negative time ================================
+	ocall_test_time(neg_start_time);
 
 	ocall_printf("==================Encalve file init info======================", 64, 0);
 	ocall_printf("the file num is ", 17, 0);
@@ -1489,6 +1522,9 @@ int ecall_file_init(Tag *tag, uint8_t *sigma, FileDataTransfer *fileDataTransfer
 	
 	ocall_printf("========================================", 42, 0);
 
+	// ================================ end negative time ================================
+	ocall_test_time(neg_end_time);
+	*total_neg_time += (*neg_end_time - *neg_start_time);
 
 // initialize the nodes keys for peer2peer communication
 	for (j = 0; j < NUM_NODES; j++) {
@@ -1522,6 +1558,9 @@ int ecall_file_init(Tag *tag, uint8_t *sigma, FileDataTransfer *fileDataTransfer
 			ocall_peer_init(current_pubKey, peer_i_pubKey, files[fileNum].nodes[j].ip, files[fileNum].nodes[j].port, files[fileNum].current_chunk_id, peer_id);
 			files[fileNum].nodes[j].chunk_id = *peer_id;
 
+			// ================================ start negative time ================================
+			ocall_test_time(neg_start_time);
+
 			ocall_printf("++++++++++++++++++++++++++++++", 30, 0);
 			ocall_printf("files[fileNum].nodes[j].chunk_id: ", 34, 0);
 			ocall_printint(&files[fileNum].nodes[j].chunk_id);
@@ -1530,6 +1569,10 @@ int ecall_file_init(Tag *tag, uint8_t *sigma, FileDataTransfer *fileDataTransfer
 			ocall_printf("port: ", 4, 0);
 			ocall_printint(&files[fileNum].nodes[j].port);
 			ocall_printf("++++++++++++++++++++++++++++++", 30, 0);
+
+			// ================================ end negative time ================================
+			ocall_test_time(neg_end_time);
+			*total_neg_time += (*neg_end_time - *neg_start_time);
 
 
 			ecdh_shared_secret(current_privKey, peer_i_pubKey, files[fileNum].nodes[j].dh_sharedKey_peer2peer);
@@ -1582,12 +1625,19 @@ int ecall_file_init(Tag *tag, uint8_t *sigma, FileDataTransfer *fileDataTransfer
 		DecryptData(dh_sharedKey_DataOwner, PC_KEY, 16);
 		DecryptData(dh_sharedKey_DataOwner, sig_key, 32);
 
+		// ================================ start negative time ================================
+		ocall_test_time(neg_start_time);
+
 		ocall_printf("Shuffle_key: ", 13, 0);
 		ocall_printf(Shuffle_key, 16, 1);
 		ocall_printf("PC_KEY: ", 8, 0);
 		ocall_printf(PC_KEY, 32, 1);
 		ocall_printf("sig_key: ", 9, 0);
 		ocall_printf(sig_key, 32, 1);
+
+		// ================================ end negative time ================================
+		ocall_test_time(neg_end_time);
+		*total_neg_time += (*neg_end_time - *neg_start_time);
 
 
 		memcpy(files[fileNum].shuffel_key, Shuffle_key, 16);
@@ -1721,7 +1771,23 @@ int ecall_file_init(Tag *tag, uint8_t *sigma, FileDataTransfer *fileDataTransfer
     prepare_tag(tag, porSK);
 	//ocall_printf("done",5,0);
 
+
+	// ================================ end time ================================
+	ocall_test_time(time_end);
+	double total_time = (*time_end - *time_start) - *total_neg_time;
+	ocall_printf("==================================================", strlen("=================================================="), 0);
+	ocall_printf("Total time for File init:", strlen("Total time for File init:"), 0);
+	ocall_printdouble(&total_time);
+	ocall_log_double("=", 0);
+	ocall_log_double("Total time for File init: %f", total_time);
+	ocall_log_double("=", 0);
+	ocall_printf("==================================================", strlen("=================================================="), 0);
+
+
+
+
     return i;
+
 }
 
 
@@ -2050,12 +2116,15 @@ void ecall_audit_file(const char *fileName, int *ret)
 
 	// ================================ time calculation  ================================
 	ocall_test_time(end_time);
+	ocall_printf("==================================================================", strlen("=================================================================="), 0);
 	double total_time = (*end_time - *start_time) - *total_negetive_time;
+	ocall_printf("Total time for File audit:", strlen("Total time for File audit:"), 0);
 	ocall_printdouble(&total_time);
-	ocall_printf("****************************************", 40, 0);
-	ocall_printf("******************************", 30, 0);
-	ocall_printf("********************", 20, 0);
-	ocall_printf("**********", 10, 0);
+	ocall_log_double("=", 0);
+	ocall_log_double("Total time for File audit: %f", total_time);
+	ocall_log_double("=", 0);
+	ocall_printf("==================================================================", strlen("=================================================================="), 0);
+
 	// ================================ time calculation  ================================
 
 	uint8_t sigs[PRIME_LENGTH / 8];
@@ -2338,17 +2407,46 @@ ocall_printf("tagSegNum2", 10, 0);
 
 
 void ecall_check_block(int fileNum, int blockNum,  uint8_t *status, uint8_t *signature, uint8_t *recovered_block, int recovered_block_size, int recovered_block_count){
+	
+	double *time_start = malloc(sizeof(double));
+	double *time_end = malloc(sizeof(double));
+	
+	// ================================ start time ================================
+	ocall_test_time(time_start);
+
+
 	check_block(fileNum, blockNum, status, recovered_block);
 	EncryptData(&files[fileNum].PC_Key, recovered_block, recovered_block_size);
 
 	ocall_printf("Generating signature", 20, 0);
 	int data_len = 32;
 	hmac_sha2(files[fileNum].PC_Key, 32, recovered_block, recovered_block_size, signature, &data_len);
+
+	// ================================ end time ================================
+	ocall_test_time(time_end);
+	double total_time = (*time_end - *time_start);
+	ocall_printf("==================================================", strlen("=================================================="), 0);
+	ocall_printf("Total time for check 1 block (External request):", strlen("Total time for check 1 block (External request):"), 0);
+	ocall_printdouble(&total_time);
+	ocall_log_double("=", 0);
+	ocall_log_double("Total time for check 1 block (External request): %f", total_time);
+	ocall_log_double("=", 0);
+	ocall_printf("==================================================", strlen("=================================================="), 0);
 	return;
 }
 
 void check_block(int fileNum, int blockNum,  uint8_t *status, uint8_t *recovered_block){
 
+	
+	double *time_start = malloc(sizeof(double));
+	double *time_end = malloc(sizeof(double));
+	double *neg_start_time = malloc(sizeof(double));
+	double *neg_end_time = malloc(sizeof(double));
+	double *total_neg_time = malloc(sizeof(double));
+	
+	
+	
+	
 	ocall_printf("Checking block", 15, 0);
 
 
@@ -2369,10 +2467,20 @@ void check_block(int fileNum, int blockNum,  uint8_t *status, uint8_t *recovered
 	uint8_t keyNonce[KEY_SIZE];
 	uint8_t sharedKey[KEY_SIZE] = {0};
 
+
+	// ================================ start time ================================
+	ocall_test_time(time_start);
+
 	sgx_read_rand(keyNonce, KEY_SIZE);
 
+	// ================================ neg start time ================================
+	ocall_test_time(neg_start_time);
 
 	ocall_send_nonce(keyNonce);
+
+	// ================================ neg end time ================================
+	ocall_test_time(neg_end_time);
+	*total_neg_time += *neg_end_time - *neg_start_time;
 
 	size_t len = KEY_SIZE;
 	hmac_sha1(dh_sharedKey, ECC_PUB_KEY_SIZE, keyNonce, KEY_SIZE, sharedKey, &len);
@@ -2383,6 +2491,8 @@ void check_block(int fileNum, int blockNum,  uint8_t *status, uint8_t *recovered
 	uint8_t data[BLOCK_SIZE];
 
 
+	// ================================ start neg time ================================
+	ocall_test_time(neg_start_time);
 
 	// uint8_t data2[BLOCK_SIZE];
 
@@ -2401,6 +2511,7 @@ void check_block(int fileNum, int blockNum,  uint8_t *status, uint8_t *recovered
 
 		}
 	}
+
 					
 
 
@@ -2426,6 +2537,9 @@ void check_block(int fileNum, int blockNum,  uint8_t *status, uint8_t *recovered
 	// ocall_printint(&tagSegNum);
 		ocall_get_segment(files[fileNum].fileName, tagSegNum, segData, 0);
 
+		// ================================ neg end time ================================
+		ocall_test_time(neg_end_time);
+		*total_neg_time += *neg_end_time - *neg_start_time;
 
 		DecryptData((uint32_t *)sharedKey, segData, SEGMENT_SIZE); 
 
@@ -2486,6 +2600,9 @@ void check_block(int fileNum, int blockNum,  uint8_t *status, uint8_t *recovered
 		indices[0] = blockNum;
 		// getgetsigma(sigmas, 1, sharedKey, indices, files[0].fileName);
 
+		// ================================ neg start time ================================
+		ocall_test_time(neg_start_time);
+
 		ocall_printf("sigmas[0]:", 10, 0);
 		ocall_printf(sigmas[0], PRIME_LENGTH / 8, 1);
 		ocall_printf("tag:", 10, 0);
@@ -2493,6 +2610,10 @@ void check_block(int fileNum, int blockNum,  uint8_t *status, uint8_t *recovered
 
 		ocall_printf("========================================", 40, 0);
 		ocall_printf("I am in the audit block group", 30, 0);
+
+		// ================================ neg end time ================================
+		ocall_test_time(neg_end_time);
+		*total_neg_time += *neg_end_time - *neg_start_time;
 
 	if (audit_block_group(0, 1, indices, sigmas, tag, data) != 0) {
 			*status = 1;
@@ -2509,6 +2630,17 @@ void check_block(int fileNum, int blockNum,  uint8_t *status, uint8_t *recovered
 			ocall_printf(recovered_block, BLOCK_SIZE, 1);
 			
 		}
+
+		// ================================ end time ================================
+		ocall_test_time(time_end);
+		double total_time = (*time_end - *time_start) - *total_neg_time;
+		ocall_printf("================================================", strlen("================================================"), 0);
+		ocall_printf("Total time for check 1 block:", strlen("Total time for check 1 block:"), 0);
+		ocall_printdouble(&total_time);
+		ocall_log_double("=", 0);
+		ocall_log_double("Total time for check 1 block: %f", total_time);
+		ocall_log_double("=", 0);
+		ocall_printf("================================================", strlen("================================================"), 0);
 
 	ocall_init_parity(numBits);
 
@@ -2634,6 +2766,15 @@ void ecall_init_rs_matrix(int k, int n){
 
 void recover_block(int fileNum, int blockNum, uint8_t *blockData, int *toggle){
 
+
+	double *time_start = malloc(sizeof(double));
+	double *time_end = malloc(sizeof(double));
+	double *neg_start_time = malloc(sizeof(double));
+	double *neg_end_time = malloc(sizeof(double));
+	double *total_neg_time = malloc(sizeof(double));
+	
+
+
 	int k = files[fileNum].k;
 	int n = files[fileNum].n;
 	int symSize = 16;
@@ -2666,7 +2807,9 @@ void recover_block(int fileNum, int blockNum, uint8_t *blockData, int *toggle){
 	int *code_word_index = malloc(n * sizeof(int));
 	for (int i = 0; i < n; i++) code_word_index[i] = -1;
 
-	// this is the nodes that will be used to recover the block
+	// ================================ start time ================================
+	ocall_test_time(time_start);
+
 	NodeInfo *nodes = (NodeInfo *)malloc(NUM_NODES * sizeof(NodeInfo));
 
 	for (int i = 0; i < NUM_NODES; i++) {
@@ -2754,6 +2897,8 @@ void recover_block(int fileNum, int blockNum, uint8_t *blockData, int *toggle){
 			rb_indicies[i - j].is_local = 0;
 		}
 				// print data
+		// ================================ neg start time ================================
+		ocall_test_time(neg_start_time);
 		ocall_printf("*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=", strlen("*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*="), 0);
 		ocall_printf("the rquested block is:", strlen("the rquested block is:"), 0);
 		ocall_printint(&blockNum);
@@ -2772,7 +2917,9 @@ void recover_block(int fileNum, int blockNum, uint8_t *blockData, int *toggle){
 		ocall_printint(&rb_indicies[i - j].internal_block_index);
 		ocall_printf("the code word number is:", strlen("the code word number is:"), 0);
 		ocall_printint(&rb_indicies[i - j].code_word_number);
-		
+		// ================================ neg end time ================================
+		ocall_test_time(neg_end_time);
+		*total_neg_time += *neg_end_time - *neg_start_time;
 		
 	}
 	
@@ -2827,7 +2974,8 @@ void recover_block(int fileNum, int blockNum, uint8_t *blockData, int *toggle){
 	
 
 
-
+	// ================================ neg start time ================================
+	ocall_test_time(neg_start_time);
 
 	// block number is calculated
 	// now we have 
@@ -2920,12 +3068,9 @@ ocall_printf("=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=  =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=",
 
 	}
 	
-	double *time_start = malloc(sizeof(double));
-	double *time_end = malloc(sizeof(double));
-
-	// ================================ start time ================================
-	ocall_test_time(time_start);
-
+	// ================================ neg end time ================================
+	ocall_test_time(neg_end_time);
+	*total_neg_time += *neg_end_time - *neg_start_time;
 
 	int counter_index = 0;
 
@@ -2941,6 +3086,9 @@ ocall_printf("=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=  =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=",
 
 		hmac_sha2(files[fileNum].sig_Key, 32, code_word + (i * BLOCK_SIZE), BLOCK_SIZE, signature2, &data_len2);
 
+		// ================================ neg start time ================================
+		ocall_test_time(neg_start_time);
+
 		ocall_printf("signature2", 10, 0);
 		ocall_printf(signature2, 32, 1);
 		ocall_printf("tmp_for_signature", 18, 0);
@@ -2953,6 +3101,9 @@ ocall_printf("=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=  =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=",
 			ocall_printf("Signature mismatch", 18, 0);
 			ocall_printint(&i);
 		}
+		// ================================ neg end time ================================
+		ocall_test_time(neg_end_time);
+		*total_neg_time += *neg_end_time - *neg_start_time;
 		free(tmp_for_signature);
 	// ================================ decrypt code word ================================
 		
@@ -2973,7 +3124,8 @@ ocall_printf("=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=  =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=",
 			}
 
 	}
-
+	// ================================ neg start time ================================
+	ocall_test_time(neg_start_time);
 
 	ocall_printf("code_word_tmp 0 ", strlen("code_word_tmp 0 "), 0);
 	ocall_printf(code_word_tmp, BLOCK_SIZE, 1);
@@ -2984,10 +3136,12 @@ ocall_printf("=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=  =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=",
 	ocall_printf("code_word_tmp 3 ", strlen("code_word_tmp 3 "), 0);
 	ocall_printf(code_word_tmp + 3 * BLOCK_SIZE, BLOCK_SIZE, 1);
 
-
-	ocall_test_time(time_end);
 	ocall_printf("erasure[0]", strlen("erasure[0]"), 0);
 	ocall_printint(&erasures[0]);
+	// ================================ neg end time ================================
+	ocall_test_time(neg_end_time);
+	*total_neg_time += *neg_end_time - *neg_start_time;
+
 
 
 	initiate_rs(files[fileNum].k, files[fileNum].n);
@@ -3000,6 +3154,7 @@ ocall_printf("=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=  =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=",
 	// decode(int chunk_size, int *erasures, uint16_t *code_word, int *matrix, int current_chunk_id, uint16_t *recovered_data) {
 
 	// ================================ end time ================================
+	ocall_test_time(time_end);
 
 	code_word_tmp = (uint8_t *) code_word_tmp_uint16;
 
@@ -3009,10 +3164,15 @@ ocall_printf("=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=  =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=",
 	// store the recovered block
 	memcpy(blockData, code_word_tmp + (erasures[0] * BLOCK_SIZE), BLOCK_SIZE);
 
+	// ================================ end time ================================
+	ocall_printf("==================================================", strlen("=================================================="), 0);
 	ocall_printf("Total time : RECOVERY", strlen("Total time : RECOVERY"), 0);
-	double total_time = (*time_end - *time_start);
+	double total_time = (*time_end - *time_start) - *total_neg_time;
 	ocall_printdouble(&total_time);
-
+	ocall_log_double("=", 0);
+	ocall_log_double("Total time in recovery: %f", total_time);
+	ocall_log_double("=", 0);
+	ocall_printf("==================================================", strlen("=================================================="), 0);
 	return;
 }
 
@@ -3178,6 +3338,9 @@ void ecall_small_corruption(const char *fileName, int blockNum) {
 		ocall_printf("Total time : SMALL CORRUPTION CHECK FOR CORRUPTED DATA", strlen("Total time : SMALL CORRUPTION CHECK FOR CORRUPTED DATA"), 0);
 		double total_time = (*time_end - *time_start) - *negative_time;
 		ocall_printdouble(&total_time);
+		ocall_log_double("=", 0);
+		ocall_log_double("Total time in small corruption check for corrupted data: %f", total_time);
+		ocall_log_double("=", 0);
 		ocall_printf("****************************************", 40, 0);
 		ocall_printf("******************************", 30, 0);
 		ocall_printf("********************", 20, 0);
@@ -3219,13 +3382,14 @@ void ecall_small_corruption(const char *fileName, int blockNum) {
 		} else {
 		// ================================ time calculation ================================
 			ocall_test_time(time_end);
+			ocall_printf("==================================================", strlen("=================================================="), 0);
 			ocall_printf("Total time : SMALL CORRUPTION CHECK FOR VALID DATA", strlen("Total time : SMALL CORRUPTION CHECK FOR VALID DATA"), 0);
 			double total_time = (*time_end - *time_start) - *negative_time;
 			ocall_printdouble(&total_time);
-			ocall_printf("****************************************", 40, 0);
-			ocall_printf("******************************", 30, 0);
-			ocall_printf("********************", 20, 0);
-			ocall_printf("**********", 10, 0);
+			ocall_log_double("=", 0);
+			ocall_log_double("Total time in small corruption check for valid data: %f", total_time);
+			ocall_log_double("=", 0);
+			ocall_printf("==================================================", strlen("=================================================="), 0);
 		// ================================ time calculation ================================
 
 		    ocall_printf("AUDIT SUCCESS!", 15, 0);
@@ -3382,6 +3546,17 @@ void ecall_test_rs(char *data, int k, int n, int *erasures) {
 
 void local_code_words(int fileNum, int code_word_id, uint8_t *blockData, int *toggle){
 
+
+	double *neg_start_time = malloc(sizeof(double));
+	double *neg_end_time = malloc(sizeof(double));
+	double *total_neg_time = malloc(sizeof(double));
+
+	double *Blocks_retrieval_start_time = malloc(sizeof(double));
+	double *Blocks_retrieval_end_time = malloc(sizeof(double));
+	double *total_Blocks_retrieval_time = malloc(sizeof(double));
+
+
+
 	int k = files[fileNum].k;
 	int n = files[fileNum].n;
 	int symSize = 16;
@@ -3473,7 +3648,10 @@ void local_code_words(int fileNum, int code_word_id, uint8_t *blockData, int *to
 		} else {
 			rb_indicies[i - j].is_local = 0;
 		}
-				// print data
+		
+		// ================================ neg start time ================================
+		ocall_test_time(neg_start_time);
+		// print data
 		ocall_printf("*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=", 42, 0);
 		ocall_printf("the rquested block is:", 22, 0);
 		ocall_printint(&blockNumInFile);
@@ -3491,11 +3669,13 @@ void local_code_words(int fileNum, int code_word_id, uint8_t *blockData, int *to
 		ocall_printint(&rb_indicies[i - j].internal_block_index);
 		ocall_printf("the code word number is:", 24, 0);
 		ocall_printint(&rb_indicies[i - j].code_word_number);
+		// ================================ neg end time ================================
+		ocall_test_time(neg_end_time);
+		*total_neg_time += *neg_end_time - *neg_start_time;
 		
 		
 	}
 	
-	ocall_printf("*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=", 42, 0);
 
 	int total_parity_blocks = files[fileNum].numBlocks * (files[fileNum].n - files[fileNum].k);
 
@@ -3523,25 +3703,32 @@ void local_code_words(int fileNum, int code_word_id, uint8_t *blockData, int *to
 		rb_indicies[i].node_index = (tmp_index - temp_internal_block_index) / files[fileNum].numBlocks + files[fileNum].k;
 		// rb_indicies[i].node_index = i;
 		rb_indicies[i].code_word_number = code_word_number;	
-	ocall_printf("*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=", 42, 0);
-	ocall_printf("*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=", 42, 0);
-	ocall_printf("*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=", 42, 0);
-	ocall_printf("this is the i:", 14, 0);
-	ocall_printint(&i);
-	ocall_printf("the requested block is:", 23, 0);
-	ocall_printint(&requested_block);
-	ocall_printf("the total blocks index is:", 26, 0);
-	ocall_printint(&rb_indicies[i].total_blocks_index);
-	ocall_printf("the internal block index is:", 28, 0);
-	ocall_printint(&rb_indicies[i].internal_block_index);
-	ocall_printf("the node index is:", 18, 0);
-	ocall_printint(&rb_indicies[i].node_index);
-	ocall_printf("the code word number is:", 24, 0);
-	ocall_printint(&rb_indicies[i].code_word_number);
-	ocall_printf("*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=", 42, 0);
-	ocall_printf("*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=", 42, 0);
-	ocall_printf("*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=", 42, 0);
-	ocall_printf("*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=", 42, 0);
+
+		// ================================ neg start time ================================
+		ocall_test_time(neg_start_time);
+
+		ocall_printf("*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=", 42, 0);
+		ocall_printf("*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=", 42, 0);
+		ocall_printf("*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=", 42, 0);
+		ocall_printf("this is the i:", 14, 0);
+		ocall_printint(&i);
+		ocall_printf("the requested block is:", 23, 0);
+		ocall_printint(&requested_block);
+		ocall_printf("the total blocks index is:", 26, 0);
+		ocall_printint(&rb_indicies[i].total_blocks_index);
+		ocall_printf("the internal block index is:", 28, 0);
+		ocall_printint(&rb_indicies[i].internal_block_index);
+		ocall_printf("the node index is:", 18, 0);
+		ocall_printint(&rb_indicies[i].node_index);
+		ocall_printf("the code word number is:", 24, 0);
+		ocall_printint(&rb_indicies[i].code_word_number);
+		ocall_printf("*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=", 42, 0);
+		ocall_printf("*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=", 42, 0);
+		ocall_printf("*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=", 42, 0);
+		ocall_printf("*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=", 42, 0);
+	// ================================ neg end time ================================
+		ocall_test_time(neg_end_time);
+		*total_neg_time += *neg_end_time - *neg_start_time;
 	}
 	
 
@@ -3572,19 +3759,20 @@ void local_code_words(int fileNum, int code_word_id, uint8_t *blockData, int *to
 
 		if (rb_indicies[i].is_local == 1) {
 
+			// ================================ neg start time ================================
+			ocall_test_time(neg_start_time);
 			if (*toggle == 1) {
-				ocall_printf("local 11", 8, 0);
 				ocall_init_parity(numBits);
 				*toggle = 0;
 			}
-			ocall_printf("local 12", 8, 0);
 			ocall_printf("###########################Local Block DETECTED###############################", 78, 0);
 			ocall_printf("the real block index is:", 24, 0);
 			ocall_printint(&rb_indicies[i].total_blocks_index);
-			ocall_printf("local 12", 8, 0);
-			check_block(fileNum, rb_indicies[i].internal_block_index, status, tmpcode_word);
-			ocall_printf("local 13", 8, 0);
 
+			check_block(fileNum, rb_indicies[i].internal_block_index, status, tmpcode_word);
+			// ================================ neg end time ================================
+			ocall_test_time(neg_end_time);
+			*total_neg_time += *neg_end_time - *neg_start_time;
 
 			if (*status == 0) {
 				ocall_printf("THE BLOCK IS VALID", 18, 0);
@@ -3630,6 +3818,9 @@ void local_code_words(int fileNum, int code_word_id, uint8_t *blockData, int *to
 
 		hmac_sha2(files[fileNum].sig_Key, 32, code_word + (i * BLOCK_SIZE), BLOCK_SIZE, signature2, &data_len2);
 
+		// ================================ neg start time ================================
+		ocall_test_time(neg_start_time);
+
 		ocall_printf("signature2", 10, 0);
 		ocall_printf(signature2, 32, 1);
 		ocall_printf("tmp_for_signature", 18, 0);
@@ -3643,6 +3834,11 @@ void local_code_words(int fileNum, int code_word_id, uint8_t *blockData, int *to
 			ocall_printint(&i);
 		}
 		free(tmp_for_signature);
+		free(signature2);
+		// ================================ neg end time ================================
+		ocall_test_time(neg_end_time);
+		*total_neg_time += *neg_end_time - *neg_start_time;
+
 
 	// ================================ decrypt code word ================================
 
@@ -3666,6 +3862,8 @@ void local_code_words(int fileNum, int code_word_id, uint8_t *blockData, int *to
 		
 
 	}
+	// ================================ neg start time ================================
+	ocall_test_time(neg_start_time);
 
 	ocall_printf("code_word_tmp 0 ", 23, 0);
 	ocall_printf(code_word_tmp, BLOCK_SIZE, 1);
@@ -3677,7 +3875,9 @@ void local_code_words(int fileNum, int code_word_id, uint8_t *blockData, int *to
 	ocall_printf(code_word_tmp + 3 * BLOCK_SIZE, BLOCK_SIZE, 1);
 	ocall_printf("code_word_tmp 4 ", 23, 0);
 	ocall_printf(code_word_tmp + 4 * BLOCK_SIZE, BLOCK_SIZE, 1);
-
+	// ================================ neg end time ================================
+	ocall_test_time(neg_end_time);
+	*total_neg_time += *neg_end_time - *neg_start_time;
 
 	// ocall_printint(&erasures[0]);
 	// ocall_printint(&erasures[1]);
@@ -3691,9 +3891,13 @@ void local_code_words(int fileNum, int code_word_id, uint8_t *blockData, int *to
 	// test_decode(code_word_tmp, 3, 5, err);
 	// decode(int chunk_size, int *erasures, uint16_t *code_word, int *matrix, int current_chunk_id, uint16_t *recovered_data) {
 
-
+	// ================================ neg start time ================================
+	ocall_test_time(neg_start_time);
 	ocall_printf("=======================THIS ALL data IN a code word========================", strlen("=======================THIS ALL data IN a code word========================"), 0);
 	ocall_printf(code_word_tmp, k *BLOCK_SIZE, 1);
+	// ================================ neg end time ================================
+	ocall_test_time(neg_end_time);
+	*total_neg_time += *neg_end_time - *neg_start_time;
 	
 	// store the recovered block
 	memcpy(blockData, code_word_tmp, k * BLOCK_SIZE);
@@ -3708,6 +3912,20 @@ void local_code_words(int fileNum, int code_word_id, uint8_t *blockData, int *to
 	free(status);
 	// free(toggle);
 
+	// total neg time
+	ocall_printf("==================================================", strlen("=================================================="), 0);
+	ocall_printf("Total neg time", strlen("Total neg time"), 0);
+	ocall_printdouble(total_neg_time);
+	ocall_log_double("=", *total_neg_time);
+	ocall_log_double("Total neg time in local code words: %f", *total_neg_time);
+	ocall_log_double("=", *total_neg_time);
+	
+	ocall_printf("==================================================", strlen("=================================================="), 0);
+
+	free(neg_start_time);
+	free(neg_end_time);
+	free(total_neg_time);
+
 	return;
 }
 
@@ -3715,9 +3933,15 @@ void local_code_words(int fileNum, int code_word_id, uint8_t *blockData, int *to
 // TODO: fileNum should be removed to file name or unique identifier
 void ecall_local_code_words(int fileNum, int code_word_id, uint8_t *data, int cw_size, uint8_t *signature, int sig_count) {
 
+	double *start_time = malloc(sizeof(double));
+	double *end_time = malloc(sizeof(double));
+
 
 	int *toggle = malloc(sizeof(int));
 	*toggle = 0;
+	// ================================ start time ================================
+	ocall_test_time(start_time);
+	ocall_log_double("=", 0);
 
 	local_code_words(fileNum, code_word_id, data, toggle);
 
@@ -3732,8 +3956,20 @@ void ecall_local_code_words(int fileNum, int code_word_id, uint8_t *data, int cw
 	hmac_sha2(files[fileNum].sig_Key, 32, data, files[fileNum].k * BLOCK_SIZE, signature_tmp, &data_len2);
 	memcpy(signature, signature_tmp, files[fileNum].k * 32);
 	free(signature_tmp);
+	// ================================ end time ================================
+	ocall_test_time(end_time);
+	double total_time = *end_time - *start_time;
+	ocall_printf("===============================================", strlen("==============================================="), 0);
+	ocall_printf("Total time For local code words (in external request):", strlen("Total time For local code words (in external request):"), 0);
+	ocall_printdouble(&total_time);
+	ocall_log_double("=", 0);
+	ocall_log_double("Total time For local code words (in external request): %f", total_time);
+	ocall_log_double("=", 0);
+	ocall_printf("===============================================", strlen("==============================================="), 0);
 
-
+	free(start_time);
+	free(end_time);
+	// free(toggle);
 	return;
 }
 
@@ -3743,6 +3979,8 @@ void ecall_retrieve_File(const char *fileName) {
 	double *end_time = malloc(sizeof(double));
 	double *neg_start_time = malloc(sizeof(double));
 	double *neg_end_time = malloc(sizeof(double));
+	double *neg_code_word_start_time = malloc(sizeof(double));
+	double *neg_code_word_end_time = malloc(sizeof(double));
 	double *total_neg_time = malloc(sizeof(double));
 
 
@@ -3792,8 +4030,19 @@ void ecall_retrieve_File(const char *fileName) {
 		// if (files[fileNum].nodes[i].ip == current_ip) {
 		if (i == 0) {
 			for(int j = 0; j < num_retrieval_rq_per_peer; j++) {
+				// ================================ code word start time ================================
+				ocall_test_time(neg_code_word_start_time);
+				ocall_log_double("=", 0);
+
 				uint8_t *local_data_tmp = (uint8_t *)malloc(BLOCK_SIZE * sizeof(uint8_t) * k_cached);
 				local_code_words(fileNum, j, local_data_tmp, toggle);
+
+				// ================================ code word end time ================================
+				ocall_test_time(neg_code_word_end_time);
+				double code_word_time = *neg_code_word_end_time - *neg_code_word_start_time;
+				ocall_log_double("Intternal code word time request time: %f", code_word_time);
+				ocall_log_double("=", 0);
+
 				// ================================ Decrypt the code word ================================
 				memcpy(print_local_data_tmp + (j * BLOCK_SIZE * k_cached), local_data_tmp, k_cached * BLOCK_SIZE);
 				
@@ -3876,7 +4125,7 @@ void ecall_retrieve_File(const char *fileName) {
 
 	// ================================ Code word end time ================================
 	ocall_test_time(neg_end_time);
-	*total_neg_time = *neg_end_time - *neg_start_time;
+	*total_neg_time += *neg_end_time - *neg_start_time;
 
 
 	ocall_write_recovered_file(data, numBlocks_cached * BLOCK_SIZE * k_cached);
@@ -3893,11 +4142,21 @@ void ecall_retrieve_File(const char *fileName) {
 	double total_time = (*end_time - *start_time) - *total_neg_time;
 	ocall_printf("===============================================", strlen("==============================================="), 0);
 	ocall_printf("Total time For retrieve Entire file", strlen("Total time For retrieve Entire file"), 0);
-	ocall_printdouble(total_time);
+	ocall_printdouble(&total_time);
 	ocall_log_double("=", 0);
 	ocall_log_double("Total time For retrieve Entire file: %f", total_time);
 	ocall_log_double("=", 0);
 	ocall_printf("===============================================", strlen("==============================================="), 0);
+
+
+	free(start_time);
+	free(end_time);
+	free(neg_start_time);
+	free(neg_end_time);
+	free(total_neg_time);
+	free(neg_code_word_start_time);
+	free(neg_code_word_end_time);
+
 
 	return;
 }
