@@ -19,7 +19,7 @@
 #define FILE_NAME_LEN 512
 #define MAX_FILES 10
 
-#define NUM_CHAL_BLOCKS 4
+#define NUM_CHAL_BLOCKS 5
 #define NUM_ORIGINAL_SYMBOLS 2 // Erasure code parameters. Maybe should be part of File struct
 #define NUM_TOTAL_SYMBOLS 3
 
@@ -33,7 +33,7 @@
 
 // Amir MM Farid
 // Number of nodes also needs to be changed in Enclave.edl for the function ecall_init
-#define NUM_NODES 2
+#define NUM_NODES 4
 #define OWNER_IP "127.0.0.1"
 #define OWNER_PORT 8080
 

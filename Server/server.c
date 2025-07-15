@@ -38,8 +38,8 @@ void ftl_initial(uint8_t *sgx_pubKey, uint8_t *ftl_pubKey)
  }
 
  //printf("start KS\n");
- //struct timeval start_time, end_time;
- //gettimeofday(&start_time, NULL);
+ struct timeval start_time, end_time;
+ gettimeofday(&start_time, NULL);
  memcpy(buf, sgx_pubKey, 64);
  if (pwrite(fd, buf, 512, offset) == -1) {
  perror("[pwrite]");
@@ -51,14 +51,14 @@ void ftl_initial(uint8_t *sgx_pubKey, uint8_t *ftl_pubKey)
  fdatasync(fd);
  //printf("end KS\n");
 
- //gettimeofday(&end_time, NULL);
- //long int elapsed_time_KS_sec = end_time.tv_sec - start_time.tv_sec;
- //long int elapsed_time_KS_micro = end_time.tv_usec - start_time.tv_usec;
- //if (elapsed_time_KS_micro < 0) {
- // elapsed_time_KS_micro += 1000000;
- // elapsed_time_KS_sec--;
- //}
- //printf("Elapsed time: %ld.%06ld seconds\n", elapsed_time_KS_sec, elapsed_time_KS_micro);
+ gettimeofday(&end_time, NULL);
+ long int elapsed_time_KS_sec = end_time.tv_sec - start_time.tv_sec;
+ long int elapsed_time_KS_micro = end_time.tv_usec - start_time.tv_usec;
+ if (elapsed_time_KS_micro < 0) {
+ elapsed_time_KS_micro += 1000000;
+ elapsed_time_KS_sec--;
+ }
+ printf("Elapsed FTL INITtime: %ld.%06ld seconds\n", elapsed_time_KS_sec, elapsed_time_KS_micro);
 
 
  // Read FTL public key from device
@@ -109,8 +109,8 @@ void get_challnum(int server_fd)
  return;
  }
 
- //struct timeval start, end;
- //gettimeofday(&start, NULL);
+ struct timeval start, end;
+ gettimeofday(&start, NULL);
  memcpy(buf, challnum, KEY_SIZE);
  if (pwrite(fd, buf, 512, offset) == -1) { 
  perror("[pwrite]");
@@ -121,11 +121,11 @@ void get_challnum(int server_fd)
 
  fsync(fd);
 
- //gettimeofday(&end, NULL);
- //long seconds = end.tv_sec - start.tv_sec;
- //long micros = ((seconds * 1000000) + end.tv_usec) - (start.tv_usec);
+ gettimeofday(&end, NULL);
+ long seconds = end.tv_sec - start.tv_sec;
+ long micros = ((seconds * 1000000) + end.tv_usec) - (start.tv_usec);
 
- //printf("Time elapsed Give challNum: %ld.%06ld seconds\n", seconds, micros);
+ printf("Time elapsed Give challNum: %ld.%06ld seconds\n", seconds, micros);
 
 }
 
@@ -188,8 +188,8 @@ void get_segment(int server_fd)
  }
  }
 
- //struct timeval start, end;
- //gettimeofday(&start, NULL);
+ struct timeval start, end;
+ gettimeofday(&start, NULL);
 
  if (pread(fd, buf, SEGMENT_SIZE, offset) == -1) { 
  perror("[pread]");
@@ -200,11 +200,11 @@ void get_segment(int server_fd)
 
  fsync(fd);
 
- //gettimeofday(&end, NULL);
- //long seconds = end.tv_sec - start.tv_sec;
- //long micros = ((seconds * 1000000) + end.tv_usec) - (start.tv_usec);
+ gettimeofday(&end, NULL);
+ long seconds = end.tv_sec - start.tv_sec;
+ long micros = ((seconds * 1000000) + end.tv_usec) - (start.tv_usec);
 
- //printf("Time elapsed Get segment: %ld.%06ld seconds\n", seconds, micros);
+ printf("Time elapsed Get segment: %ld.%06ld seconds\n", seconds, micros);
 
 
  memcpy(segData, buf, SEGMENT_SIZE);

@@ -18,6 +18,7 @@
 #include "ecdh.h"
 #include "jerasure/reed_sol.h"
 #include <math.h>
+#include <time.h>
 #include "../hmac/hmac.h"
 
 #include "../rs/rs.h"
@@ -43,11 +44,11 @@ typedef enum
 } RequestType;
 
 NodeInfo nodes[NUM_NODES] = {
-    {"141.219.248.128", 8080, -1, 0}, // This is the host node do not count it as a node
+    {"141.219.209.11", 8080, -1, 0}, // This is the host node do not count it as a node
     {"141.219.249.254", 8080, -1, 0},
     {"141.219.250.6", 8080, -1, 0},
     {"141.219.210.172", 8080, -1, 0},
-    {"141.219.248.128", 8080, -1, 0},
+    {"141.219.209.11", 8080, -1, 0},
     // {"141.219.210.172", 8080, -1, 0},
     // {"141.219.250.6", 8080, -1, 0},
 
@@ -475,6 +476,10 @@ static long get_file_size(FILE *file)
     fseek(file, 0, SEEK_END);
     long size = ftell(file);
     rewind(file);
+    if(!file){
+        printf("file is null\n");
+    }
+    printf("size: %ld\n", size);
     return size;
 }
 
@@ -881,6 +886,9 @@ void handle_block_retrival_request(sgx_enclave_id_t eid, int client_socket)
     printf("successfully sent the status and the chunk id\n");
 
     ack_recv(client_socket);
+    free(status);
+    free(recovered_block);
+    free(signature);
 }
 
 void handle_code_word_retrival_request(sgx_enclave_id_t eid, int client_socket)
@@ -912,7 +920,8 @@ pthread_mutex_t close_lock = PTHREAD_MUTEX_INITIALIZER;
 
 void *handle_client(void *args_ptr)
 {
-    atomic_fetch_add(&active_threads, 1);  // increase count
+    atomic_fetch_add(&active_threads, 1);
+    // atomic_fetch_add(&active_threads, 1); 
     server_args *args = (server_args *)args_ptr;
     
     sgx_enclave_id_t eid = args->eid;
@@ -1045,8 +1054,44 @@ void *listener_thread_func(void *eid_ptr)
 }
 // ------------------------------------------------------------------------------
 //                                 Sender functions
+
+
+void loglog(const char *format, double value) {
+    FILE *log_fp = fopen("logfile.txt", "a");
+    if (log_fp == NULL) {
+        perror("Failed to open log file");
+        return;
+    }
+
+    // Add timestamp
+    time_t now = time(NULL);
+    struct tm *t = localtime(&now);
+
+    
+    if (strcmp(format, "=") == 0) {
+        fprintf(log_fp, "===============================================\n");
+    }else{
+        fprintf(log_fp, "[%04d-%02d-%02d %02d:%02d:%02d] ",
+            t->tm_year + 1900, t->tm_mon + 1, t->tm_mday,
+            t->tm_hour, t->tm_min, t->tm_sec);
+        fprintf(log_fp, format, value);
+        fprintf(log_fp, "\n");
+    }
+
+    // Log the formatted string with the double value
+
+    fclose(log_fp);
+}
+
+
+
 void *get_code_word(void *arg)
 {
+
+    struct timespec start, end;
+    clock_gettime(CLOCK_MONOTONIC, &start);
+
+    printf("I AM HERE 3\n");
     ThreadWrapperArgs *args = (ThreadWrapperArgs *)arg;
 
     ThreadSharedArgs *shared_args = (ThreadSharedArgs *)args->shared_args;
@@ -1076,47 +1121,29 @@ void *get_code_word(void *arg)
         close(sock);
         return NULL;
     }
+    printf("connected: %s\n", args->node_ip);
 
     // send the request type
     RequestType request_type = CODE_WORD;
 
     secure_send(sock, &request_type, sizeof(RequestType));
+    printf("request type: %s\n", args->node_ip);
 
     secure_send(sock, &args->fileNum, sizeof(int));
+    printf("file num: %s\n", args->node_ip);
     // this is the code_word_number that we want to retrieve not the block number
     secure_send(sock, &args->blockNum, sizeof(int));
+    printf("block num: %s\n", args->node_ip);
 
     uint8_t *buffer = malloc(BLOCK_SIZE * K);
     uint8_t *signature = malloc(K * 32);
     secure_recv(sock, buffer, BLOCK_SIZE * K);
+    printf("buffer: %s\n", args->node_ip);
     secure_recv(sock, signature, K * 32);
-
-    //         printf("this is the time of sending the code word\n");
-    // printf("=============================================================\n");
-    // printf("=============================================================\n");
-    // printf("=============================================================\n");
-    // printf("=============================================================\n");
-    // printf("=============================================================\n");
-    // printf("=============================================================\n");
-    // printf("=============================================================\n");
-    // printf("=============================================================\n");
-    // printf("=============================================================\n");
-    // printf("=============================================================\n");
-    // printf("=============================================================\n");
-    // printf("=============================================================\n");
-    // printf("=============================================================\n");
-    // printf("=============================================================\n");
-    // printf("=============================================================\n");
-    // printf("=============================================================\n");
-    // printf("=============================================================\n");
-    // printf("=============================================================\n");
-
-    // for(int i = 0; i < BLOCK_SIZE * K; i++){
-    //     printf("%X", buffer[i]);
-    // }
-    // printf("\n");
+    printf("signature: %s\n", args->node_ip);
 
 
+    printf("I AM HERE 4 %s\n", args->node_ip);
         pthread_mutex_lock(&shared_args->lock);
         memcpy(shared_args->output_code_word_buffer + args->blockNum * K *  BLOCK_SIZE, buffer, K *BLOCK_SIZE);
         memcpy(shared_args->output_signature_list + args->blockNum * K * 32, signature, K * 32);
@@ -1128,12 +1155,22 @@ void *get_code_word(void *arg)
 
     ack_send(sock);
 
+    clock_gettime(CLOCK_MONOTONIC, &end);
+    double time_taken = (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec) / 1e9;
+    loglog("Time taken for the iteration: %f seconds", time_taken);
+
+
     
 
-
-
-
 }
+
+int dcounter = 0;
+
+int get_dcounter(){
+    return dcounter;
+}
+
+
 
 void ocall_retrieve_code_words(int fileNum, NodeInfo *nodes, int node_size, int node_counts, uint8_t *data_tmp, int data_tmp_size, int data_tmp_count, int num_retrieval_rq_per_peer, int num_code_words_counter, int num_code_words, int remainder)
 {
@@ -1163,16 +1200,35 @@ void ocall_retrieve_code_words(int fileNum, NodeInfo *nodes, int node_size, int 
     ThreadWrapperArgs *wrapper_args = malloc((num_code_words * num_retrieval_rq_per_peer) * sizeof(ThreadWrapperArgs));
     pthread_t *threads = malloc((num_code_words * num_retrieval_rq_per_peer) * sizeof(pthread_t));
 
+
+
+                // clock_gettime(CLOCK_MONOTONIC, &start);
+                // clock_gettime(CLOCK_MONOTONIC, &end);
+                
+                // double s_time = start.tv_sec + (start.tv_nsec / 1e9);
+                // double e_time = end.tv_sec + (end.tv_nsec / 1e9);
+
+
+            printf("Press enter to continue\n");
+            getchar();
     int thread_idx = 0;
     for (int i = 1 ; i < k; i++)
     {
+    loglog("&&&&&&&&&&&&&&&&&&###########################&&&&&&&&&&&&&&&&&&\n",1);
+    loglog("=",0);
+    loglog("this is the %f th iteration", i);
+    loglog("=",0);
 
+            printf("I AM HERE 1\n");
 
             printf("==============================================\n");
             printf("this is NORMAL turn: %d\n", i);
             printf("==============================================\n");
             int j;
             for(j = 0; j < num_retrieval_rq_per_peer && num_code_words_counter < num_code_words; j++){
+            dcounter++;
+            
+            // sleep(30);
                 wrapper_args[thread_idx].fileNum = fileNum;
                 wrapper_args[thread_idx].blockNum = num_code_words_counter;
                 wrapper_args[thread_idx].node_id = nodes[i].chunk_id;
@@ -1183,8 +1239,12 @@ void ocall_retrieve_code_words(int fileNum, NodeInfo *nodes, int node_size, int 
                 pthread_create(&threads[thread_idx], NULL, get_code_word, &wrapper_args[thread_idx]);
                 num_code_words_counter ++;
                 thread_idx ++;
+            printf("Press enter to continue\n");
+            getchar();
             }
             if(counter > 0){
+            dcounter++;
+            // sleep(30);
                 wrapper_args[thread_idx].fileNum = fileNum;
                 wrapper_args[thread_idx].blockNum = num_code_words_counter;
                 wrapper_args[thread_idx].node_id = nodes[i].chunk_id;
@@ -1196,16 +1256,23 @@ void ocall_retrieve_code_words(int fileNum, NodeInfo *nodes, int node_size, int 
                 counter--;
                 num_code_words_counter ++;
                 thread_idx ++;
+            printf("Press enter to continue\n");
+            getchar();
             }
+
+            printf("I AM HERE 2\n");
+    loglog("&&&&&&&&&&&&&&&&&&###########################&&&&&&&&&&&&&&&&&&\n",1);
+
     }
 
    
 
 
-
+    printf("I AM HERE\n");
 
     for (int i =0 ; i < thread_idx; i++)
     {
+        
         printf("joining thread %d\n", i);
         pthread_join(threads[i], NULL);
         printf("joined thread %d\n", i);
@@ -1217,6 +1284,7 @@ void ocall_retrieve_code_words(int fileNum, NodeInfo *nodes, int node_size, int 
 
     free(args->output_code_word_buffer);
     free(args->output_index_list);
+    // free(args->output_signature_list);
     free(args);
     free(wrapper_args);
     free(threads);
@@ -1759,11 +1827,13 @@ void initiate_Chunks(char *fileChunkName, char *current_file, int n, int k)
 
         }
         // 4. Send file in chunks
+        printf("NUMBLOCKs: %d\n", Number_Of_Blocks);
+        printf("chunk_len: %d\n", chunk_len);
         uint8_t *complete_buffer = malloc(chunk_len * sizeof(uint8_t));
         memset(complete_buffer, 0, chunk_len);
         size_t bytes_read;
 
-        if (i > K)
+        if (i > k)
         { // parity chunks
             printf("parity chunk\n");
             uint8_t buffer[BLOCK_SIZE];
@@ -1776,16 +1846,50 @@ void initiate_Chunks(char *fileChunkName, char *current_file, int n, int k)
                 while(permuted_index >= Number_Of_Blocks * (N -K)){
                     permuted_index = feistel_network_prp(Shuffle_key, permuted_index, Number_Of_Blocks * (N -K));
                 }
-                bytes_read = fread(buffer, 1, BLOCK_SIZE, fp);
-                memcpy(complete_buffer + (permuted_index * BLOCK_SIZE), buffer, bytes_read);
+                printf("permuted_index: %d\n", permuted_index);
+
+                struct timespec start, end;
+
+                // clock_gettime(CLOCK_MONOTONIC, &start);
+                
+                // bytes_read = fread(buffer, 1, BLOCK_SIZE, fp);
+                // memcpy(complete_buffer + (permuted_index * BLOCK_SIZE), buffer, bytes_read);
+                // clock_gettime(CLOCK_MONOTONIC, &end);
+
+                // double s_time = start.tv_sec + (start.tv_nsec / 1e9);
+                // double e_time = end.tv_sec + (end.tv_nsec / 1e9);
+
+
+                // printf("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n");
+                // printf("Time taken to read and permute the chunk: - %f seconds\n", e_time - s_time);
+                // printf("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n");
+
                 // offset += bytes_read;
             }
 
             for (int i = 0; i < Number_Of_Blocks; i++)
             {
+                // struct timespec start, end;
+
+                // clock_gettime(CLOCK_MONOTONIC, &start);
+
                 memcpy(buffer, complete_buffer + (i * BLOCK_SIZE), BLOCK_SIZE);
 
+                // clock_gettime(CLOCK_MONOTONIC, &end);
+
                 EncryptData2(PC_KEY, buffer, BLOCK_SIZE);
+
+                // struct timespec start, end;
+
+                // clock_gettime(CLOCK_MONOTONIC, &start);
+                // clock_gettime(CLOCK_MONOTONIC, &end);
+                
+                // double s_time = start.tv_sec + (start.tv_nsec / 1e9);
+                // double e_time = end.tv_sec + (end.tv_nsec / 1e9);
+
+                // printf("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n");
+                // printf("Time taken to  the chunk: - %f seconds\n", e_time - s_time);
+                // printf("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n");
 
                 // ssize_t sent = secure_send(sock, buffer, BLOCK_SIZE);
                 // if (sent < 0)
@@ -2025,9 +2129,14 @@ void get_my_ip(char *ip) {
 
 
 
-
 void preprocessing(sgx_enclave_id_t eid, int mode, char *fileChunkName, FileDataTransfer *fileDataTransfer, int n, int k)
 {
+
+    struct timespec start, end;
+
+
+    clock_gettime(CLOCK_MONOTONIC, &start);
+
 
     init_keys();
 
@@ -2066,6 +2175,17 @@ void preprocessing(sgx_enclave_id_t eid, int mode, char *fileChunkName, FileData
         initiate_Chunks(fileChunkName, current_file, n, k);
         printf("+++mode 2 finished+++\n");
     }
+
+        clock_gettime(CLOCK_MONOTONIC, &end);
+    
+    double s_time = start.tv_sec + (start.tv_nsec / 1e9);
+    double e_time = end.tv_sec + (end.tv_nsec / 1e9);
+
+    printf("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n");
+    printf("Preprocessing totaltime: + %f seconds\n", e_time - s_time);
+    printf("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n");
+
+getchar();
 
     // initialize the fileDataTransfer
     fileDataTransfer->numBlocks = Number_Of_Blocks;

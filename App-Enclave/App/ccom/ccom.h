@@ -19,5 +19,7 @@ void send_data_to_server(void* data, size_t data_len);
 
 void* receive_data_from_server(size_t data_len);
 
+int get_counter(void);
+
 #endif
 

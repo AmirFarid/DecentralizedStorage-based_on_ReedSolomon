@@ -1217,10 +1217,6 @@ void ecall_init(FileDataTransfer *fileDataTransfer, int size)
 	// ================================ start time ================================
 	ocall_test_time(time_start);
 
-	ocall_printf("Init", 5, 0);
-
-
-
 	// Diffie hellman key exchange with FTL
 	uint8_t sgx_privKey[ECC_PRV_KEY_SIZE];
 	uint8_t sgx_pubKey[ECC_PUB_KEY_SIZE] = {0};
@@ -1236,71 +1232,16 @@ void ecall_init(FileDataTransfer *fileDataTransfer, int size)
 	ecdh_generate_keys(sgx_pubKey, sgx_privKey);
 
 	// Print generated keys
-	// ocall_printf("SGX Private key: ", 18, 0);
-	// ocall_printf(sgx_privKey, ECC_PRV_KEY_SIZE, 1);
 
-	// ocall_printf("SGX Public key: ", 17, 0);
-	// ocall_printf(sgx_pubKey, ECC_PUB_KEY_SIZE, 1);
-	// Send sgx_pubKey to FTL and get ftl_pubKey from FTL
 	ocall_ftl_init(sgx_pubKey, ftl_pubKey);
-
-	// ocall_printf("FTL Public key: ", 17, 0);
-	// ocall_printf(ftl_pubKey, ECC_PUB_KEY_SIZE, 1);
 
 
 	ecdh_shared_secret(sgx_privKey, ftl_pubKey, dh_sharedKey);
-
-	// ocall_printf("DH Shared key: ", 16, 0);
-	// ocall_printf(dh_sharedKey, ECC_PUB_KEY_SIZE, 1);
-
-	// Generate keys for auditing and initialize files[]
-	ocall_printf("Generating data", 16, 0);
-	uint8_t data[4096] = {0};
-	for(int i = 0; i < 4096; ++i) {
-		data[i] = 1;
-	}
-
-	// TODO: move this to a function
-
-	// TODO: add signature to fileDataTransfer
-
 
 	// Amir MM Farid
 
 	uint8_t currentPeerPubKey[ECC_PUB_KEY_SIZE];
 
-	//ocall_printf("------------------------", 25, 0);	
-	// for(int i = 0; i < NUM_NODES; i++) {
-	// 	// ocall_peer_init(nodes[i].ip, nodes[i].port, nodes[i].pubKey, currentPeerPubKey);
-
-	// 	ocall_printf("PEER", 5,0);
-	// 	ocall_printf(i, sizeof(i), 2);
-
-	// 	ocall_printf("IP", 3, 0);
-	// 	ocall_printf(fileDataTransfer->nodes[i].ip, sizeof(fileDataTransfer->nodes[i].ip), 0);
-
-	// 	ocall_printf("PORT", 5, 0);
-	// 	ocall_printf(fileDataTransfer->nodes[i].port, sizeof(fileDataTransfer->nodes[i].port), 0);
-
-
-	// 	// ocall_printf("Peer %d: %s:%d\n", i, fileDataTransfer->nodes[i].ip, fileDataTransfer->nodes[i].port);
-	// 	// ocall_printf("Peer %d Public Key: ", 20, 0);
-	// 	// ocall_printf(currentPeerPubKey, ECC_PUB_KEY_SIZE, 1);
-	// }
-	// for(int i = 0; i < NUM_NODES; i++) {
-		
-	// 	ocall_printf("---------------Initialize Peers info---------------",51, 0);
-	// 	ocall_printf("PEER", 5,0);
-	// 	ocall_printint(&i);
-
-	// 	ocall_printf("IP", 3, 0);
-	// 	ocall_printf(fileDataTransfer->nodes[i].ip, 20, 0);
-
-	// 	ocall_printf("PORT", 5, 0);
-	// 	ocall_printint(&fileDataTransfer->nodes[i].port);
-
-	// }
-	// 	ocall_printf("---------------------------------------------------",51, 0);
 
 	int fileNum = 0;
 	files[fileNum].nodes = (NodeInfo *)malloc(NUM_NODES * sizeof(NodeInfo));
@@ -1462,7 +1403,7 @@ int ecall_file_init(Tag *tag, uint8_t *sigma, FileDataTransfer *fileDataTransfer
 	double *time_end = malloc(sizeof(double));
 	double *neg_start_time = malloc(sizeof(double));
 	double *neg_end_time = malloc(sizeof(double));
-	double *total_neg_time = malloc(sizeof(double));
+	double total_neg_time = 0;
 
 	// ================================ start time ================================
 	ocall_test_time(time_start);
@@ -1499,32 +1440,32 @@ int ecall_file_init(Tag *tag, uint8_t *sigma, FileDataTransfer *fileDataTransfer
 	files[fileNum].owner_ip[15] = '\0';
 	files[fileNum].owner_port = fileDataTransfer->owner_port;
 
-	// ================================ start negative time ================================
-	ocall_test_time(neg_start_time);
+	// // ================================ start negative time ================================
+	// ocall_test_time(neg_start_time);
 
-	ocall_printf("==================Encalve file init info======================", 64, 0);
-	ocall_printf("the file num is ", 17, 0);
-	ocall_printint(&fileNum);
-	ocall_printf("the file name is ", 17, 0);
-	ocall_printf(files[fileNum].fileName, 30, 0);
-	ocall_printf("the num blocks is ", 17, 0);
-	ocall_printint(&files[fileNum].numBlocks);
-	ocall_printf("the n is ", 17, 0);
-	ocall_printint(&files[fileNum].n);
-	ocall_printf("the ip is ", 17, 0);
-	ocall_printf(files[fileNum].nodes[1].ip, 16, 0);
-	ocall_printf("the port is ", 17, 0);
-	ocall_printint(&files[fileNum].nodes[1].port);
-	ocall_printf("the owner ip is ", 17, 0);
-	ocall_printf(files[fileNum].owner_ip, 16, 0);
-	ocall_printf("the owner port is ", 17, 0);
-	ocall_printint(&files[fileNum].owner_port);
+	// ocall_printf("==================Encalve file init info======================", 64, 0);
+	// ocall_printf("the file num is ", 17, 0);
+	// ocall_printint(&fileNum);
+	// ocall_printf("the file name is ", 17, 0);
+	// ocall_printf(files[fileNum].fileName, 30, 0);
+	// ocall_printf("the num blocks is ", 17, 0);
+	// ocall_printint(&files[fileNum].numBlocks);
+	// ocall_printf("the n is ", 17, 0);
+	// ocall_printint(&files[fileNum].n);
+	// ocall_printf("the ip is ", 17, 0);
+	// ocall_printf(files[fileNum].nodes[1].ip, 16, 0);
+	// ocall_printf("the port is ", 17, 0);
+	// ocall_printint(&files[fileNum].nodes[1].port);
+	// ocall_printf("the owner ip is ", 17, 0);
+	// ocall_printf(files[fileNum].owner_ip, 16, 0);
+	// ocall_printf("the owner port is ", 17, 0);
+	// ocall_printint(&files[fileNum].owner_port);
 	
-	ocall_printf("========================================", 42, 0);
+	// ocall_printf("========================================", 42, 0);
 
-	// ================================ end negative time ================================
-	ocall_test_time(neg_end_time);
-	*total_neg_time += (*neg_end_time - *neg_start_time);
+	// // ================================ end negative time ================================
+	// ocall_test_time(neg_end_time);
+	// total_neg_time += *neg_end_time - *neg_start_time;
 
 // initialize the nodes keys for peer2peer communication
 	for (j = 0; j < NUM_NODES; j++) {
@@ -1558,21 +1499,21 @@ int ecall_file_init(Tag *tag, uint8_t *sigma, FileDataTransfer *fileDataTransfer
 			ocall_peer_init(current_pubKey, peer_i_pubKey, files[fileNum].nodes[j].ip, files[fileNum].nodes[j].port, files[fileNum].current_chunk_id, peer_id);
 			files[fileNum].nodes[j].chunk_id = *peer_id;
 
-			// ================================ start negative time ================================
-			ocall_test_time(neg_start_time);
+			// // ================================ start negative time ================================
+			// ocall_test_time(neg_start_time);
 
-			ocall_printf("++++++++++++++++++++++++++++++", 30, 0);
-			ocall_printf("files[fileNum].nodes[j].chunk_id: ", 34, 0);
-			ocall_printint(&files[fileNum].nodes[j].chunk_id);
-			ocall_printf("ip: ", 16, 0);
-			ocall_printf(files[fileNum].nodes[j].ip, 16, 0);
-			ocall_printf("port: ", 4, 0);
-			ocall_printint(&files[fileNum].nodes[j].port);
-			ocall_printf("++++++++++++++++++++++++++++++", 30, 0);
+			// ocall_printf("++++++++++++++++++++++++++++++", 30, 0);
+			// ocall_printf("files[fileNum].nodes[j].chunk_id: ", 34, 0);
+			// ocall_printint(&files[fileNum].nodes[j].chunk_id);
+			// ocall_printf("ip: ", 16, 0);
+			// ocall_printf(files[fileNum].nodes[j].ip, 16, 0);
+			// ocall_printf("port: ", 4, 0);
+			// ocall_printint(&files[fileNum].nodes[j].port);
+			// ocall_printf("++++++++++++++++++++++++++++++", 30, 0);
 
-			// ================================ end negative time ================================
-			ocall_test_time(neg_end_time);
-			*total_neg_time += (*neg_end_time - *neg_start_time);
+			// // ================================ end negative time ================================
+			// ocall_test_time(neg_end_time);
+			// total_neg_time += (*neg_end_time - *neg_start_time);
 
 
 			ecdh_shared_secret(current_privKey, peer_i_pubKey, files[fileNum].nodes[j].dh_sharedKey_peer2peer);
@@ -1637,7 +1578,7 @@ int ecall_file_init(Tag *tag, uint8_t *sigma, FileDataTransfer *fileDataTransfer
 
 		// ================================ end negative time ================================
 		ocall_test_time(neg_end_time);
-		*total_neg_time += (*neg_end_time - *neg_start_time);
+		total_neg_time += *neg_end_time - *neg_start_time;
 
 
 		memcpy(files[fileNum].shuffel_key, Shuffle_key, 16);
@@ -1706,8 +1647,14 @@ int ecall_file_init(Tag *tag, uint8_t *sigma, FileDataTransfer *fileDataTransfer
 
 	// Read file data. 
     for (j = 0; j < fileDataTransfer->numBlocks; j++) { // Each block
+		// ================================ start negative time ================================
+		ocall_test_time(neg_start_time);
 
         ocall_get_block(data, SEGMENT_SIZE, SEGMENT_PER_BLOCK, blockNum, fileDataTransfer->fileName);
+
+		// ================================ end negative time ================================
+		ocall_test_time(neg_end_time);
+		total_neg_time += *neg_end_time - *neg_start_time;
 
 		// store_data(data, blockNum);
 
@@ -1774,7 +1721,7 @@ int ecall_file_init(Tag *tag, uint8_t *sigma, FileDataTransfer *fileDataTransfer
 
 	// ================================ end time ================================
 	ocall_test_time(time_end);
-	double total_time = (*time_end - *time_start) - *total_neg_time;
+	double total_time = (*time_end - *time_start) - total_neg_time;
 	ocall_printf("==================================================", strlen("=================================================="), 0);
 	ocall_printf("Total time for File init:", strlen("Total time for File init:"), 0);
 	ocall_printdouble(&total_time);
@@ -1783,7 +1730,11 @@ int ecall_file_init(Tag *tag, uint8_t *sigma, FileDataTransfer *fileDataTransfer
 	ocall_log_double("=", 0);
 	ocall_printf("==================================================", strlen("=================================================="), 0);
 
-
+	free(time_start);
+	free(time_end);
+	free(neg_start_time);
+	free(neg_end_time);
+	// free(total_neg_time);
 
 
     return i;
@@ -2491,8 +2442,7 @@ void check_block(int fileNum, int blockNum,  uint8_t *status, uint8_t *recovered
 	uint8_t data[BLOCK_SIZE];
 
 
-	// ================================ start neg time ================================
-	ocall_test_time(neg_start_time);
+	
 
 	// uint8_t data2[BLOCK_SIZE];
 
@@ -2503,8 +2453,14 @@ void check_block(int fileNum, int blockNum,  uint8_t *status, uint8_t *recovered
 
 		for (int j = 0; j < 4; j++)
 		{
+			// ================================ start neg time ================================
+			ocall_test_time(neg_start_time);
 			int segNum = (permutedPageNum * SEGMENT_PER_PAGE) + j;
 			ocall_get_segment(files[fileNum].fileName, segNum, segData, 0);
+			// ================================ end neg time ================================
+			ocall_test_time(neg_end_time);
+			*total_neg_time += *neg_end_time - *neg_start_time;
+
 			DecryptData((uint32_t *)sharedKey, segData, SEGMENT_SIZE);
 			// memcpy(newData, data + ((i+1) * j)* SEGMENT_SIZE), 512);
 			memcpy(data + ((i * 4 + j) * SEGMENT_SIZE), segData, SEGMENT_SIZE);
@@ -2513,7 +2469,8 @@ void check_block(int fileNum, int blockNum,  uint8_t *status, uint8_t *recovered
 	}
 
 					
-
+// ================================ start neg time ================================
+	ocall_test_time(neg_start_time);
 
 	const int totalSegments = (files[fileNum].numBlocks * SEGMENT_PER_BLOCK);
 	int sigPerSeg = floor((double)SEGMENT_SIZE / ((double)PRIME_LENGTH / 8));
@@ -2562,6 +2519,9 @@ void check_block(int fileNum, int blockNum,  uint8_t *status, uint8_t *recovered
  		sigmas[0] = BN_new();
 		BN_zero(sigmas[0]);
 
+		uint8_t sigData[SEGMENT_SIZE];
+		// ================================ neg start time ================================
+
 		int startSeg = totalSegments;
 		int sigSegNum = floor(blockNum/ sigPerSeg) + startSeg;
 		int sigPageNum = floor(sigSegNum / SEGMENT_PER_PAGE);
@@ -2582,9 +2542,12 @@ void check_block(int fileNum, int blockNum,  uint8_t *status, uint8_t *recovered
 			// ocall_printf("permutedSigSegNum:", 10, 0);
 			// ocall_printint(&permutedSigSegNum);
 
-
-		uint8_t sigData[SEGMENT_SIZE];
+		ocall_test_time(neg_start_time);
 		ocall_get_segment(files[fileNum].fileName, permutedSigSegNum, sigData, 0);
+		// ================================ neg end time ================================
+		ocall_test_time(neg_end_time);
+		*total_neg_time += *neg_end_time - *neg_start_time;
+
 		DecryptData((uint32_t *)sharedKey, sigData, SEGMENT_SIZE);
 		int segIndex = blockNum% sigPerSeg;
 		//ocall_printf("sigData:", 10, 0);
@@ -2771,7 +2734,7 @@ void recover_block(int fileNum, int blockNum, uint8_t *blockData, int *toggle){
 	double *time_end = malloc(sizeof(double));
 	double *neg_start_time = malloc(sizeof(double));
 	double *neg_end_time = malloc(sizeof(double));
-	double *total_neg_time = malloc(sizeof(double));
+	double total_neg_time = 0;
 	
 
 
@@ -2898,28 +2861,28 @@ void recover_block(int fileNum, int blockNum, uint8_t *blockData, int *toggle){
 		}
 				// print data
 		// ================================ neg start time ================================
-		ocall_test_time(neg_start_time);
-		ocall_printf("*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=", strlen("*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*="), 0);
-		ocall_printf("the rquested block is:", strlen("the rquested block is:"), 0);
-		ocall_printint(&blockNum);
-		ocall_printf("the I is:", strlen("the I is:"), 0);
-		ocall_printint(&i);
-		ocall_printint(&j);
-		ocall_printf("the tmp_index is:", strlen("the tmp_index is:"), 0);
-		ocall_printint(&tmp_index);
-		ocall_printint(&permuted_index);
-		ocall_printf("**********", strlen("**********"), 0);
-		ocall_printf("the node index is:", strlen("the node index is:"), 0);
-		ocall_printint(&rb_indicies[i - j].node_index);
-		ocall_printf("the current chunk id is:", strlen("the current chunk id is:"), 0);
-		ocall_printint(&files[fileNum].current_chunk_id);
-		ocall_printf("the internal block index is:", strlen("the internal block index is:"), 0);
-		ocall_printint(&rb_indicies[i - j].internal_block_index);
-		ocall_printf("the code word number is:", strlen("the code word number is:"), 0);
-		ocall_printint(&rb_indicies[i - j].code_word_number);
-		// ================================ neg end time ================================
-		ocall_test_time(neg_end_time);
-		*total_neg_time += *neg_end_time - *neg_start_time;
+		// ocall_test_time(neg_start_time);
+		// ocall_printf("*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=", strlen("*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*="), 0);
+		// ocall_printf("the rquested block is:", strlen("the rquested block is:"), 0);
+		// ocall_printint(&blockNum);
+		// ocall_printf("the I is:", strlen("the I is:"), 0);
+		// ocall_printint(&i);
+		// ocall_printint(&j);
+		// ocall_printf("the tmp_index is:", strlen("the tmp_index is:"), 0);
+		// ocall_printint(&tmp_index);
+		// ocall_printint(&permuted_index);
+		// ocall_printf("**********", strlen("**********"), 0);
+		// ocall_printf("the node index is:", strlen("the node index is:"), 0);
+		// ocall_printint(&rb_indicies[i - j].node_index);
+		// ocall_printf("the current chunk id is:", strlen("the current chunk id is:"), 0);
+		// ocall_printint(&files[fileNum].current_chunk_id);
+		// ocall_printf("the internal block index is:", strlen("the internal block index is:"), 0);
+		// ocall_printint(&rb_indicies[i - j].internal_block_index);
+		// ocall_printf("the code word number is:", strlen("the code word number is:"), 0);
+		// ocall_printint(&rb_indicies[i - j].code_word_number);
+		// // ================================ neg end time ================================
+		// ocall_test_time(neg_end_time);
+		// total_neg_time += *neg_end_time - *neg_start_time;
 		
 	}
 	
@@ -3070,7 +3033,7 @@ ocall_printf("=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=  =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=",
 	
 	// ================================ neg end time ================================
 	ocall_test_time(neg_end_time);
-	*total_neg_time += *neg_end_time - *neg_start_time;
+	total_neg_time += *neg_end_time - *neg_start_time;
 
 	int counter_index = 0;
 
@@ -3103,7 +3066,8 @@ ocall_printf("=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=  =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=",
 		}
 		// ================================ neg end time ================================
 		ocall_test_time(neg_end_time);
-		*total_neg_time += *neg_end_time - *neg_start_time;
+		total_neg_time += *neg_end_time - *neg_start_time;
+
 		free(tmp_for_signature);
 	// ================================ decrypt code word ================================
 		
@@ -3125,22 +3089,22 @@ ocall_printf("=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=  =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=",
 
 	}
 	// ================================ neg start time ================================
-	ocall_test_time(neg_start_time);
+	// ocall_test_time(neg_start_time);
 
-	ocall_printf("code_word_tmp 0 ", strlen("code_word_tmp 0 "), 0);
-	ocall_printf(code_word_tmp, BLOCK_SIZE, 1);
-	ocall_printf("code_word_tmp 1 ", strlen("code_word_tmp 1 "), 0);
-	ocall_printf(code_word_tmp + BLOCK_SIZE, BLOCK_SIZE, 1);
-	ocall_printf("code_word_tmp 2 ", strlen("code_word_tmp 2 "), 0);
-	ocall_printf(code_word_tmp + 2 * BLOCK_SIZE, BLOCK_SIZE, 1);
-	ocall_printf("code_word_tmp 3 ", strlen("code_word_tmp 3 "), 0);
-	ocall_printf(code_word_tmp + 3 * BLOCK_SIZE, BLOCK_SIZE, 1);
+	// ocall_printf("code_word_tmp 0 ", strlen("code_word_tmp 0 "), 0);
+	// ocall_printf(code_word_tmp, BLOCK_SIZE, 1);
+	// ocall_printf("code_word_tmp 1 ", strlen("code_word_tmp 1 "), 0);
+	// ocall_printf(code_word_tmp + BLOCK_SIZE, BLOCK_SIZE, 1);
+	// ocall_printf("code_word_tmp 2 ", strlen("code_word_tmp 2 "), 0);
+	// ocall_printf(code_word_tmp + 2 * BLOCK_SIZE, BLOCK_SIZE, 1);
+	// ocall_printf("code_word_tmp 3 ", strlen("code_word_tmp 3 "), 0);
+	// ocall_printf(code_word_tmp + 3 * BLOCK_SIZE, BLOCK_SIZE, 1);
 
-	ocall_printf("erasure[0]", strlen("erasure[0]"), 0);
-	ocall_printint(&erasures[0]);
-	// ================================ neg end time ================================
-	ocall_test_time(neg_end_time);
-	*total_neg_time += *neg_end_time - *neg_start_time;
+	// ocall_printf("erasure[0]", strlen("erasure[0]"), 0);
+	// ocall_printint(&erasures[0]);
+	// // ================================ neg end time ================================
+	// ocall_test_time(neg_end_time);
+	// total_neg_time += *neg_end_time - *neg_start_time;
 
 
 
@@ -3167,7 +3131,7 @@ ocall_printf("=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=  =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=",
 	// ================================ end time ================================
 	ocall_printf("==================================================", strlen("=================================================="), 0);
 	ocall_printf("Total time : RECOVERY", strlen("Total time : RECOVERY"), 0);
-	double total_time = (*time_end - *time_start) - *total_neg_time;
+	double total_time = (*time_end - *time_start) - total_neg_time;
 	ocall_printdouble(&total_time);
 	ocall_log_double("=", 0);
 	ocall_log_double("Total time in recovery: %f", total_time);
@@ -3707,25 +3671,25 @@ void local_code_words(int fileNum, int code_word_id, uint8_t *blockData, int *to
 		// ================================ neg start time ================================
 		ocall_test_time(neg_start_time);
 
-		ocall_printf("*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=", 42, 0);
-		ocall_printf("*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=", 42, 0);
-		ocall_printf("*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=", 42, 0);
-		ocall_printf("this is the i:", 14, 0);
-		ocall_printint(&i);
-		ocall_printf("the requested block is:", 23, 0);
-		ocall_printint(&requested_block);
-		ocall_printf("the total blocks index is:", 26, 0);
-		ocall_printint(&rb_indicies[i].total_blocks_index);
-		ocall_printf("the internal block index is:", 28, 0);
-		ocall_printint(&rb_indicies[i].internal_block_index);
-		ocall_printf("the node index is:", 18, 0);
-		ocall_printint(&rb_indicies[i].node_index);
-		ocall_printf("the code word number is:", 24, 0);
-		ocall_printint(&rb_indicies[i].code_word_number);
-		ocall_printf("*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=", 42, 0);
-		ocall_printf("*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=", 42, 0);
-		ocall_printf("*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=", 42, 0);
-		ocall_printf("*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=", 42, 0);
+		// ocall_printf("*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=", 42, 0);
+		// ocall_printf("*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=", 42, 0);
+		// ocall_printf("*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=", 42, 0);
+		// ocall_printf("this is the i:", 14, 0);
+		// ocall_printint(&i);
+		// ocall_printf("the requested block is:", 23, 0);
+		// ocall_printint(&requested_block);
+		// ocall_printf("the total blocks index is:", 26, 0);
+		// ocall_printint(&rb_indicies[i].total_blocks_index);
+		// ocall_printf("the internal block index is:", 28, 0);
+		// ocall_printint(&rb_indicies[i].internal_block_index);
+		// ocall_printf("the node index is:", 18, 0);
+		// ocall_printint(&rb_indicies[i].node_index);
+		// ocall_printf("the code word number is:", 24, 0);
+		// ocall_printint(&rb_indicies[i].code_word_number);
+		// ocall_printf("*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=", 42, 0);
+		// ocall_printf("*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=", 42, 0);
+		// ocall_printf("*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=", 42, 0);
+		// ocall_printf("*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=", 42, 0);
 	// ================================ neg end time ================================
 		ocall_test_time(neg_end_time);
 		*total_neg_time += *neg_end_time - *neg_start_time;
@@ -3797,13 +3761,18 @@ void local_code_words(int fileNum, int code_word_id, uint8_t *blockData, int *to
 	ocall_printf("=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-NODE INDEX=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=", 60, 0);
 
 
-
+		// ================================ neg start time ================================
+		ocall_test_time(neg_start_time);
 
 	
 		// if (counter_outside_data > 0) {
 		sgx_status_t ocall_ret = ocall_get_batch_blocks(fileNum, rb_indicies, sizeof(recoverable_block_indicies), files[fileNum].n, signatures, code_word, code_word_index, nodes, cw_size, cw_count, sizeof(NodeInfo));
 		printEnclaveError(ocall_ret);
 		// }
+
+		// ================================ neg end time ================================
+		ocall_test_time(neg_end_time);
+		*total_neg_time += *neg_end_time - *neg_start_time;
 
 
 	for (int i = 0; i < files[fileNum].n; i++) {
@@ -3865,16 +3834,16 @@ void local_code_words(int fileNum, int code_word_id, uint8_t *blockData, int *to
 	// ================================ neg start time ================================
 	ocall_test_time(neg_start_time);
 
-	ocall_printf("code_word_tmp 0 ", 23, 0);
-	ocall_printf(code_word_tmp, BLOCK_SIZE, 1);
-	ocall_printf("code_word_tmp 1 ", 23, 0);
-	ocall_printf(code_word_tmp + BLOCK_SIZE, BLOCK_SIZE, 1);
-	ocall_printf("code_word_tmp 2 ", 23, 0);
-	ocall_printf(code_word_tmp + 2 * BLOCK_SIZE, BLOCK_SIZE, 1);
-	ocall_printf("code_word_tmp 3 ", 23, 0);
-	ocall_printf(code_word_tmp + 3 * BLOCK_SIZE, BLOCK_SIZE, 1);
-	ocall_printf("code_word_tmp 4 ", 23, 0);
-	ocall_printf(code_word_tmp + 4 * BLOCK_SIZE, BLOCK_SIZE, 1);
+	// ocall_printf("code_word_tmp 0 ", 23, 0);
+	// ocall_printf(code_word_tmp, BLOCK_SIZE, 1);
+	// ocall_printf("code_word_tmp 1 ", 23, 0);
+	// ocall_printf(code_word_tmp + BLOCK_SIZE, BLOCK_SIZE, 1);
+	// ocall_printf("code_word_tmp 2 ", 23, 0);
+	// ocall_printf(code_word_tmp + 2 * BLOCK_SIZE, BLOCK_SIZE, 1);
+	// ocall_printf("code_word_tmp 3 ", 23, 0);
+	// ocall_printf(code_word_tmp + 3 * BLOCK_SIZE, BLOCK_SIZE, 1);
+	// ocall_printf("code_word_tmp 4 ", 23, 0);
+	// ocall_printf(code_word_tmp + 4 * BLOCK_SIZE, BLOCK_SIZE, 1);
 	// ================================ neg end time ================================
 	ocall_test_time(neg_end_time);
 	*total_neg_time += *neg_end_time - *neg_start_time;
@@ -3982,6 +3951,9 @@ void ecall_retrieve_File(const char *fileName) {
 	double *neg_code_word_start_time = malloc(sizeof(double));
 	double *neg_code_word_end_time = malloc(sizeof(double));
 	double *total_neg_time = malloc(sizeof(double));
+	double section_time_1;
+	double section_time_2;
+
 
 
 	// ================================ start time ================================
@@ -4025,23 +3997,30 @@ void ecall_retrieve_File(const char *fileName) {
 
 	int num_code_words_counter = 0;
 
+	double *section_time_22 = malloc(sizeof(double));
+	ocall_test_time(section_time_22);
+
 	for(int i = 0; i < NUM_NODES; i++) {
 
 		// if (files[fileNum].nodes[i].ip == current_ip) {
 		if (i == 0) {
+			// int j;
+			int sleep_counter1;
+			int sleep_counter2;
+			ocall_get_counter(&sleep_counter1);
+
+			
 			for(int j = 0; j < num_retrieval_rq_per_peer; j++) {
 				// ================================ code word start time ================================
-				ocall_test_time(neg_code_word_start_time);
+				// ocall_test_time(neg_code_word_start_time);
 				ocall_log_double("=", 0);
 
 				uint8_t *local_data_tmp = (uint8_t *)malloc(BLOCK_SIZE * sizeof(uint8_t) * k_cached);
 				local_code_words(fileNum, j, local_data_tmp, toggle);
 
 				// ================================ code word end time ================================
-				ocall_test_time(neg_code_word_end_time);
-				double code_word_time = *neg_code_word_end_time - *neg_code_word_start_time;
-				ocall_log_double("Intternal code word time request time: %f", code_word_time);
-				ocall_log_double("=", 0);
+				// ocall_test_time(neg_code_word_end_time);
+				// double code_word_time = *neg_code_word_end_time - *neg_code_word_start_time;
 
 				// ================================ Decrypt the code word ================================
 				memcpy(print_local_data_tmp + (j * BLOCK_SIZE * k_cached), local_data_tmp, k_cached * BLOCK_SIZE);
@@ -4050,8 +4029,22 @@ void ecall_retrieve_File(const char *fileName) {
 				free(local_data_tmp);
 				num_code_words_counter++;
 			}
+			// if (remainder > 0) {
+
+			// 	remainder--;
+			// 	uint8_t *local_data_tmp = (uint8_t *)malloc(BLOCK_SIZE * sizeof(uint8_t) * k_cached);
+			// 	local_code_words(fileNum, j, local_data_tmp, toggle);
+			// 	memcpy(print_local_data_tmp + (j * BLOCK_SIZE * k_cached), local_data_tmp, k_cached * BLOCK_SIZE);
+			// 	free(local_data_tmp);
+			// }
+			ocall_get_counter(&sleep_counter2);
+			ocall_log_double("-**==**-**==**-**==**-**==**-**==**-**==**-**==**-**==**", 0);
+			ocall_log_double("Sleep time: - %f", (double)(sleep_counter2 - sleep_counter1) * 0.1);
+			ocall_log_double("-**==**-**==**-**==**-**==**-**==**-**==**-**==**-**==**", 0);
 			continue;
 		}
+
+
 		// copy the node info
 		for (int j = 0; j < 16; j++) nodes[i].ip[j] = files[fileNum].nodes[i].ip[j];
 		nodes[i].chunk_id = files[fileNum].nodes[i].chunk_id;
@@ -4062,10 +4055,18 @@ void ecall_retrieve_File(const char *fileName) {
 	
 	}
 	
+
+
 	// ocall_retrieve_code_words(fileName, num_code_words_counter, num_code_words, data_tmp, remainder, nodes, num_retrieval_rq_per_peer, sizeof(NodeInfo), NUM_NODES - 1, data_tmp_count);
+
+	double *section_time_3 = malloc(sizeof(double));
+	ocall_test_time(section_time_3);
+
 
 	ocall_retrieve_code_words(fileNum, nodes, sizeof(NodeInfo), nodes_count, data_tmp, data_tmp_size, data_tmp_count, num_retrieval_rq_per_peer, num_code_words_counter, num_code_words, remainder);
 
+	double *section_time_4 = malloc(sizeof(double));
+	ocall_test_time(section_time_4);
 
 	// for (int i = 0; i < num_retrieval_rq_per_peer * k_cached; i++) {
 	// 	for (int j = 0; j < BLOCK_SIZE; j++) {
@@ -4075,8 +4076,6 @@ void ecall_retrieve_File(const char *fileName) {
 	// 	ocall_printf("data[indices[i] * BLOCK_SIZE + j]:", strlen("data[indices[i] * BLOCK_SIZE + j]:"), 0);
 	// 	ocall_printf(data + indices[i] * BLOCK_SIZE, BLOCK_SIZE, 1);
 	// }
-	// ============================================= start neg time =============================================
-	ocall_test_time(neg_start_time);
 	for (int i = num_retrieval_rq_per_peer; i < num_code_words; i++) {
 
 		uint8_t *tmp_decrypted_data = malloc(BLOCK_SIZE * sizeof(uint8_t) * k_cached);
@@ -4094,10 +4093,10 @@ void ecall_retrieve_File(const char *fileName) {
 			permuted_index = feistel_network_prp(files[fileNum].shuffel_key, permuted_index, numBits);
 		}
 
-		ocall_printf("permuted_index", strlen("permuted_index"), 0);
-		ocall_printint(&permuted_index);
-		ocall_printf("i", strlen("i"), 0);
-		ocall_printint(&i);
+		// ocall_printf("permuted_index", strlen("permuted_index"), 0);
+		// ocall_printint(&permuted_index);
+		// ocall_printf("i", strlen("i"), 0);
+		// ocall_printint(&i);
 	
 		if (i < num_retrieval_rq_per_peer * k_cached) {
 			for (int j = 0; j < BLOCK_SIZE; j++) {
@@ -4109,23 +4108,25 @@ void ecall_retrieve_File(const char *fileName) {
 			}
 		}
 	}
-	ocall_printf("=============================================================", strlen("============================================================="), 0);
-	ocall_printf("The complete data before storing in the file", strlen("The complete data before storing in the file"), 0);
-	ocall_printf("=============================================================", strlen("============================================================="), 0);
-	for (int i = 0; i < numBlocks_cached * k_cached; i++) {
-		ocall_printf("=====================", strlen("====================="), 0);
-		ocall_printf("BLOCK", strlen("BLOCK"), 0);
-		ocall_printint(&i);
-		ocall_printf("=====================", strlen("====================="), 0);
+	// ============================================= start neg time =============================================
+	// ocall_test_time(neg_start_time);
+	// ocall_printf("=============================================================", strlen("============================================================="), 0);
+	// ocall_printf("The complete data before storing in the file", strlen("The complete data before storing in the file"), 0);
+	// ocall_printf("=============================================================", strlen("============================================================="), 0);
+	// for (int i = 0; i < numBlocks_cached * k_cached; i++) {
+	// 	ocall_printf("=====================", strlen("====================="), 0);
+	// 	ocall_printf("BLOCK", strlen("BLOCK"), 0);
+	// 	ocall_printint(&i);
+	// 	ocall_printf("=====================", strlen("====================="), 0);
 		
-		ocall_printf(data + i * BLOCK_SIZE, BLOCK_SIZE, 1);
-	}
-	ocall_printf("=============================================================", strlen("============================================================="), 0);
+	// 	ocall_printf(data + i * BLOCK_SIZE, BLOCK_SIZE, 1);
+	// }
+	// ocall_printf("=============================================================", strlen("============================================================="), 0);
 	
 
-	// ================================ Code word end time ================================
-	ocall_test_time(neg_end_time);
-	*total_neg_time += *neg_end_time - *neg_start_time;
+	// // ================================ Code word end time ================================
+	// ocall_test_time(neg_end_time);
+	// *total_neg_time += *neg_end_time - *neg_start_time;
 
 
 	ocall_write_recovered_file(data, numBlocks_cached * BLOCK_SIZE * k_cached);
@@ -4139,12 +4140,15 @@ void ecall_retrieve_File(const char *fileName) {
 
 	ocall_test_time(end_time);
 
-	double total_time = (*end_time - *start_time) - *total_neg_time;
+	double total_time = ((*end_time - *section_time_4) + (*section_time_3 - *start_time));
 	ocall_printf("===============================================", strlen("==============================================="), 0);
 	ocall_printf("Total time For retrieve Entire file", strlen("Total time For retrieve Entire file"), 0);
 	ocall_printdouble(&total_time);
 	ocall_log_double("=", 0);
-	ocall_log_double("Total time For retrieve Entire file: %f", total_time);
+	ocall_log_double("Total time For retrieve Entire file before: %f", (*end_time - *section_time_4));
+	ocall_log_double("Total time For retrieve Entire file after: %f", (*section_time_3 - *start_time));
+	ocall_log_double("codeword time: %f", (*section_time_3 - *section_time_22));
+
 	ocall_log_double("=", 0);
 	ocall_printf("===============================================", strlen("==============================================="), 0);
 

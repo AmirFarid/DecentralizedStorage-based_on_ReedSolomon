@@ -7,6 +7,7 @@
 #include "jerasure/reed_sol.h"
 #include <math.h>
 #include <assert.h>
+#include <time.h>
 
 #include "galois.h"
 #include "prgshuffle/prgshuffle.h"
@@ -21,6 +22,8 @@
 #define PAGE_PER_BLOCK (BLOCK_SIZE / PAGE_SIZE)
 #define SEGMENT_PER_BLOCK (BLOCK_SIZE / SEGMENT_SIZE)
 #define SEGMENT_PER_PAGE (PAGE_SIZE / SEGMENT_SIZE)
+
+
 
 #define talloc(type, num) ((type *) malloc((num) * sizeof(type)))
 
@@ -167,6 +170,8 @@ void recover(int chunk_size, int padding_size) {
 
 
 void encode(uint16_t *chunks, int n, int chunk_size, int mode) {
+    
+
     int symSize = 16;
     int *matrix = reed_sol_vandermonde_coding_matrix(rs_K, rs_N-rs_K, symSize);
     if (matrix == NULL) {
@@ -213,7 +218,19 @@ void encode(uint16_t *chunks, int n, int chunk_size, int mode) {
     }
     }
     // only write the parity chunks
+    struct timespec start, end;
+
+    clock_gettime(CLOCK_MONOTONIC, &start);
     write_file(chunks, rs_N, chunk_size, mode);
+    clock_gettime(CLOCK_MONOTONIC, &end);
+
+    double s_time = start.tv_sec + (start.tv_nsec / 1e9);
+    double e_time = end.tv_sec + (end.tv_nsec / 1e9);
+
+    printf("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n");
+    printf("Write file time: - %f seconds\n", e_time - s_time);
+    printf("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n");
+
     free(matrix);
 }
 
@@ -682,11 +699,17 @@ void decode(int chunk_size, int *erasures) {
 
 void read_file(const char *filename, uint16_t **chunks, int *chunk_size, int *padding_size, uint8_t *Shuffle_key, int mode) {
     
+    struct timespec start, end, start_2, end_2;
+    
+    clock_gettime(CLOCK_MONOTONIC, &start);
+
     FILE *file = fopen(filename, "rb");
     if (file == NULL) {
         fprintf(stderr, "Failed to open input file\n");
         return;
     }
+    clock_gettime(CLOCK_MONOTONIC, &end);
+
 
     get_file_size(file);
 
@@ -708,6 +731,8 @@ void read_file(const char *filename, uint16_t **chunks, int *chunk_size, int *pa
         return;
     }
 
+    clock_gettime(CLOCK_MONOTONIC, &start_2);
+
     // Read data
     for (int i = 0; i < rs_K; i++) {
         size_t read_bytes = fread(&(*chunks)[i * (*chunk_size)], sizeof(uint16_t), *chunk_size, file);
@@ -719,6 +744,14 @@ void read_file(const char *filename, uint16_t **chunks, int *chunk_size, int *pa
         }
     }
 
+    clock_gettime(CLOCK_MONOTONIC, &end_2);
+
+    double s_time = start.tv_sec + (start.tv_nsec / 1e9) + start_2.tv_sec + (start_2.tv_nsec / 1e9);
+    double e_time = end.tv_sec + (end.tv_nsec / 1e9) + end_2.tv_sec + (end_2.tv_nsec / 1e9);
+    printf("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n");
+
+    printf("Read file time: - %f seconds\n", e_time - s_time);
+    printf("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n");
     // // calculate the number of block=4096 in the file
     int num_blocks = (*chunk_size / 2048) * rs_K;
     int numBits = (int)ceil(log2(num_blocks));

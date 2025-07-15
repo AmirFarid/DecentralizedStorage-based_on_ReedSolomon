@@ -8,6 +8,12 @@
 #include <stdint.h>
 #include <stddef.h>
 
+int counter = 0;
+
+int get_counter(){
+    return counter;
+}
+
 void error(const char *msg) {
     perror(msg);
     exit(EXIT_FAILURE);
@@ -25,13 +31,14 @@ int create_client_socket() {
 }
 
 void connect_to_server(int client_fd) {
+    counter ++;
 	usleep(100000);
     struct sockaddr_in serv_addr;
 
     // Set server address and port
     serv_addr.sin_family = AF_INET;
     serv_addr.sin_port = htons(PORT);
-    serv_addr.sin_addr.s_addr = inet_addr("172.16.49.161");
+    serv_addr.sin_addr.s_addr = inet_addr("172.16.49.185");
 
     // Connect to server
     if (connect(client_fd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) {

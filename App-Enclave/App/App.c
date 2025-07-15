@@ -186,7 +186,7 @@ void ocall_ftl_init(uint8_t *sgx_pubKey, uint8_t *ftl_pubKey)
     total_time = (double)(end_time.tv_sec - start_time.tv_sec) * 1000000 + (end_time.tv_usec - start_time.tv_usec);
 
     /* Print the time taken by the function */
-    //printf("ocall_ftl_init took %f microseconds to complete.\n", total_time);
+    printf("ocall_ftl_init took %f microseconds to complete.\n", total_time);
 
     /* We now have storage device public key */
 }
@@ -450,8 +450,12 @@ void ocall_test_time(double *time) {
 
 
 #define LOG_FILE "logfile.txt"
-
 void ocall_log_double(const char *format, double value) {
+    log_double(format, value);
+}
+
+
+void log_double(const char *format, double value) {
     FILE *log_fp = fopen(LOG_FILE, "a");
     if (log_fp == NULL) {
         perror("Failed to open log file");
@@ -478,20 +482,24 @@ void ocall_log_double(const char *format, double value) {
     fclose(log_fp);
 }
 
-
-
+void ocall_get_counter(int *value) {
+    *value = get_counter();
+}
 
 int main(void) 
 {
+
+
+
     struct timespec start, end;
     struct timeval start_time, end_time;
     double cpu_time_used;
     int waittime;
 
-    int n = 4;
-    int k = 2;
+    int n = 5;
+    int k = 4;
     int m = n - k;
-    int mode = 1;
+    int mode = 2;
 
     
     sgx_enclave_id_t eid = 0;
@@ -548,7 +556,7 @@ int main(void)
 
     char fileName[512];
     // strcpy(fileName, "/home/amoghad1/f/Decentralized-Cloud-Storage-Self-Audit-Repair/App-Enclave/testFile");
-    strncpy(fileName, "/home/amoghad1/f/Decentralized-Cloud-Storage-Self-Audit-Repair/App-Enclave/testFile", sizeof(fileName) - 1);
+    strncpy(fileName, "/home/amoghad1/f/Decentralized-Cloud-Storage-Self-Audit-Repair/App-Enclave/random_160KB_40.bin", sizeof(fileName) - 1);
     fileName[sizeof(fileName) - 1] = '\0';
 
     // NodeInfo nodes[NUM_NODES];
@@ -560,26 +568,27 @@ int main(void)
     // start time
     
     printf("==== PREPROCESSING ====\n");
-    clock_gettime(CLOCK_MONOTONIC, &start);
+    // clock_gettime(CLOCK_MONOTONIC, &start);
 
     preprocessing(eid, mode, fileName, fileDataTransfer , n, k);
     
     // end time
-    clock_gettime(CLOCK_MONOTONIC, &end);
+    // clock_gettime(CLOCK_MONOTONIC, &end);
     
-    double s_time = start.tv_sec + (start.tv_nsec / 1e9);
-    double e_time = end.tv_sec + (end.tv_nsec / 1e9);
+    // double s_time = start.tv_sec + (start.tv_nsec / 1e9);
+    // double e_time = end.tv_sec + (end.tv_nsec / 1e9);
 
 
 
 
-
-    printf("Preprocessing time: %f seconds\n", e_time - s_time);
+    // log_double("=",0);
+    // log_double("Preprocessing time: %f seconds", e_time - s_time);
+    // log_double("=",0);
 
     load_file_data(fileName, fileDataTransfer->numBlocks, mode, k, n, eid);
 
     printf("Press enter to continue for initialization\n");
-    getchar();
+    // getchar();
 
     // ------------------------------------  initialization ------------------------------------
     
@@ -593,9 +602,16 @@ int main(void)
 
 
     printf("==== FTL INIT ====\n");
+
+    int ftl_sleeps = get_counter();
+    log_double("++++++++++++++++++++++++++++++++++++++", 0.1 );
     
     ret = ecall_init(eid, fileDataTransfer, sizeof(FileDataTransfer));
     
+    
+
+
+
     printf("Press enter to continue for File INIT\n");
     getchar();
 
@@ -611,65 +627,160 @@ int main(void)
     }
 
 
+    int ftl_sleeps3 = get_counter();
+    log_double("++++++++++++++++++++++++++++++++++++++", 0.1 );
+
+
+    clock_gettime(CLOCK_MONOTONIC, &start);
+
     printf("==== FILE INIT ====\n");
     app_file_init(eid, fileDataTransfer);
 
+    
+    // end time
+    clock_gettime(CLOCK_MONOTONIC, &end);
+    
+    double s_time = start.tv_sec + (start.tv_nsec / 1e9);
+    double e_time = end.tv_sec + (end.tv_nsec / 1e9);
 
 
 
-    printf("OTHER PEERS HAVE TO STAY HERE\n");
+
+    log_double("=",0);
+    log_double("FILE INIT TOTAL time: %f seconds", e_time - s_time);
+    log_double("=",0);
+
+
+    log_double("FTL SLEEPS: - %f", (double)ftl_sleeps3 * 0.1 );
+    log_double("++++++++++++++++++++++++++++++++++++++", 0.1 );
+
+
     getchar();
-    getchar();
-    getchar();
-
-    ecall_small_corruption(eid, fileName, 1);
-
-    ecall_retrieve_File(eid, fileName);
-
-
-
     printf("Press enter to continue for small corruption Block 0\n");
+    // getchar();
+
+    int sta = 1;
+
+    ecall_audit_file(eid, fileName, &sta);
+    
+    // ecall_small_corruption(eid, fileName, 0);
+    log_double("++++++++++++++++++++++++++++++++++++++", 0.1 );
+    
+    
+    log_double("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@", 0.1 );
+    
     getchar();
+    printf("Press enter to continue for retrieve file\n");
+
+
+    int tcp_sleeps = get_dcounter();
+    
+    struct timespec start1, end1;
+    // struct timeval start_time1, end_time1;
+
+    clock_gettime(CLOCK_MONOTONIC, &start1);
+    
+    // int ftl_sleeps2 = get_counter();
+    // log_double("FTL SLEEPS start: %f", (double)ftl_sleeps2);
+    ecall_retrieve_File(eid, fileName);
+    // getchar();
+
+    clock_gettime(CLOCK_MONOTONIC, &end1);
+
+    double s_time1 = start1.tv_sec + (start1.tv_nsec / 1e9);
+    double e_time1 = end1.tv_sec + (end1.tv_nsec / 1e9);
+
+    log_double("=",0);
+    log_double("RETRIEVE FILE time: %f seconds", e_time1 - s_time1);
+    log_double("=",0);
+    
+    
+    
+    tcp_sleeps = get_dcounter() - tcp_sleeps;
+    // log_double("FTL SLEEPS end: - %f", (double)ftl_sleeps2_p);
+    // log_double("TCP SLEEPS: - %f", (double)tcp_sleeps);
+    log_double("total SLEEPS: - %f",  (double)tcp_sleeps * 30   );
+    log_double("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@", 0.1 );
+
+
+    log_double("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$", 0.1 );
+
+
+    // ecall_small_corruption(eid, fileName, 1);
+
+
+
+
+    log_double("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$", 0.1 );
+
+
+
+
+    printf("\a"); fflush(stdout); usleep(100000); // beep
+    printf("\a"); fflush(stdout); usleep(100000); // beep
+    printf("\a"); fflush(stdout); usleep(400000); // beep
+    printf("\a"); fflush(stdout); usleep(200000);
+    printf("\a"); fflush(stdout); usleep(200000);
+    printf("\a"); fflush(stdout); usleep(600000); // long pause
+
+    // One more for comedy punch
+    printf("\a"); fflush(stdout);
+
+    // int sta = 1;
+
+    // ecall_audit_file(eid, fileName, &sta);
+    // ecall_small_corruption(eid, fileName, 1);
+    // printf("stop here\n");
+    // getchar();
+
+
+    // ecall_retrieve_File(eid, fileName);
+
+    // ecall_retrieve_File(eid, fileName);
+
 
 
     // ------------------------------------ small corruption ------------------------------------
-    printf("==== SMALL CORRUPTION ====\n");
-    printf("==== Block 0 ====\n");
-
-    ecall_small_corruption(eid, fileName, 0);
+    // printf("==== SMALL CORRUPTION ====\n");
+    // printf("==== Block 0 ====\n");
 
 
+    // printf("==== Block 0 ====\n");
+
+    // ecall_small_corruption(eid, fileName, 0);
 
 
-    printf("Press enter to continue for small corruption Block 1\n");
-    getchar();
+    // printf("Press enter to continue for small corruption Block 1\n");
+    // // getchar();
+
+    // // ecall_audit_file(eid, fileName, &sta);
 
 
-    printf("==== SMALL CORRUPTION ====\n");
-    printf("==== Block 1 ====\n");
+    // printf("==== SMALL CORRUPTION ====\n");
+    // printf("==== Block 1 ====\n");
 
-    ecall_small_corruption(eid, fileName, 1);
+    // ecall_small_corruption(eid, fileName, 1);
 
 
-    printf("Press enter to continue for audit file\n");
-    getchar();
-    int status = 1;
-    // ------------------------------------ audit file ------------------------------------
-    printf("==== AUDIT FILE ====\n");
+    // printf("Press enter to continue for audit file\n");
+    // // getchar();
+    // int status = 1;
+    // // ------------------------------------ audit file ------------------------------------
+    // printf("==== AUDIT FILE ====\n");
     
-    ecall_audit_file(eid, fileName, &status);
+    // // getchar();
+    // // ecall_audit_file(eid, fileName, &status);
 
     
-    // ------------------------------------ retrieve file ------------------------------------
-    printf("Press enter to continue for retrieve file\n");
-    getchar();
+    // // ------------------------------------ retrieve file ------------------------------------
+    // printf("Press enter to continue for retrieve file\n");
 
-    ecall_retrieve_File(eid, fileName);
+    // ecall_retrieve_File(eid, fileName);
 
 
-    if(status == 0) {
-        printf("SUCCESS!!!\n");
-    }
+    // if(status == 0) {
+    //     printf("SUCCESS!!!\n");
+    // }
 
     // Destroy the enclave
     ret = sgx_destroy_enclave(eid);

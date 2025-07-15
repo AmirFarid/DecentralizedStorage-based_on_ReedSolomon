@@ -78,6 +78,8 @@ enclave {
 		void ocall_write_recovered_file([in, size=file_size] uint8_t *data, size_t file_size);
 
 		void ocall_log_double([in, string] const char *format, double value);
+
+		void ocall_get_counter([out] int *value);
 	};
 };
 
