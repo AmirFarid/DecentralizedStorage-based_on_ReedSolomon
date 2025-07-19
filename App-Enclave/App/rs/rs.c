@@ -8,6 +8,7 @@
 #include <math.h>
 #include <assert.h>
 #include <time.h>
+#include "gp.h"
 
 #include "galois.h"
 #include "prgshuffle/prgshuffle.h"
@@ -42,18 +43,10 @@ void get_file_size(FILE *file){
 
 }
 
-void write_file(uint16_t *chunks, int n, int chunk_size, int mode){
+void write_file(uint16_t *chunks, int n, int k, int chunk_size, int mode, int is_parity){
 
-    //     char cwd[200];
-
-    // if (getcwd(cwd, sizeof(cwd)) != NULL) {
-    //     printf("Current working directory: %s\n", cwd);
-    // } else {
-    //     perror("getcwd() error");
-    //     return 1;
-    // }
-
-        for (int i = 0; i < n; i++) {
+    if(is_parity == 1){
+        for (int i = k; i < n; i++) {
         char filename[100];
         if (mode == 2){
             snprintf(filename, sizeof(filename), "App/decentralize/chunks/data_%d.dat", i);
@@ -74,6 +67,31 @@ void write_file(uint16_t *chunks, int n, int chunk_size, int mode){
     }
         fclose(file);
     }
+  }else{
+    
+        for (int i = 0; i < k; i++) {
+        char filename[100];
+        if (mode == 2){
+            snprintf(filename, sizeof(filename), "App/decentralize/chunks/data_%d.dat", i);
+        }else if (mode == 1){
+            snprintf(filename, sizeof(filename), "App/decentralize/NF/data_%d.dat", i);
+        }
+
+        FILE *file = fopen(filename, "wb");
+         if (!file) {
+        perror("fopen failed");
+        exit(EXIT_FAILURE);
+    }
+        // fwrite(&chunks[i *chunk_size], sizeof(uint16_t), chunk_size, file);
+        if (fwrite(&chunks[i * chunk_size], sizeof(uint16_t), chunk_size, file) != chunk_size) {
+        perror("fwrite failed");
+        fclose(file);
+        exit(EXIT_FAILURE);
+    }
+        fclose(file);
+    }
+
+  }
 }
 
 
@@ -185,43 +203,43 @@ void encode(uint16_t *chunks, int n, int chunk_size, int mode) {
     for (size_t j = 0; j < num_blocks; j++)
     {
     
-    for (int s = 0; s < 2048; s++) {
-        char **data_ptrs = malloc(sizeof(char *) * rs_K);
-        char **coding_ptrs = malloc(sizeof(char *) * (rs_N-rs_K));
+      for (int s = 0; s < 2048; s++) {
+          char **data_ptrs = malloc(sizeof(char *) * rs_K);
+          char **coding_ptrs = malloc(sizeof(char *) * (rs_N-rs_K));
 
-        // Allocate and initialize data pointers
-        for (int i = 0; i < rs_K; i++) {
-            data_ptrs[i] = malloc(sizeof(uint16_t));
-            // instead of chunk_size use 2048 
-            *((uint16_t *)data_ptrs[i]) = chunks[(j * 2048 * rs_K) + (i * 2048) + s];
-        }
-        // Allocate coding pointers
-        for (int i = 0; i < rs_N-rs_K; i++) {
-            coding_ptrs[i] = malloc(sizeof(uint16_t));
-            memset(coding_ptrs[i], 0, sizeof(uint16_t));
-        }
-        // Encode
-        jerasure_matrix_encode(rs_K, rs_N-rs_K, symSize, matrix, data_ptrs, coding_ptrs, sizeof(uint16_t));
-        // printf("rs encode symbol %d\n", s);
-        // Store results
-        for (int i = rs_K; i < rs_N; i++) {
-          // I am pretty sure tomorrow I will regret this
-            chunks[(num_blocks * 2048 * rs_K) + (j *2048) + ((i-rs_K) * num_blocks * 2048) + s] = *((uint16_t *)coding_ptrs[i-rs_K]);
+          // Allocate and initialize data pointers
+          for (int i = 0; i < rs_K; i++) {
+              data_ptrs[i] = malloc(sizeof(uint16_t));
+              // instead of chunk_size use 2048 
+              *((uint16_t *)data_ptrs[i]) = chunks[(j * 2048 * rs_K) + (i * 2048) + s];
+          }
+          // Allocate coding pointers
+          for (int i = 0; i < rs_N-rs_K; i++) {
+              coding_ptrs[i] = malloc(sizeof(uint16_t));
+              memset(coding_ptrs[i], 0, sizeof(uint16_t));
+          }
+          // Encode
+          jerasure_matrix_encode(rs_K, rs_N-rs_K, symSize, matrix, data_ptrs, coding_ptrs, sizeof(uint16_t));
+          // printf("rs encode symbol %d\n", s);
+          // Store results
+          for (int i = rs_K; i < rs_N; i++) {
+            // I am pretty sure tomorrow I will regret this
+              chunks[(num_blocks * 2048 * rs_K) + (j *2048) + ((i-rs_K) * num_blocks * 2048) + s] = *((uint16_t *)coding_ptrs[i-rs_K]);
 
-            // chunks[(num_blocks * 2048 * rs_K) + ((i-rs_K) * num_blocks * 2048) + s] = *((uint16_t *)coding_ptrs[i-rs_K]);
-        }
-        // Cleanup
-        for (int i = 0; i < rs_K; i++) free(data_ptrs[i]);
-        for (int i = 0; i < rs_N-rs_K; i++) free(coding_ptrs[i]);
-        free(data_ptrs);
-        free(coding_ptrs);
-    }
+              // chunks[(num_blocks * 2048 * rs_K) + ((i-rs_K) * num_blocks * 2048) + s] = *((uint16_t *)coding_ptrs[i-rs_K]);
+          }
+          // Cleanup
+          for (int i = 0; i < rs_K; i++) free(data_ptrs[i]);
+          for (int i = 0; i < rs_N-rs_K; i++) free(coding_ptrs[i]);
+          free(data_ptrs);
+          free(coding_ptrs);
+      }
     }
     // only write the parity chunks
     struct timespec start, end;
 
     clock_gettime(CLOCK_MONOTONIC, &start);
-    write_file(chunks, rs_N, chunk_size, mode);
+    write_file(chunks, rs_N, rs_K, chunk_size, mode, 1);
     clock_gettime(CLOCK_MONOTONIC, &end);
 
     double s_time = start.tv_sec + (start.tv_nsec / 1e9);
@@ -753,146 +771,29 @@ void read_file(const char *filename, uint16_t **chunks, int *chunk_size, int *pa
     printf("Read file time: - %f seconds\n", e_time - s_time);
     printf("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n");
     // // calculate the number of block=4096 in the file
-    int num_blocks = (*chunk_size / 2048) * rs_K;
-    int numBits = (int)ceil(log2(num_blocks));
+    int num_blocks = (*chunk_size / 2048);
 
-    // printf("N: %d\n", rs_N);
-    // printf("K: %d\n", rs_K);
+    uint16_t *chunks2 = (uint16_t *)calloc(rs_N * (*chunk_size), sizeof(uint16_t));
 
-    // printf("num_blocks: %d\n", num_blocks);
-    // printf("numBits: %d\n", numBits);
-    // printf("chunk_size: %d\n", *chunk_size);
-
-
-    // printf("enter to continue\n");
-    // getchar();
-    // printf("size %d\n", rs_K * (*chunk_size));
-    // // sleep(10);
-        // printf("chunks[%d]: %d\n", i, (*chunks)[i]);
-    // for (int i = 0; i < rs_K * (*chunk_size); i++) {
-    // for (int i = 0; i < (*chunk_size) * rs_K; i++) {
-      // printf("fffffff");
-        // printf("chunks[%d]: %d\n", i, (*chunks)[i]);
-        // printf("chunks[%d]: %d\n", i, (int *)(*chunks)[i]);
-
-    // }
-
-    // uint16_t *chunks_shuffled = (uint16_t *)calloc(rs_N * (*chunk_size), sizeof(uint16_t));
-
-    int permuted_index;
 
     for (int i = 0; i < num_blocks; i++) {
-        permuted_index = feistel_network_prp(Shuffle_key, i, numBits);
-        // printf("i: %d, permuted_index: %d\n", i, permuted_index);
-
-      while (permuted_index >= num_blocks) {
-        permuted_index = feistel_network_prp(Shuffle_key, permuted_index, numBits);
-      }
-        // permuted_index = feistel_prp(i, num_blocks, Shuffle_key, 31);
-        // if (permuted_index < num_blocks) {
-        //   break;
-        // }
-        // int permuted_index = feistel_prp(i, num_blocks, Shuffle_key, 31);
-        // printf("i: %d, permuted_index: %d\n", i, permuted_index);
-        // for (int j = 0; j < 4096; j++) {
-        //     printf("j ==> %d\n", j);
-        //     printf("chunks_shuffled[i * 4096]: %d\n", &(*chunks)[permuted_index * 4096 + j]);
-        // }
-        // memcpy(&chunks_shuffled[i * 4096], &(*chunks)[permuted_index * 4096], 4096 * sizeof(uint16_t));
-        // for (int j = 0; j < 2049; j++) {
-        //     chunks_shuffled[i * 2049 + j] = (*chunks)[permuted_index * 2049 + j];
-        //     printf("chunks_shuffled[%d]: %hd | %hd\n", i * 2049 + j, chunks_shuffled[i * 2049 + j], (*chunks)[permuted_index * 2049 + j]);
-        //   }
-        // printf("=======================\n");
-        // printf("before: chunks[%d]: %d\n", permuted_index * 2048 + 1, (*chunks)[permuted_index * 2048 + 1]);
-        // printf("before chunks[%d]: %d\n", i * 2048 + 1, (*chunks)[i * 2048 + 1]);
-        for (int j = 0; j < 2048; j++) {
-          if (i <= permuted_index) {
-            continue;
+      int *tuple = malloc(sizeof(int) * rs_K);
+      find_tuple_for_digit(Shuffle_key, i, tuple, num_blocks*rs_K, rs_K);
+        for (int k = 0; k < rs_K; k++) {
+          printf("tuple[%d]: %d\n", k, tuple[k]);
+          for (int j = 0; j < 2048; j++) {
+            chunks2[((k *num_blocks)+i) * 2048 + j] = (*chunks)[tuple[k] * 2048 + j];
+            // (*chunks)[tuple[k] * 2048 + j] = (*chunks)[i * 2048 + j];
+            // (*chunks)[i * 2048 + j] = temp;
           }
-          uint16_t temp = (*chunks)[permuted_index * 2048 + j];
-          (*chunks)[permuted_index * 2048 + j] = (*chunks)[i * 2048 + j];
-          (*chunks)[i * 2048 + j] = temp;
-          // printf("index: %d\n", i );
-            // chunks_shuffled[i * 4096 + j] = (*chunks)[permuted_index * 4096 + j];
-            // printf("chunks_shuffled[%d]: %d\n", i * 2048 + j, (*chunks)[permuted_index * 2048 + j]);
-          }
-        // printf("---------------------------------\n");
-        // printf("after: chunks[%d]: %d\n", permuted_index * 2048 + 1, (*chunks)[permuted_index * 2048 + 1]);
-        // printf("after chunks[%d]: %d\n", i * 2048 + 1, (*chunks)[i * 2048 + 1]);
-        // printf("=======================\n");
-            // printf("chunks_shuffled[%d]: %d\n", 110000, (*chunks)[110000]);
-            // (*chunks)[110000] = 100;
-
-        // chunks_shuffled[i] = (*chunks)[permuted_index];
-        // for (int j = 0; j < 4096; j++) {
-        // }
+        }
+       printf("====================================");
     }
 
-  
-	// ----------------------------------- test -----------------------------------
-	// int total_blocks = 4 * rs_K;
-	// int blockNumInFile = (4 * 1) + 2;
-  // int numBits2 = (int)ceil(log2(total_blocks));
+    getchar();
 
-
-	// // int permuted_index2 = feistel_network_prp(Shuffle_key, blockNumInFile, numBits2);
-  // //       // printf("i: %d, permuted_index: %d\n", i, permuted_index);
-
-  // //   while (permuted_index2 >= total_blocks) {
-  // //     permuted_index2 = feistel_network_prp(Shuffle_key, permuted_index2, numBits2);
-  // //   }
-	
-	// int *recoverable_block_indicies = (int *)malloc(sizeof(int) * total_blocks);
-	// memset(recoverable_block_indicies, -1, total_blocks * sizeof(int));
-	
-	// int count = 0;
-
-	// for (int i = 0; i < total_blocks; i++) {
-	// 	if (i % rs_K == 0 && i != 0){
-	// 		count++;
-	// 	}
-	// 	int tmp_index = feistel_network_prp(Shuffle_key, i, numBits2);
-	// 	while (tmp_index >= total_blocks) {
-	// 		tmp_index = feistel_network_prp(Shuffle_key, tmp_index, numBits2);
-	// 	}
-	// 	if (tmp_index == blockNumInFile) {
-	// 		recoverable_block_indicies[tmp_index] = 1;
-	// 		break;
-	// 	}
-	// }
-
-	// int code_word_index = 0;
-	// for (int i = 0; i < rs_K; i++) {
-  //   printf("count: %d\n", count);
-	// 	code_word_index = count * rs_K + i;
-	// 	int tmp_index = feistel_network_prp(Shuffle_key, code_word_index, numBits);
-	// 	while (tmp_index >= total_blocks) {
-	// 		tmp_index = feistel_network_prp(Shuffle_key, tmp_index, numBits);
-	// 	}
-	// 	recoverable_block_indicies[tmp_index] = 1;
-  //   printf("i: %d, permuted_index: %d\n", i, tmp_index);
-
-	// }
-
-  // printf("---------------------------------\n");
-
-  // for (int i = 0; i < total_blocks; i++) {
-  //   if (recoverable_block_indicies[i] == 1) {
-  //     int internal_block_index = i % 4;
-	//     int node_index = (i - internal_block_index) / 4;
-  //     printf("recoverable_block_indicies[%d]: %d\n", i, recoverable_block_indicies[i]);
-  //     printf("internal_block_index: %d\n", internal_block_index);
-  //     printf("node_index: %d\n", node_index);
-  //   }
-  // }
-
-
-
-    // printf("enter to continue\n");
-
-    // getchar();
-    encode(*chunks, rs_N, *chunk_size, mode);
+    encode(chunks2, rs_N, *chunk_size, mode);
+    write_file(*chunks, rs_N, rs_K, *chunk_size, mode, 0);
     fclose(file);
 }
 

@@ -2252,7 +2252,7 @@ getchar();
     //     for (int j = 0; j < N; j++) {
 }
 
-
+#include "gp.h"
 
 void load_file_data(char *file_name, int num_blocks, int mode , int k , int n, sgx_enclave_id_t eid) {
 
@@ -2261,11 +2261,13 @@ void load_file_data(char *file_name, int num_blocks, int mode , int k , int n, s
         initiate_rs(file_name, k, n, Shuffle_key, mode);
     }
 
-    int num_bits = ceil(log2(Number_Of_Blocks * K));
+    // int num_bits = ceil(log2(Number_Of_Blocks * K));
 
-    int permuted_index_0 = permutation(0, num_bits, Number_Of_Blocks * (K));
+    // int permuted_index_0 = permutation(0, num_bits, Number_Of_Blocks * (K));
 
     int chunk_size = num_blocks * BLOCK_SIZE;
+
+
 
     ALL_DATA = malloc(BLOCK_SIZE * n * sizeof(uint8_t) * Number_Of_Blocks);
     SIGNATURES = malloc(32 * n * sizeof(uint8_t) * Number_Of_Blocks);
@@ -2406,21 +2408,6 @@ void load_file_data(char *file_name, int num_blocks, int mode , int k , int n, s
 
             memcpy(ALL_DATA + (K * chunk_size) + (permuted_index * BLOCK_SIZE), buffer2, BLOCK_SIZE);
 
-
-            // printf("this is block %d\n", permuted_index);
-            // for(int k = 0; k < 40; k++){
-            //     printf("%X ", ALL_DATA + (K * chunk_size) + (permuted_index * BLOCK_SIZE) + k);
-            // }
-            // printf("\n--------------------------------\n");
-            // uint8_t buffer21[BLOCK_SIZE];
-            // memcpy(buffer21, ALL_DATA + (K * chunk_size) + (permuted_index * BLOCK_SIZE), BLOCK_SIZE);
-            // DecryptData2(PC_KEY, buffer21, BLOCK_SIZE);
-            // printf("this is the buffer2: %d\n", j);
-            // for(int k = 0; k < 40; k++){
-            //     printf("%X ", buffer21[k]);
-            // }
-            // printf("\n--------------------------------\n");
-
             free(buffer);
             free(buffer2);
             free(buffer3);
@@ -2466,9 +2453,16 @@ void load_file_data(char *file_name, int num_blocks, int mode , int k , int n, s
     //     printf("\n");
     // }
 
-
-
+    // for(int i = 0; i < N * Number_Of_Blocks; i++){
+    //     uint8_t *buffer = malloc(BLOCK_SIZE);
+    //     memcpy(buffer, ALL_DATA + i * BLOCK_SIZE, BLOCK_SIZE);
+    //     DecryptData2(PC_KEY, buffer, BLOCK_SIZE);
+    //     printf("this is the block %d\n", i);
+    //     for(int j = 0; j < 32; j++){
+    //         printf("%X", buffer[j]);
+    //     }
+    //     printf("\n");
+    // }
 
 }
-
 

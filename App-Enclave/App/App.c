@@ -486,6 +486,18 @@ void ocall_get_counter(int *value) {
     *value = get_counter();
 }
 
+void beep(){
+    printf("\a"); fflush(stdout); usleep(100000); // beep
+    printf("\a"); fflush(stdout); usleep(100000); // beep
+    printf("\a"); fflush(stdout); usleep(400000); // beep
+    printf("\a"); fflush(stdout); usleep(200000);
+    printf("\a"); fflush(stdout); usleep(200000);
+    printf("\a"); fflush(stdout); usleep(600000); // long pause
+
+    // One more for comedy punch
+    printf("\a"); fflush(stdout);
+}
+
 int main(void) 
 {
 
@@ -494,7 +506,6 @@ int main(void)
     struct timespec start, end;
     struct timeval start_time, end_time;
     double cpu_time_used;
-    int waittime;
 
     int n = 5;
     int k = 4;
@@ -513,53 +524,12 @@ int main(void)
         return 1;
     }
 
-    // ecall_init_rs_matrix(eid, k, n);
-
-    // getchar();
-    // ---------------------------------------------------------------------------------
-
-    // gettimeofday(&start_time, NULL);
-    // ecall_test_time(eid);
-
-    // gettimeofday(&end_time, NULL);
-    // waittime = 3;
-    // cpu_time_used = (end_time.tv_sec - start_time.tv_sec) + (end_time.tv_usec - start_time.tv_usec) / 1000000.0;
-    // printf("1: %f with %d wait time\n", cpu_time_used, waittime);
-    // printf("()()()()()()()()()()()()()()(()()()()()()())\n");
-
-// ---------------------------------- matrix test -----------------------------------------------
-
-   
-    // int *matrix_test_2 = reed_sol_vandermonde_coding_matrix(k, m, 16);
-
-
-    // printf("================ matrix_test_2 ================\n");
-    // jerasure_print_matrix(matrix_test_2, k, m, 16);
-
-    // printf("else if (k == %d && n == %d) {\n", k, n);
-
-    // for (int i = 0; i < m; i++) {
-    //     printf("\t");
-    //     for (int j = 0; j < k; j++) {
-    //         printf("my_matrix[%d] = %d; ",i*k + j, matrix_test_2[i*k + j]);
-    //     }
-    //     printf("\n");
-    // }
-    // printf("}\n");
-
-    // free(matrix_test_2);
-
-    // getchar();
-
-// --------------------------------------------------------------------------------- 
-
 
     char fileName[512];
     // strcpy(fileName, "/home/amoghad1/f/Decentralized-Cloud-Storage-Self-Audit-Repair/App-Enclave/testFile");
     strncpy(fileName, "/home/amoghad1/f/Decentralized-Cloud-Storage-Self-Audit-Repair/App-Enclave/random_160KB_40.bin", sizeof(fileName) - 1);
     fileName[sizeof(fileName) - 1] = '\0';
 
-    // NodeInfo nodes[NUM_NODES];
 
     FileDataTransfer *fileDataTransfer =  malloc(sizeof(FileDataTransfer));
 
@@ -572,23 +542,12 @@ int main(void)
 
     preprocessing(eid, mode, fileName, fileDataTransfer , n, k);
     
-    // end time
-    // clock_gettime(CLOCK_MONOTONIC, &end);
-    
-    // double s_time = start.tv_sec + (start.tv_nsec / 1e9);
-    // double e_time = end.tv_sec + (end.tv_nsec / 1e9);
-
-
-
-
-    // log_double("=",0);
-    // log_double("Preprocessing time: %f seconds", e_time - s_time);
-    // log_double("=",0);
-
+    // ------------------------------------ load file data ------------------------------------
+    // load all the parities from files to does not make any overhead.
     load_file_data(fileName, fileDataTransfer->numBlocks, mode, k, n, eid);
 
     printf("Press enter to continue for initialization\n");
-    // getchar();
+    getchar();
 
     // ------------------------------------  initialization ------------------------------------
     
@@ -615,11 +574,6 @@ int main(void)
     printf("Press enter to continue for File INIT\n");
     getchar();
 
-
-	//gettimeofday(&end_time, NULL);
-    //waittime = 3;
-    //cpu_time_used = (end_time.tv_sec - start_time.tv_sec) + (end_time.tv_usec - start_time.tv_usec) / 1000000.0;
-    //printf("INIT TIME: %f with %d wait time\n", cpu_time_used, waittime);
 
     if (ret != SGX_SUCCESS) {
         printf("Error calling enclave function: %d\n", ret);
@@ -676,14 +630,11 @@ int main(void)
     int tcp_sleeps = get_dcounter();
     
     struct timespec start1, end1;
-    // struct timeval start_time1, end_time1;
 
     clock_gettime(CLOCK_MONOTONIC, &start1);
     
-    // int ftl_sleeps2 = get_counter();
-    // log_double("FTL SLEEPS start: %f", (double)ftl_sleeps2);
+    
     ecall_retrieve_File(eid, fileName);
-    // getchar();
 
     clock_gettime(CLOCK_MONOTONIC, &end1);
 
@@ -714,73 +665,55 @@ int main(void)
     log_double("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$", 0.1 );
 
 
+    // ============================================================ Normal flow ============================================================
 
 
-    printf("\a"); fflush(stdout); usleep(100000); // beep
-    printf("\a"); fflush(stdout); usleep(100000); // beep
-    printf("\a"); fflush(stdout); usleep(400000); // beep
-    printf("\a"); fflush(stdout); usleep(200000);
-    printf("\a"); fflush(stdout); usleep(200000);
-    printf("\a"); fflush(stdout); usleep(600000); // long pause
+    printf("Press enter to continue for small corruption Block 0\n");
+    getchar();
 
-    // One more for comedy punch
-    printf("\a"); fflush(stdout);
-
-    // int sta = 1;
-
-    // ecall_audit_file(eid, fileName, &sta);
-    // ecall_small_corruption(eid, fileName, 1);
-    // printf("stop here\n");
-    // getchar();
+    // ------------------------------------ small corruption BLOCK 0 ------------------------------------
+    printf("==== SMALL CORRUPTION ====\n");
+    printf("==== Block 0 ====\n");
 
 
-    // ecall_retrieve_File(eid, fileName);
+    printf("==== Block 0 ====\n");
 
-    // ecall_retrieve_File(eid, fileName);
-
-
-
-    // ------------------------------------ small corruption ------------------------------------
-    // printf("==== SMALL CORRUPTION ====\n");
-    // printf("==== Block 0 ====\n");
+    ecall_small_corruption(eid, fileName, 0);
 
 
-    // printf("==== Block 0 ====\n");
-
-    // ecall_small_corruption(eid, fileName, 0);
-
-
-    // printf("Press enter to continue for small corruption Block 1\n");
-    // // getchar();
-
-    // // ecall_audit_file(eid, fileName, &sta);
+    printf("Press enter to continue for small corruption Block 1\n");
+    getchar();
 
 
-    // printf("==== SMALL CORRUPTION ====\n");
-    // printf("==== Block 1 ====\n");
+    // ------------------------------------ small corruption BLOCK 1 ------------------------------------
+    printf("==== SMALL CORRUPTION ====\n");
+    printf("==== Block 1 ====\n");
 
-    // ecall_small_corruption(eid, fileName, 1);
+    ecall_small_corruption(eid, fileName, 1);
 
 
-    // printf("Press enter to continue for audit file\n");
-    // // getchar();
-    // int status = 1;
-    // // ------------------------------------ audit file ------------------------------------
-    // printf("==== AUDIT FILE ====\n");
+    printf("Press enter to continue for audit file\n");
+    getchar();
     
-    // // getchar();
-    // // ecall_audit_file(eid, fileName, &status);
+    // ------------------------------------ audit file ------------------------------------
+    int status = 1;
+    printf("==== AUDIT FILE ====\n");
+    
+    ecall_audit_file(eid, fileName, &status);
 
     
-    // // ------------------------------------ retrieve file ------------------------------------
-    // printf("Press enter to continue for retrieve file\n");
+    
+    printf("Press enter to continue for retrieve file\n");
+    getchar();
+    
+    // ------------------------------------ retrieve file ------------------------------------
 
-    // ecall_retrieve_File(eid, fileName);
+    ecall_retrieve_File(eid, fileName);
 
 
-    // if(status == 0) {
-    //     printf("SUCCESS!!!\n");
-    // }
+    if(status == 0) {
+        printf("SUCCESS!!!\n");
+    }
 
     // Destroy the enclave
     ret = sgx_destroy_enclave(eid);
@@ -789,7 +722,9 @@ int main(void)
         return 1;
     }
 
-    // free(fileDataTransfer);
+    free(fileDataTransfer);
+
+    beep();
 
     return 0;
 }
