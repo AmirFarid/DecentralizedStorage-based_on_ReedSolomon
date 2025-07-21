@@ -414,7 +414,7 @@ printf("sigma_mem size = %zu\n", numBlocks * (PRIME_LENGTH / 8) * sizeof(uint8_t
     }
     fclose(file);
     free(blockData);
-    free(fileDataTransfer);
+    // free(fileDataTransfer);
 
     printf("--------------Test 10------------\n");
     // free(fileDataTransfer);
@@ -449,14 +449,20 @@ void ocall_test_time(double *time) {
 }
 
 
-#define LOG_FILE "logfile.txt"
+#define LOG_FILE "logfile%d-%d.txt"
 void ocall_log_double(const char *format, double value) {
     log_double(format, value);
 }
 
+int inN;
+int inK;
+
 
 void log_double(const char *format, double value) {
-    FILE *log_fp = fopen(LOG_FILE, "a");
+    char log_file[100];
+    snprintf(log_file, sizeof(log_file), LOG_FILE, inN, inK);
+
+    FILE *log_fp = fopen(log_file, "a");
     if (log_fp == NULL) {
         perror("Failed to open log file");
         return;
@@ -502,7 +508,6 @@ int main(void)
 {
 
 
-
     struct timespec start, end;
     struct timeval start_time, end_time;
     double cpu_time_used;
@@ -510,8 +515,10 @@ int main(void)
     int n = 5;
     int k = 4;
     int m = n - k;
-    int mode = 2;
+    int mode = 1;
 
+    inN = n;
+    inK = k;
     
     sgx_enclave_id_t eid = 0;
     sgx_status_t ret = SGX_ERROR_UNEXPECTED;
@@ -546,8 +553,7 @@ int main(void)
     // load all the parities from files to does not make any overhead.
     load_file_data(fileName, fileDataTransfer->numBlocks, mode, k, n, eid);
 
-    printf("Press enter to continue for initialization\n");
-    getchar();
+    // getchar();
 
     // ------------------------------------  initialization ------------------------------------
     
@@ -600,6 +606,9 @@ int main(void)
 
 
 
+
+
+
     log_double("=",0);
     log_double("FILE INIT TOTAL time: %f seconds", e_time - s_time);
     log_double("=",0);
@@ -609,13 +618,19 @@ int main(void)
     log_double("++++++++++++++++++++++++++++++++++++++", 0.1 );
 
 
+    printf("STOP HERE\n");
     getchar();
-    printf("Press enter to continue for small corruption Block 0\n");
-    // getchar();
+    getchar();
+    getchar();
+    getchar();
+    getchar();
+    getchar();
+    getchar();
+    getchar();
+    getchar();
 
-    int sta = 1;
+   
 
-    ecall_audit_file(eid, fileName, &sta);
     
     // ecall_small_corruption(eid, fileName, 0);
     log_double("++++++++++++++++++++++++++++++++++++++", 0.1 );
@@ -656,15 +671,22 @@ int main(void)
 
     log_double("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$", 0.1 );
 
+    ecall_small_corruption(eid, fileName, 0);
 
-    // ecall_small_corruption(eid, fileName, 1);
+
+    int status = 1;
+    printf("==== AUDIT FILE ====\n");
+    ecall_audit_file(eid, fileName, &status);
 
 
 
 
     log_double("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$", 0.1 );
 
+    ecall_small_corruption(eid, fileName, 1);
 
+
+    beep();
     // ============================================================ Normal flow ============================================================
 
 

@@ -178,6 +178,11 @@ void init_keys()
     {
         sig_key[i] = prng_next();
     }
+
+    // for(int i = 0; i < 16; i++){
+    //     printf("Shuffle_key[%d] = %02x\n", i, Shuffle_key[i]);
+    // }
+    
 }
 
 int permutation(int i, int num_bits, int bound){
@@ -930,6 +935,7 @@ void *handle_client(void *args_ptr)
     // Reciever side
     printf("Client connected\n");
     pthread_mutex_lock(&global_lock);
+    int first = get_counter();
     while (1)
     {
 
@@ -991,6 +997,10 @@ void *handle_client(void *args_ptr)
             break;
         }
     }
+
+    first = get_counter() - first;
+    loglog("the negative time for the client: - %f", ((double)first * 0.1));
+
     pthread_mutex_unlock(&global_lock);
     free(args);
     int remaining = atomic_fetch_sub(&active_threads, 1) - 1;
@@ -1057,7 +1067,9 @@ void *listener_thread_func(void *eid_ptr)
 
 
 void loglog(const char *format, double value) {
-    FILE *log_fp = fopen("logfile.txt", "a");
+    char log_file[100];
+    snprintf(log_file, sizeof(log_file), "logfile%d-%d.txt", N, K);
+    FILE *log_fp = fopen(log_file, "a");
     if (log_fp == NULL) {
         perror("Failed to open log file");
         return;
@@ -1067,16 +1079,21 @@ void loglog(const char *format, double value) {
     time_t now = time(NULL);
     struct tm *t = localtime(&now);
 
+
+    fprintf(log_fp, "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
+    fprintf(log_fp, "\n");
+
     
-    if (strcmp(format, "=") == 0) {
-        fprintf(log_fp, "===============================================\n");
-    }else{
-        fprintf(log_fp, "[%04d-%02d-%02d %02d:%02d:%02d] ",
-            t->tm_year + 1900, t->tm_mon + 1, t->tm_mday,
-            t->tm_hour, t->tm_min, t->tm_sec);
-        fprintf(log_fp, format, value);
-        fprintf(log_fp, "\n");
-    }
+    fprintf(log_fp, "[%04d-%02d-%02d %02d:%02d:%02d] ",
+        t->tm_year + 1900, t->tm_mon + 1, t->tm_mday,
+        t->tm_hour, t->tm_min, t->tm_sec);
+    fprintf(log_fp, format, value);
+    fprintf(log_fp, "\n");
+    
+
+    fprintf(log_fp, "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
+    fprintf(log_fp, "\n");
+
 
     // Log the formatted string with the double value
 
@@ -1147,7 +1164,6 @@ void *get_code_word(void *arg)
         pthread_mutex_lock(&shared_args->lock);
         memcpy(shared_args->output_code_word_buffer + args->blockNum * K *  BLOCK_SIZE, buffer, K *BLOCK_SIZE);
         memcpy(shared_args->output_signature_list + args->blockNum * K * 32, signature, K * 32);
-        // for(int j = 0; j < BLOCK_SIZE; j++) args->output_code_word_buffer[index * BLOCK_SIZE + j] = buffer[j];
         pthread_mutex_unlock(&shared_args->lock);
         free(buffer);
         free(signature);
@@ -1172,7 +1188,7 @@ int get_dcounter(){
 
 
 
-void ocall_retrieve_code_words(int fileNum, NodeInfo *nodes, int node_size, int node_counts, uint8_t *data_tmp, int data_tmp_size, int data_tmp_count, int num_retrieval_rq_per_peer, int num_code_words_counter, int num_code_words, int remainder)
+void ocall_retrieve_code_words(int fileNum, NodeInfo *nodes, int node_size, int node_counts, uint8_t *signiture_tmp, uint8_t *data_tmp, int data_tmp_size, int data_tmp_count, int num_retrieval_rq_per_peer, int num_code_words_counter, int num_code_words, int remainder)
 {
 // INJI
     int k = K;
@@ -1209,15 +1225,13 @@ void ocall_retrieve_code_words(int fileNum, NodeInfo *nodes, int node_size, int 
                 // double e_time = end.tv_sec + (end.tv_nsec / 1e9);
 
 
-            printf("Press enter to continue\n");
-            getchar();
+    printf("Press enter to continue\n");
+    getchar();
     int thread_idx = 0;
     for (int i = 1 ; i < k; i++)
     {
-    loglog("&&&&&&&&&&&&&&&&&&###########################&&&&&&&&&&&&&&&&&&\n",1);
-    loglog("=",0);
-    loglog("this is the %f th iteration", i);
-    loglog("=",0);
+        
+        loglog("this is the %f th iteration", i);
 
             printf("I AM HERE 1\n");
 
@@ -1227,6 +1241,7 @@ void ocall_retrieve_code_words(int fileNum, NodeInfo *nodes, int node_size, int 
             int j;
             for(j = 0; j < num_retrieval_rq_per_peer && num_code_words_counter < num_code_words; j++){
             dcounter++;
+            printf("I AM inside the loop 1\n");
             
             // sleep(30);
                 wrapper_args[thread_idx].fileNum = fileNum;
@@ -1243,6 +1258,8 @@ void ocall_retrieve_code_words(int fileNum, NodeInfo *nodes, int node_size, int 
             getchar();
             }
             if(counter > 0){
+            printf("I AM inside the loop 2\n");
+
             dcounter++;
             // sleep(30);
                 wrapper_args[thread_idx].fileNum = fileNum;
@@ -1261,10 +1278,9 @@ void ocall_retrieve_code_words(int fileNum, NodeInfo *nodes, int node_size, int 
             }
 
             printf("I AM HERE 2\n");
-    loglog("&&&&&&&&&&&&&&&&&&###########################&&&&&&&&&&&&&&&&&&\n",1);
 
     }
-
+    
    
 
 
@@ -1280,6 +1296,7 @@ void ocall_retrieve_code_words(int fileNum, NodeInfo *nodes, int node_size, int 
 
     for(int i = num_retrieval_rq_per_peer * k; i < num_code_words * k ; i++){
         memcpy(data_tmp + i * BLOCK_SIZE, args->output_code_word_buffer + i * BLOCK_SIZE, BLOCK_SIZE);
+        memcpy(signiture_tmp + i * 32, args->output_signature_list + i * 32, 32);
     }
 
     free(args->output_code_word_buffer);
@@ -1390,13 +1407,25 @@ void *request_data_from_node(void *arg)
     close(sock);
     }else if(args->fake == 1){
             pthread_mutex_lock(&shared_args->lock);    
-                memcpy(shared_args->output_code_word_buffer + args->offset * BLOCK_SIZE, ALL_DATA + args->total_blocks_index * BLOCK_SIZE, BLOCK_SIZE);
+                // memcpy(shared_args->output_code_word_buffer + args->offset * BLOCK_SIZE, ALL_DATA + args->total_blocks_index * BLOCK_SIZE, BLOCK_SIZE);
 
+                // printf("this is the code word: fake 1 %d\n", args->offset);
+                // for(int j = 0; j < 40; j++){
+                //     printf("%X ", shared_args->output_code_word_buffer[args->offset * BLOCK_SIZE + j]);
+                // }
+                // printf("\n");
 
+                for(int j = 0; j < BLOCK_SIZE; j++){
+                if(j < 40){
+                printf("%X", ALL_DATA[(args->total_blocks_index * BLOCK_SIZE) + j]);
+                }
+                shared_args->output_code_word_buffer[args->offset * BLOCK_SIZE + j] = ALL_DATA[(args->total_blocks_index * BLOCK_SIZE) + j];
+                    // shared_args->output_index_list[args->offset * 32 + j] = SIGNATURES[K * Number_Of_Blocks * 32 + (args->total_blocks_index * 32) + j];
+            }
 
 
                 printf("this is the code word: fake 1 %d\n", args->offset);
-                for(int i = 0; i < BLOCK_SIZE; i++){
+                for(int i = 0; i < 32; i++){
                     printf("%X ", shared_args->output_code_word_buffer[args->offset * BLOCK_SIZE + i]);
                 }
                 printf("\n");
@@ -2403,7 +2432,7 @@ void load_file_data(char *file_name, int num_blocks, int mode , int k , int n, s
             uint8_t *buffer3 = malloc(BLOCK_SIZE);
 
             memcpy(buffer3, buffer2, BLOCK_SIZE);
-            hmac_sha2(sig_key, 32, (const uint8_t *)buffer3, BLOCK_SIZE, (uint8_t *)SIGNATURES + o * num_blocks * 32 + j * 32, &size);
+            hmac_sha2(sig_key, 32, (const uint8_t *)buffer3, BLOCK_SIZE, (uint8_t *)SIGNATURES + (K * num_blocks * 32) + (permuted_index * 32), &size);
 
 
             memcpy(ALL_DATA + (K * chunk_size) + (permuted_index * BLOCK_SIZE), buffer2, BLOCK_SIZE);
@@ -2421,9 +2450,22 @@ void load_file_data(char *file_name, int num_blocks, int mode , int k , int n, s
         fclose(chunk_file);
     }
 
+
+    int *tuple1 = malloc(sizeof(int) * k);
+    printf("\n");
+    printf("Can you see this?\n");
+    find_tuple_for_digit(Shuffle_key, 1, tuple1, num_blocks*k, k);
+    for (int i = 0; i < k; i++) {
+        printf("tuple[%d]: %d\n", i, tuple1[i]);
+    }
+    printf("\n");
+    printf("Can you see this?\n");
+
+
     printf("Number of blocks: %d\n", Number_Of_Blocks);
     printf("Number of parity blocks: %d\n", N - K);
     printf("Number of total blocks: %d\n", N);
+    free(tuple1);
     // for(int i = K * Number_Of_Blocks; i < N * Number_Of_Blocks; i++){
 
     //     printf("this is the block %d\n", i);
@@ -2463,6 +2505,9 @@ void load_file_data(char *file_name, int num_blocks, int mode , int k , int n, s
     //     }
     //     printf("\n");
     // }
+
+    
+
 
 }
 

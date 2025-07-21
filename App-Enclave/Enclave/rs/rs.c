@@ -378,11 +378,15 @@ void print_matrix(int *matrix, int k, int m) {
 void decode(int chunk_size, int *erasures, char *code_word, int *matrix, int current_chunk_id) {
 
 
+
+
     int m = N - K;
     // ocall_printint(K);
     int symSize = 16;
 
     print_matrix(my_matrix, K, N-K);
+
+    ocall_printf();
 
 
 
@@ -398,7 +402,7 @@ void decode(int chunk_size, int *erasures, char *code_word, int *matrix, int cur
     for (int i = 0; i < N-K; i++) {
         coding_ptrs[i] = (char *)malloc(sizeof(uint16_t));
     }
-
+int counter2 = 0;
 
     // Process each symbol
     ocall_printf("Processing each symbol", 28, 0);
@@ -413,18 +417,20 @@ void decode(int chunk_size, int *erasures, char *code_word, int *matrix, int cur
                     break;
                 }
             }
+            
             if (!is_erased) {
 
 
                 if (i < K) {
                     // data_ptrs[i] = (char *)code_word [ (i * 2048) + s];
-                    *((uint16_t *)data_ptrs[i]) = code_word [ (i * 2048) + s];
-                    
+                    *((uint16_t *)data_ptrs[i]) = code_word [ (i * 4096) + s];
+
+                  
                     // *((char *)data_ptrs[i]) = 1;
 
                 } else {                  
                     // coding_ptrs[i-K] = (char *)code_word [ i * 2048 + s];
-                    *((uint16_t *)coding_ptrs[i-K]) = code_word [ i * 2048 + s];
+                    *((uint16_t *)coding_ptrs[i-K]) = code_word [ i * 4096 + s];
                     
                     // *((char *)coding_ptrs[i-K]) = 0;
 
@@ -442,9 +448,9 @@ void decode(int chunk_size, int *erasures, char *code_word, int *matrix, int cur
 
             for (int i = 0; erasures[i] != -1; i++) {
                 int idx = erasures[i];
-                    ocall_printint(&idx);
+                    // ocall_printint(&idx);
                 if (idx < K) {
-                    // ocall_printint(&data_ptrs[idx]);
+                    // ocall_printf(&data_ptrs[idx],10,1);
                     // recovered_data[s] = *((uint16_t *)data_ptrs[idx]);
                     code_word[(erasures[i] * 2048) + s] = *((uint16_t *)data_ptrs[idx]);
                 } else {

@@ -14,8 +14,22 @@
 
 // SHA256-based seed generator
 uint64_t get_seed(const char* key, int* data, int size) {
-    char buffer[256];
-    snprintf(buffer, sizeof(buffer), "%s", key);
+    unsigned char buffer[256];
+    // snprintf(buffer, sizeof(buffer), "%s", key);
+    // for(int i = 0; i < 16; i++){
+    //     printf("Shuffle_key[%d] = %02x\n", i, key[i]);
+    // }
+    int offset = 0;
+    for (int i = 0; i < 16; i++) {
+        // printf("hi its me\n");
+        snprintf(buffer + offset, sizeof(buffer),"%02x", (unsigned char)key[i]);
+        // printf("key[%d] = %02x\n", i, (unsigned char)key[i]);
+        offset += 2;
+        // printf("buffer[%d] = %c\n", 2*i, buffer[2*i]);
+        // printf("buffer[%d] = %c\n", 2*i+1, buffer[2*i+1]);
+
+
+    }
     for (int i = 0; i < size; i++) {
         char num[12];
         snprintf(num, sizeof(num), ":%d", data[i]);

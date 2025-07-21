@@ -14,8 +14,22 @@
 
 // SHA256-based seed generator
 uint64_t get_seed(const char* key, int* data, int size) {
-    char buffer[256];
-    snprintf(buffer, sizeof(buffer), "%s", key);
+    unsigned char buffer[256];
+    // snprintf(buffer, sizeof(buffer), "%s", key);
+    // for(int i = 0; i < 16; i++){
+    //     printf("Shuffle_key[%d] = %02x\n", i, key[i]);
+    // }
+    int offset = 0;
+    for (int i = 0; i < 16; i++) {
+        // printf("hi its me\n");
+        snprintf(buffer + offset, sizeof(buffer),"%02x", (unsigned char)key[i]);
+        // printf("key[%d] = %02x\n", i, (unsigned char)key[i]);
+        offset += 2;
+        // printf("buffer[%d] = %c\n", 2*i, buffer[2*i]);
+        // printf("buffer[%d] = %c\n", 2*i+1, buffer[2*i+1]);
+
+
+    }
     for (int i = 0; i < size; i++) {
         char num[12];
         snprintf(num, sizeof(num), ":%d", data[i]);
@@ -87,6 +101,16 @@ int find_tuple_for_digit(const char* key, int digit, int *out_tuple, int total_n
     int group_id = digit / M;
     int index_in_group = -1;
 
+    ocall_printf("this is the key:", strlen("this is the key:"), 0);
+    ocall_printf(key, 16, 1);
+    ocall_printf("this is the digit:", strlen("this is the digit:"), 0);
+    ocall_printint(&digit);
+    ocall_printf("this is the total_num_blocks:", strlen("this is the total_num_blocks:"), 0);
+    ocall_printint(&total_num_blocks);
+    ocall_printf("this is the group_size:", strlen("this is the group_size:"), 0);
+    ocall_printint(&group_size);
+    
+
     // Regenerate and shuffle the group where the digit belongs
     int group[M];
     for (int i = 0; i < M; i++) {
@@ -114,6 +138,8 @@ int find_tuple_for_digit(const char* key, int digit, int *out_tuple, int total_n
         uint64_t seed = get_seed(key, &g, 1);
         seeded_shuffle(grp, M, seed);
         out_tuple[g] = grp[index_in_group];
+        ocall_printf("this is the out_tuple:", strlen("this is the out_tuple:"), 0);
+        ocall_printint(&out_tuple[g]);
     }
 
     return 1;
