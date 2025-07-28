@@ -33,7 +33,7 @@
 
 // Amir MM Farid
 // Number of nodes also needs to be changed in Enclave.edl for the function ecall_init
-#define NUM_NODES 4
+#define NUM_NODES 2
 #define OWNER_IP "127.0.0.1"
 #define OWNER_PORT 8080
 

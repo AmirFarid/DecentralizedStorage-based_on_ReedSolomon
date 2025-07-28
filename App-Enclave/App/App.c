@@ -512,10 +512,10 @@ int main(void)
     struct timeval start_time, end_time;
     double cpu_time_used;
 
-    int n = 5;
-    int k = 4;
+    int n = 3;
+    int k = 2;
     int m = n - k;
-    int mode = 1;
+    int mode = 2;
 
     inN = n;
     inK = k;
@@ -618,16 +618,7 @@ int main(void)
     log_double("++++++++++++++++++++++++++++++++++++++", 0.1 );
 
 
-    printf("STOP HERE\n");
-    getchar();
-    getchar();
-    getchar();
-    getchar();
-    getchar();
-    getchar();
-    getchar();
-    getchar();
-    getchar();
+
 
    
 
@@ -668,6 +659,8 @@ int main(void)
     log_double("total SLEEPS: - %f",  (double)tcp_sleeps * 30   );
     log_double("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@", 0.1 );
 
+    printf("Press enter to continue for small corruption Block 0 and audit file\n");
+    getchar();
 
     log_double("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$", 0.1 );
 
@@ -683,10 +676,14 @@ int main(void)
 
     log_double("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$", 0.1 );
 
+    beep();
+
+    printf("Press enter to continue for small corruption Block 1\n");
+    getchar();
+
     ecall_small_corruption(eid, fileName, 1);
 
 
-    beep();
     // ============================================================ Normal flow ============================================================
 
 
@@ -718,7 +715,7 @@ int main(void)
     getchar();
     
     // ------------------------------------ audit file ------------------------------------
-    int status = 1;
+    // int status = 1;
     printf("==== AUDIT FILE ====\n");
     
     ecall_audit_file(eid, fileName, &status);

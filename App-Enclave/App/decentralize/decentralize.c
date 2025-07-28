@@ -41,14 +41,23 @@ typedef enum
     PARITY_KEY = 2,
     BLOCK = 3,
     CODE_WORD = 4,
+    PLAIN_DATA = 5,
 } RequestType;
 
 NodeInfo nodes[NUM_NODES] = {
-    {"141.219.209.11", 8080, -1, 0}, // This is the host node do not count it as a node
-    {"141.219.249.254", 8080, -1, 0},
-    {"141.219.250.6", 8080, -1, 0},
-    {"141.219.210.172", 8080, -1, 0},
-    {"141.219.209.11", 8080, -1, 0},
+    {"192.168.0.202", 8080, -1, 0}, // This is the host node do not count it as a node
+    {"192.168.0.203", 8080, -1, 0},
+    // {"192.168.0.204", 8080, -1, 0},
+    // {"192.168.0.201", 8080, -1, 0},
+    {"192.168.0.202", 8080, -1, 0},
+    
+
+
+    // {"141.219.209.11", 8080, -1, 0}, // This is the host node do not count it as a node
+    // {"141.219.249.254", 8080, -1, 0},
+    // {"141.219.250.6", 8080, -1, 0},
+    // {"141.219.210.172", 8080, -1, 0},
+    // {"141.219.209.11", 8080, -1, 0},
     // {"141.219.210.172", 8080, -1, 0},
     // {"141.219.250.6", 8080, -1, 0},
 
@@ -919,6 +928,29 @@ void handle_code_word_retrival_request(sgx_enclave_id_t eid, int client_socket)
     free(signature);
 }
 
+void handle_plain_data_retrival_request(sgx_enclave_id_t eid, int client_socket)
+{
+    // PLAIN_DATA request handling
+    int file_id;
+    int numBlocks_cached;
+    uint8_t *data;
+    uint8_t *signiture_tmp;
+
+    secure_recv(client_socket, &file_id, sizeof(int));
+    secure_recv(client_socket, &numBlocks_cached, sizeof(int));
+
+    data = malloc(numBlocks_cached * BLOCK_SIZE);
+    signiture_tmp = malloc(32);
+
+    ecall_get_plain_data(eid,file_id, numBlocks_cached, data, signiture_tmp);
+
+    secure_send(client_socket, data, numBlocks_cached * BLOCK_SIZE);
+    secure_send(client_socket, signiture_tmp, 32);
+
+    ack_recv(client_socket);
+
+}
+
 pthread_mutex_t global_lock = PTHREAD_MUTEX_INITIALIZER;
 atomic_int active_threads = 0;
 pthread_mutex_t close_lock = PTHREAD_MUTEX_INITIALIZER;
@@ -987,6 +1019,13 @@ void *handle_client(void *args_ptr)
             printf("\t Code word request received\n");
             printf("-------------------------------------------------------\n");
             handle_code_word_retrival_request(eid, client_socket);
+            break;
+        }else if (request == PLAIN_DATA)
+        {
+            printf("-------------------------------------------------------\n");
+            printf("\t Plain data request received\n");
+            printf("-------------------------------------------------------\n");
+            handle_plain_data_retrival_request(eid, client_socket);
             break;
         }
         else
@@ -1800,6 +1839,8 @@ void initiate_Chunks(char *fileChunkName, char *current_file, int n, int k)
 
         int sock;
 
+        // getchar();
+
         if (i > k) {chunk_type = 2;}
         else if (i < NUM_NODES){
 
@@ -2510,4 +2551,45 @@ void load_file_data(char *file_name, int num_blocks, int mode , int k , int n, s
 
 
 }
+
+void ocall_get_plain_data(int fileNum, int numBlocks_cached, uint8_t *data, uint8_t *signiture_tmp, NodeInfo *node, int node_size){
+
+    // PLAIN_DATA request sending
+
+     RequestType request = PLAIN_DATA;
+
+     int client_socket = socket(AF_INET, SOCK_STREAM, 0);
+     if (client_socket < 0) {
+        perror("Failed to create socket");
+        return;
+     }
+
+     struct sockaddr_in server_addr;
+     server_addr.sin_family = AF_INET;
+     server_addr.sin_port = htons(node->port);
+     server_addr.sin_addr.s_addr = inet_addr(node->ip);
+
+     if (connect(client_socket, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
+        perror("Failed to connect to server");
+        close(client_socket);
+        return;
+     }
+
+     secure_send(client_socket, &request, sizeof(RequestType));
+     secure_send(client_socket, &fileNum, sizeof(int));
+     secure_send(client_socket, &numBlocks_cached, sizeof(int));
+
+     secure_recv(client_socket, data, numBlocks_cached * BLOCK_SIZE);
+     secure_recv(client_socket, signiture_tmp, 32);
+
+     ack_send(client_socket);
+
+     close(client_socket);
+
+
+}
+
+
+
+
 

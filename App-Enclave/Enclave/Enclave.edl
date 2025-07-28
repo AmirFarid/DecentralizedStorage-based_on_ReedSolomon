@@ -29,6 +29,8 @@ enclave {
 	    public void ecall_test_encrypt([in,count=n, size=chunk_size] uint8_t *data, int chunk_size, int n, [out, size=32, count=n] uint8_t *signatures, int n_signatures, [in, size=32] uint8_t *sig_key, [in, size=16] uint8_t *PC_KEY);
 
 		public void ecall_init_rs_matrix(int k, int n);
+
+		public void ecall_get_plain_data(int fileNum, int numBlocks_cached, [out, size=4096, count=numBlocks_cached] uint8_t *data, [out, size=32] uint8_t *signiture_tmp);
 		
 	};
 
@@ -79,6 +81,8 @@ enclave {
 		void ocall_log_double([in, string] const char *format, double value);
 
 		void ocall_get_counter([out] int *value);
+
+		void ocall_get_plain_data(int fileNum, int numBlocks_cached, [out, size=4096, count=numBlocks_cached] uint8_t *data, [out, size=32] uint8_t *signiture_tmp, [in, size=node_size] NodeInfo *node, int node_size);
 	};
 };
 

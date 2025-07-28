@@ -3864,3 +3864,157 @@ void ecall_retrieve_File(const char *fileName) {
 
 	return;
 }
+
+
+
+void get_plain_data(int fileNum, int numBlocks_cached, uint8_t *data) {
+
+	data = (uint8_t *)malloc(numBlocks_cached * BLOCK_SIZE * sizeof(uint8_t));
+
+	for (int i = 0; i < numBlocks_cached; i++) {
+		uint8_t *tmpBlock = (uint8_t *)malloc(BLOCK_SIZE);
+		int *status;
+
+		check_block(fileNum, i, status, tmpBlock);
+		if (*status == 0) {
+			ocall_printf("THE BLOCK IS VALID", 18, 0);
+			// if the block is not corrupted, we can directly assign the code word
+			for (int j = 0; j < BLOCK_SIZE; j++) {
+				data[i * BLOCK_SIZE + j] = tmpBlock[j];
+			}
+		}else{
+			ocall_printf("local block is corrupted", 15, 0);
+		}
+	
+	}
+
+}
+
+void ecall_get_plain_data(int fileNum, int numBlocks_cached, uint8_t *data, uint8_t *signiture_tmp) {
+
+	uint8_t *data_tmp;
+	uint8_t *tmp_decrypted_data = malloc(BLOCK_SIZE * sizeof(uint8_t) * numBlocks_cached);
+
+
+	get_plain_data(fileNum, numBlocks_cached, data_tmp);
+
+
+	memcpy(tmp_decrypted_data, data_tmp, numBlocks_cached * BLOCK_SIZE);
+	EncryptData(files[fileNum].PC_Key, tmp_decrypted_data, numBlocks_cached * BLOCK_SIZE);
+	memcpy(data, tmp_decrypted_data, numBlocks_cached * BLOCK_SIZE);
+
+	uint8_t new_signiture [32];
+	size_t len = 32;
+	hmac_sha2(files[fileNum].sig_Key, 32, tmp_decrypted_data, BLOCK_SIZE * numBlocks_cached, new_signiture, &len);
+
+
+	memcpy(signiture_tmp, new_signiture, 32);
+
+	free(data_tmp);
+	free(tmp_decrypted_data);
+}
+
+void ecall_retrieve_plain_File(const char *fileName) {
+
+	double *start_time = malloc(sizeof(double));
+	double *end_time = malloc(sizeof(double));
+	double *neg_start_time = malloc(sizeof(double));
+	double *neg_end_time = malloc(sizeof(double));
+	double *neg_code_word_start_time = malloc(sizeof(double));
+	double *neg_code_word_end_time = malloc(sizeof(double));
+	double *total_neg_time = malloc(sizeof(double));
+	double section_time_1;
+	double section_time_2;
+
+
+
+	// ================================ start time ================================
+	ocall_test_time(start_time);
+
+
+	int *toggle = malloc(sizeof(int));
+	*toggle = 0;
+
+	int fileNum;
+	for(fileNum = 0; fileNum < MAX_FILES; fileNum++) {
+		if(strcmp(fileName, files[fileNum].fileName) == 0) {
+			break;
+		}
+	}
+
+	// cache the reperirve info to avoid multiple retrieval requests
+	int k_cached = files[fileNum].k;
+	int n_cached = files[fileNum].n;
+	int numBlocks_cached = files[fileNum].numBlocks;
+
+	uint8_t *data = (uint8_t *)malloc(numBlocks_cached * BLOCK_SIZE * sizeof(uint8_t) * k_cached);
+	
+	for (int i = 0; i < k_cached; i++) {
+		NodeInfo *node = (NodeInfo *)malloc(sizeof(NodeInfo));
+		uint8_t *data_tmp;
+		uint8_t *tmp_decrypted_data = malloc(BLOCK_SIZE * sizeof(uint8_t) * numBlocks_cached);
+		uint8_t *signiture_tmp = (uint8_t *)malloc( sizeof(uint8_t) * 32);
+
+		
+		if (i == 0) {
+			get_plain_data(fileNum, numBlocks_cached, data_tmp);
+		}else{
+			for (int j = 0; j < 16; j++) node->ip[j] = files[fileNum].nodes[i].ip[j];
+			node->chunk_id = files[fileNum].nodes[i].chunk_id;
+			node->port = files[fileNum].nodes[i].port;
+			node->is_parity_peer = files[fileNum].nodes[i].is_parity_peer;
+			node->socket_fd = files[fileNum].nodes[i].socket_fd;
+			ocall_get_plain_data(fileNum, numBlocks_cached, data_tmp, signiture_tmp, node, sizeof(NodeInfo));
+
+
+			uint8_t new_signiture [32];
+			size_t len = 32;
+			uint8_t tmp_for_signature [32];
+			memcpy(tmp_for_signature, signiture_tmp + (i * 32), 32);
+
+			hmac_sha2(files[fileNum].sig_Key, 32, data_tmp + (i * BLOCK_SIZE * numBlocks_cached), BLOCK_SIZE * numBlocks_cached, new_signiture, &len);
+
+
+			memcpy(tmp_decrypted_data, data_tmp + (i * BLOCK_SIZE * numBlocks_cached), numBlocks_cached * BLOCK_SIZE);
+			DecryptData(files[fileNum].PC_Key, tmp_decrypted_data, numBlocks_cached * BLOCK_SIZE);
+			memcpy(data_tmp + (i * BLOCK_SIZE * numBlocks_cached), tmp_decrypted_data, numBlocks_cached * BLOCK_SIZE);
+		}
+
+		memcpy(data + (i * numBlocks_cached * BLOCK_SIZE), data_tmp, numBlocks_cached * BLOCK_SIZE);
+		free(data_tmp);
+		free(node);
+		free(tmp_decrypted_data);
+	}
+
+	ocall_write_recovered_file(data, numBlocks_cached * BLOCK_SIZE * k_cached);
+
+
+	// -------------------------------- end time for bench marking -------------------------------- 
+	ocall_test_time(end_time);
+
+	// -------------------------------- log info -------------------------------- 
+	// double total_time = ((*end_time - *start_section_2) + (*end_section_1 - *start_time));
+	ocall_printf("===============================================", strlen("==============================================="), 0);
+	ocall_printf("Total time For retrieve Entire file", strlen("Total time For retrieve Entire file"), 0);
+	// ocall_printdouble(&total_time);
+	ocall_log_double("=", 0);
+	// ocall_log_double("Total time For retrieve Entire file before: %f", (*end_time - *start_section_2));
+	// ocall_log_double("Total time For retrieve Entire file after: %f", (*end_section_1 - *start_time));
+	// ocall_log_double("codeword time: %f", (*end_section_1 - *section_time_codeword));
+
+	ocall_log_double("=", 0);
+	ocall_printf("===============================================", strlen("==============================================="), 0);
+
+
+	// -------------------------------- free memory -------------------------------- 
+	free(start_time);
+	free(end_time);
+	free(neg_start_time);
+	free(neg_end_time);
+	free(total_neg_time);
+	free(neg_code_word_start_time);
+	free(neg_code_word_end_time);
+
+
+	return;
+}
