@@ -3658,14 +3658,12 @@ void ecall_retrieve_File(const char *fileName) {
 	double *neg_end_time = malloc(sizeof(double));
 	double *neg_code_word_start_time = malloc(sizeof(double));
 	double *neg_code_word_end_time = malloc(sizeof(double));
-	double *total_neg_time = malloc(sizeof(double));
+	double total_neg_time = 0;
 	double section_time_1;
 	double section_time_2;
 
 
 
-	// ================================ start time ================================
-	ocall_test_time(start_time);
 
 
 	int *toggle = malloc(sizeof(int));
@@ -3707,9 +3705,6 @@ void ecall_retrieve_File(const char *fileName) {
 
 	int num_code_words_counter = 0;
 
-	// -------------------------------- start time for bench marking SECTION CODEWORD -------------------------------- 
-	double *section_time_codeword = malloc(sizeof(double));
-	ocall_test_time(section_time_codeword);
 
 	for(int i = 0; i < NUM_NODES; i++) {
 
@@ -3718,11 +3713,11 @@ void ecall_retrieve_File(const char *fileName) {
 			// -------------------------------- get the counter for sleep time of the local SSD (LPC) -------------------------------- 
 			int sleep_counter1;
 			int sleep_counter2;
-			ocall_get_counter(&sleep_counter1);
 			double codeword_time_start;
 			double codeword_time_end;
-			ocall_test_time(&codeword_time_start);
 			for(int j = 0; j < num_retrieval_rq_per_peer; j++) {
+			ocall_get_counter(&sleep_counter1);
+			ocall_test_time(&codeword_time_start);
 				
 				uint8_t *local_data_tmp = (uint8_t *)malloc(BLOCK_SIZE * sizeof(uint8_t) * k_cached);
 				local_code_words(fileNum, j, local_data_tmp, toggle);
@@ -3731,16 +3726,17 @@ void ecall_retrieve_File(const char *fileName) {
 				
 				free(local_data_tmp);
 				num_code_words_counter++;
-			}
+
 			ocall_test_time(&codeword_time_end);
 			double codeword_time = codeword_time_end - codeword_time_start;
-			ocall_log_double("=", 0);
-			ocall_log_double("codeword time: %f", codeword_time);
-			ocall_log_double("=", 0);
 			ocall_get_counter(&sleep_counter2);
+			
 			ocall_log_double("-**==**-**==**-**==**-**==**-**==**-**==**-**==**-**==**", 0);
+			ocall_log_double("codeword ID: %f", (double)(j));
+			ocall_log_double("codeword time: %f", codeword_time);
 			ocall_log_double("Sleep time: - %f", (double)(sleep_counter2 - sleep_counter1) * 0.1);
 			ocall_log_double("-**==**-**==**-**==**-**==**-**==**-**==**-**==**-**==**", 0);
+			}
 			continue;
 		}
 
@@ -3755,16 +3751,13 @@ void ecall_retrieve_File(const char *fileName) {
 	}
 	
 
-	// -------------------------------- End time for bench marking SECTION 1 -------------------------------- 
-	double *end_section_1 = malloc(sizeof(double));
-	ocall_test_time(end_section_1);
 
 	// -------------------------------- request code words from other peers -------------------------------- 
 	ocall_retrieve_code_words(fileNum, nodes, sizeof(NodeInfo), nodes_count, signiture_tmp, data_tmp, data_tmp_size, data_tmp_count, num_retrieval_rq_per_peer, num_code_words_counter, num_code_words, remainder);
 
-	// -------------------------------- start time for bench marking SECTION 2 -------------------------------- 
-	double *start_section_2 = malloc(sizeof(double));
-	ocall_test_time(start_section_2);
+	// ================================ start time ================================
+	ocall_test_time(start_time);
+
 
 	// -------------------------------- decrypt the code words -------------------------------- 
 	for (int i = num_retrieval_rq_per_peer; i < num_code_words; i++) {
@@ -3794,6 +3787,9 @@ void ecall_retrieve_File(const char *fileName) {
 			ocall_printint(&i);
 		}
 
+		ocall_test_time(neg_end_time);
+		total_neg_time += (*neg_end_time - *neg_start_time);
+
 
 		uint8_t *tmp_decrypted_data = malloc(BLOCK_SIZE * sizeof(uint8_t) * k_cached);
 		memcpy(tmp_decrypted_data, data_tmp + (i * BLOCK_SIZE * k_cached), k_cached * BLOCK_SIZE);
@@ -3802,6 +3798,9 @@ void ecall_retrieve_File(const char *fileName) {
 		free(tmp_decrypted_data);
 
 	}
+
+	ocall_test_time(end_time);
+
 
 	// -------------------------------- wiret the recovered data in the correct place  -------------------------------- 
 	for (int i = 0; i < numBlocks_cached; i++) {
@@ -3831,23 +3830,15 @@ void ecall_retrieve_File(const char *fileName) {
 	if (*toggle == 1) {
 		ocall_init_parity(numBits);
 		ocall_printf("Recovered file", 15, 0);
-
-
 	}
 
-	// -------------------------------- end time for bench marking -------------------------------- 
-	ocall_test_time(end_time);
-
 	// -------------------------------- log info -------------------------------- 
-	double total_time = ((*end_time - *start_section_2) + (*end_section_1 - *start_time));
+	double total_time = ((*end_time - *start_time)) - total_neg_time;
 	ocall_printf("===============================================", strlen("==============================================="), 0);
 	ocall_printf("Total time For retrieve Entire file", strlen("Total time For retrieve Entire file"), 0);
 	ocall_printdouble(&total_time);
 	ocall_log_double("=", 0);
-	ocall_log_double("Total time For retrieve Entire file before: %f", (*end_time - *start_section_2));
-	ocall_log_double("Total time For retrieve Entire file after: %f", (*end_section_1 - *start_time));
-	ocall_log_double("codeword time: %f", (*end_section_1 - *section_time_codeword));
-
+	ocall_log_double("Total time For retrieve Entire file before: %f", total_time);
 	ocall_log_double("=", 0);
 	ocall_printf("===============================================", strlen("==============================================="), 0);
 
@@ -3857,7 +3848,7 @@ void ecall_retrieve_File(const char *fileName) {
 	free(end_time);
 	free(neg_start_time);
 	free(neg_end_time);
-	free(total_neg_time);
+	// free(total_neg_time);
 	free(neg_code_word_start_time);
 	free(neg_code_word_end_time);
 
@@ -3869,13 +3860,20 @@ void ecall_retrieve_File(const char *fileName) {
 
 void get_plain_data(int fileNum, int numBlocks_cached, uint8_t *data) {
 
-	data = (uint8_t *)malloc(numBlocks_cached * BLOCK_SIZE * sizeof(uint8_t));
+	// data_tmp = (uint8_t *)malloc(numBlocks_cached * BLOCK_SIZE * sizeof(uint8_t));
 
 	for (int i = 0; i < numBlocks_cached; i++) {
+		ocall_printf("the id", strlen("the id"),0);
+		ocall_printint(&i);
+
 		uint8_t *tmpBlock = (uint8_t *)malloc(BLOCK_SIZE);
-		int *status;
+		uint8_t *status = malloc(sizeof(uint8_t));
+
 
 		check_block(fileNum, i, status, tmpBlock);
+		ocall_printf(tmpBlock,BLOCK_SIZE,1);
+
+		ocall_printf("the id", strlen("I am here"),0);
 		if (*status == 0) {
 			ocall_printf("THE BLOCK IS VALID", 18, 0);
 			// if the block is not corrupted, we can directly assign the code word
@@ -3885,14 +3883,15 @@ void get_plain_data(int fileNum, int numBlocks_cached, uint8_t *data) {
 		}else{
 			ocall_printf("local block is corrupted", 15, 0);
 		}
-	
+		free(status);
+		free(tmpBlock);
 	}
 
 }
 
 void ecall_get_plain_data(int fileNum, int numBlocks_cached, uint8_t *data, uint8_t *signiture_tmp) {
 
-	uint8_t *data_tmp;
+	uint8_t *data_tmp = (uint8_t *)malloc(numBlocks_cached * BLOCK_SIZE * sizeof(uint8_t));
 	uint8_t *tmp_decrypted_data = malloc(BLOCK_SIZE * sizeof(uint8_t) * numBlocks_cached);
 
 
@@ -3951,20 +3950,37 @@ void ecall_retrieve_plain_File(const char *fileName) {
 	
 	for (int i = 0; i < k_cached; i++) {
 		NodeInfo *node = (NodeInfo *)malloc(sizeof(NodeInfo));
-		uint8_t *data_tmp;
+		uint8_t *data_tmp = (uint8_t *)malloc(numBlocks_cached * BLOCK_SIZE * sizeof(uint8_t));
 		uint8_t *tmp_decrypted_data = malloc(BLOCK_SIZE * sizeof(uint8_t) * numBlocks_cached);
 		uint8_t *signiture_tmp = (uint8_t *)malloc( sizeof(uint8_t) * 32);
 
+		ocall_printint(&i);
 		
 		if (i == 0) {
+			ocall_test_time(start_time);
+			int sleep_counter1;
+			ocall_get_counter(&sleep_counter1);
 			get_plain_data(fileNum, numBlocks_cached, data_tmp);
+			int sleep_counter2;
+			ocall_get_counter(&sleep_counter2);
+			ocall_test_time(end_time);
+			ocall_log_double("=", 0);
+			ocall_log_double("time for plain data internal %f", (*end_time - *start_time) + ((double)(sleep_counter2 - sleep_counter1) * 0.1));
+			ocall_log_double("=", 0);
+
 		}else{
+			ocall_test_time(start_time);
+
 			for (int j = 0; j < 16; j++) node->ip[j] = files[fileNum].nodes[i].ip[j];
 			node->chunk_id = files[fileNum].nodes[i].chunk_id;
 			node->port = files[fileNum].nodes[i].port;
+
 			node->is_parity_peer = files[fileNum].nodes[i].is_parity_peer;
 			node->socket_fd = files[fileNum].nodes[i].socket_fd;
+
 			ocall_get_plain_data(fileNum, numBlocks_cached, data_tmp, signiture_tmp, node, sizeof(NodeInfo));
+			// ocall_printf(data_tmp,40,1);
+			// ocall_printf(signiture_tmp,32,1);
 
 
 			uint8_t new_signiture [32];
@@ -3972,16 +3988,28 @@ void ecall_retrieve_plain_File(const char *fileName) {
 			uint8_t tmp_for_signature [32];
 			memcpy(tmp_for_signature, signiture_tmp + (i * 32), 32);
 
-			hmac_sha2(files[fileNum].sig_Key, 32, data_tmp + (i * BLOCK_SIZE * numBlocks_cached), BLOCK_SIZE * numBlocks_cached, new_signiture, &len);
+			hmac_sha2(files[fileNum].sig_Key, 32, data_tmp , BLOCK_SIZE * numBlocks_cached, new_signiture, &len);
 
 
-			memcpy(tmp_decrypted_data, data_tmp + (i * BLOCK_SIZE * numBlocks_cached), numBlocks_cached * BLOCK_SIZE);
+			memcpy(tmp_decrypted_data, data_tmp, numBlocks_cached * BLOCK_SIZE);
 			DecryptData(files[fileNum].PC_Key, tmp_decrypted_data, numBlocks_cached * BLOCK_SIZE);
-			memcpy(data_tmp + (i * BLOCK_SIZE * numBlocks_cached), tmp_decrypted_data, numBlocks_cached * BLOCK_SIZE);
+			ocall_printf(tmp_decrypted_data, 40,1);
+			
+			
+			memcpy(data_tmp, tmp_decrypted_data, numBlocks_cached * BLOCK_SIZE);
+			ocall_test_time(end_time);
+			ocall_log_double("=", 0);
+			ocall_log_double("the node number %f", (double)(i));
+			ocall_log_double("time for plain data external %f", (*end_time - *start_time));
+			ocall_log_double("=", 0);
+
 		}
+		
+		
 
 		memcpy(data + (i * numBlocks_cached * BLOCK_SIZE), data_tmp, numBlocks_cached * BLOCK_SIZE);
-		free(data_tmp);
+		
+		// free(data_tmp);
 		free(node);
 		free(tmp_decrypted_data);
 	}
@@ -3997,12 +4025,12 @@ void ecall_retrieve_plain_File(const char *fileName) {
 	ocall_printf("===============================================", strlen("==============================================="), 0);
 	ocall_printf("Total time For retrieve Entire file", strlen("Total time For retrieve Entire file"), 0);
 	// ocall_printdouble(&total_time);
-	ocall_log_double("=", 0);
+	// ocall_log_double("=", 0);
 	// ocall_log_double("Total time For retrieve Entire file before: %f", (*end_time - *start_section_2));
 	// ocall_log_double("Total time For retrieve Entire file after: %f", (*end_section_1 - *start_time));
 	// ocall_log_double("codeword time: %f", (*end_section_1 - *section_time_codeword));
 
-	ocall_log_double("=", 0);
+	// ocall_log_double("=", 0);
 	ocall_printf("===============================================", strlen("==============================================="), 0);
 
 

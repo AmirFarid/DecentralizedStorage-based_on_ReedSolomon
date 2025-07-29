@@ -2556,6 +2556,7 @@ void ocall_get_plain_data(int fileNum, int numBlocks_cached, uint8_t *data, uint
 
     // PLAIN_DATA request sending
 
+
      RequestType request = PLAIN_DATA;
 
      int client_socket = socket(AF_INET, SOCK_STREAM, 0);
@@ -2563,6 +2564,7 @@ void ocall_get_plain_data(int fileNum, int numBlocks_cached, uint8_t *data, uint
         perror("Failed to create socket");
         return;
      }
+
 
      struct sockaddr_in server_addr;
      server_addr.sin_family = AF_INET;

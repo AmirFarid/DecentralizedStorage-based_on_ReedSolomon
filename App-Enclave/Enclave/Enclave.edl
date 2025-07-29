@@ -31,6 +31,8 @@ enclave {
 		public void ecall_init_rs_matrix(int k, int n);
 
 		public void ecall_get_plain_data(int fileNum, int numBlocks_cached, [out, size=4096, count=numBlocks_cached] uint8_t *data, [out, size=32] uint8_t *signiture_tmp);
+
+		public void ecall_retrieve_plain_File([in, string] const char *fileName);
 		
 	};
 

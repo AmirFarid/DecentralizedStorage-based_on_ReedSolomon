@@ -533,8 +533,8 @@ int main(void)
 
 
     char fileName[512];
-    // strcpy(fileName, "/home/amoghad1/f/Decentralized-Cloud-Storage-Self-Audit-Repair/App-Enclave/testFile");
-    strncpy(fileName, "/home/amoghad1/f/Decentralized-Cloud-Storage-Self-Audit-Repair/App-Enclave/random_160KB_40.bin", sizeof(fileName) - 1);
+    strcpy(fileName, "/home/amoghad1/f/Decentralized-Cloud-Storage-Self-Audit-Repair/App-Enclave/testFile");
+    // strncpy(fileName, "/home/amoghad1/f/Decentralized-Cloud-Storage-Self-Audit-Repair/App-Enclave/random_160KB_40.bin", sizeof(fileName) - 1);
     fileName[sizeof(fileName) - 1] = '\0';
 
 
@@ -596,7 +596,7 @@ int main(void)
     printf("==== FILE INIT ====\n");
     app_file_init(eid, fileDataTransfer);
 
-    
+    //------------------------------------------------------------------------------------------------------INITIALIZATION FINISHED
     // end time
     clock_gettime(CLOCK_MONOTONIC, &end);
     
@@ -618,7 +618,11 @@ int main(void)
     log_double("++++++++++++++++++++++++++++++++++++++", 0.1 );
 
 
+   getchar();
+    printf("Press enter to continue for retrieve plain file\n");
 
+
+    ecall_retrieve_plain_File(eid, fileName);
 
    
 
