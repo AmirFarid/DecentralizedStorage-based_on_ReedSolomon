@@ -515,7 +515,7 @@ int main(void)
     int n = 3;
     int k = 2;
     int m = n - k;
-    int mode = 2;
+    int mode = 1;
 
     inN = n;
     inK = k;
@@ -597,6 +597,14 @@ int main(void)
     app_file_init(eid, fileDataTransfer);
 
     //------------------------------------------------------------------------------------------------------INITIALIZATION FINISHED
+        printf("Stop here\n");
+    getchar();
+    getchar();
+    getchar();
+    getchar();
+    getchar();    
+    getchar();
+    printf("Press enter to continue for retrieve file\n");
     // end time
     clock_gettime(CLOCK_MONOTONIC, &end);
     
@@ -618,33 +626,31 @@ int main(void)
     log_double("++++++++++++++++++++++++++++++++++++++", 0.1 );
 
 
-   getchar();
     printf("Press enter to continue for retrieve plain file\n");
+    getchar();
 
 
     ecall_retrieve_plain_File(eid, fileName);
 
-   
 
-    
     // ecall_small_corruption(eid, fileName, 0);
     log_double("++++++++++++++++++++++++++++++++++++++", 0.1 );
     
-    
     log_double("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@", 0.1 );
-    
-    getchar();
-    printf("Press enter to continue for retrieve file\n");
-
-
     int tcp_sleeps = get_dcounter();
+    ecall_retrieve_File(eid, fileName);
+    tcp_sleeps = get_dcounter() - tcp_sleeps;
+    log_double("total SLEEPS: - %f",  (double)tcp_sleeps * 30 );
+    log_double("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@", 0.1 );
+
+
+
     
     struct timespec start1, end1;
 
     clock_gettime(CLOCK_MONOTONIC, &start1);
     
     
-    ecall_retrieve_File(eid, fileName);
 
     clock_gettime(CLOCK_MONOTONIC, &end1);
 
@@ -657,11 +663,8 @@ int main(void)
     
     
     
-    tcp_sleeps = get_dcounter() - tcp_sleeps;
     // log_double("FTL SLEEPS end: - %f", (double)ftl_sleeps2_p);
     // log_double("TCP SLEEPS: - %f", (double)tcp_sleeps);
-    log_double("total SLEEPS: - %f",  (double)tcp_sleeps * 30   );
-    log_double("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@", 0.1 );
 
     printf("Press enter to continue for small corruption Block 0 and audit file\n");
     getchar();
