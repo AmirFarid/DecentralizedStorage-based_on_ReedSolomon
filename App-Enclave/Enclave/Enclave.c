@@ -3965,7 +3965,7 @@ void ecall_retrieve_plain_File(const char *fileName) {
 			ocall_get_counter(&sleep_counter2);
 			ocall_test_time(end_time);
 			ocall_log_double("=", 0);
-			ocall_log_double("time for plain data internal %f", (*end_time - *start_time) + ((double)(sleep_counter2 - sleep_counter1) * 0.1));
+			ocall_log_double("time for plain data internal %f", (*end_time - *start_time) - ((double)(sleep_counter2 - sleep_counter1) * 0.1));
 			ocall_log_double("=", 0);
 
 		}else{

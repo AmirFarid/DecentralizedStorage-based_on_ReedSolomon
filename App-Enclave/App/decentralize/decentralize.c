@@ -47,8 +47,8 @@ typedef enum
 NodeInfo nodes[NUM_NODES] = {
     {"192.168.0.202", 8080, -1, 0}, // This is the host node do not count it as a node
     {"192.168.0.203", 8080, -1, 0},
-    // {"192.168.0.204", 8080, -1, 0},
-    // {"192.168.0.201", 8080, -1, 0},
+    {"192.168.0.204", 8080, -1, 0},
+    {"192.168.0.201", 8080, -1, 0},
     {"192.168.0.202", 8080, -1, 0},
     
 
@@ -1252,8 +1252,8 @@ void ocall_retrieve_code_words(int fileNum, NodeInfo *nodes, int node_size, int 
     // first retrieved locally
     // int requested_code_words = total_code_words - num_code_words;
 
-    ThreadWrapperArgs *wrapper_args = malloc((num_code_words * num_retrieval_rq_per_peer) * sizeof(ThreadWrapperArgs));
-    pthread_t *threads = malloc((num_code_words * num_retrieval_rq_per_peer) * sizeof(pthread_t));
+    ThreadWrapperArgs *wrapper_args = malloc(((num_code_words * num_retrieval_rq_per_peer)+remainder) * sizeof(ThreadWrapperArgs));
+    pthread_t *threads = malloc(((num_code_words * num_retrieval_rq_per_peer)+remainder) * sizeof(pthread_t));
 
 
 
@@ -1264,8 +1264,8 @@ void ocall_retrieve_code_words(int fileNum, NodeInfo *nodes, int node_size, int 
                 // double e_time = end.tv_sec + (end.tv_nsec / 1e9);
 
 
-    printf("Press enter to continue\n");
-    getchar();
+    // printf("Press enter to continue\n");
+    // getchar();
     int thread_idx = 0;
     for (int i = 1 ; i < k; i++)
     {
@@ -1282,7 +1282,6 @@ void ocall_retrieve_code_words(int fileNum, NodeInfo *nodes, int node_size, int 
             dcounter++;
             printf("I AM inside the loop 1\n");
             
-            // sleep(30);
                 wrapper_args[thread_idx].fileNum = fileNum;
                 wrapper_args[thread_idx].blockNum = num_code_words_counter;
                 wrapper_args[thread_idx].node_id = nodes[i].chunk_id;
@@ -1293,14 +1292,14 @@ void ocall_retrieve_code_words(int fileNum, NodeInfo *nodes, int node_size, int 
                 pthread_create(&threads[thread_idx], NULL, get_code_word, &wrapper_args[thread_idx]);
                 num_code_words_counter ++;
                 thread_idx ++;
-            printf("Press enter to continue\n");
-            getchar();
+            sleep(10);
+            // printf("Press enter to continue\n");
+            // getchar();
             }
             if(counter > 0){
             printf("I AM inside the loop 2\n");
 
             dcounter++;
-            // sleep(30);
                 wrapper_args[thread_idx].fileNum = fileNum;
                 wrapper_args[thread_idx].blockNum = num_code_words_counter;
                 wrapper_args[thread_idx].node_id = nodes[i].chunk_id;
@@ -1312,8 +1311,9 @@ void ocall_retrieve_code_words(int fileNum, NodeInfo *nodes, int node_size, int 
                 counter--;
                 num_code_words_counter ++;
                 thread_idx ++;
-            printf("Press enter to continue\n");
-            getchar();
+            sleep(10);
+            // printf("Press enter to continue\n");
+            // getchar();
             }
 
             printf("I AM HERE 2\n");
@@ -2255,7 +2255,7 @@ void preprocessing(sgx_enclave_id_t eid, int mode, char *fileChunkName, FileData
     printf("Preprocessing totaltime: + %f seconds\n", e_time - s_time);
     printf("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n");
 
-getchar();
+// getchar();
 
     // initialize the fileDataTransfer
     fileDataTransfer->numBlocks = Number_Of_Blocks;

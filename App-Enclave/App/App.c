@@ -512,10 +512,10 @@ int main(void)
     struct timeval start_time, end_time;
     double cpu_time_used;
 
-    int n = 3;
-    int k = 2;
+    int n = 16;
+    int k = 4;
     int m = n - k;
-    int mode = 1;
+    int mode = 2;
 
     inN = n;
     inK = k;
@@ -597,14 +597,6 @@ int main(void)
     app_file_init(eid, fileDataTransfer);
 
     //------------------------------------------------------------------------------------------------------INITIALIZATION FINISHED
-        printf("Stop here\n");
-    getchar();
-    getchar();
-    getchar();
-    getchar();
-    getchar();    
-    getchar();
-    printf("Press enter to continue for retrieve file\n");
     // end time
     clock_gettime(CLOCK_MONOTONIC, &end);
     
@@ -642,7 +634,14 @@ int main(void)
     tcp_sleeps = get_dcounter() - tcp_sleeps;
     log_double("total SLEEPS: - %f",  (double)tcp_sleeps * 30 );
     log_double("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@", 0.1 );
-
+    printf("Stop here\n");
+    getchar();
+    getchar();
+    getchar();
+    getchar();
+    getchar();    
+    getchar();
+    printf("Press enter to continue for retrieve file\n");
 
 
     
