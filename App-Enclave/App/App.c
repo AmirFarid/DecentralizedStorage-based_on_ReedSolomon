@@ -512,8 +512,8 @@ int main(void)
     struct timeval start_time, end_time;
     double cpu_time_used;
 
-    int n = 16;
-    int k = 4;
+    int n = 4;
+    int k = 2;
     int m = n - k;
     int mode = 2;
 
@@ -602,11 +602,17 @@ int main(void)
     
     double s_time = start.tv_sec + (start.tv_nsec / 1e9);
     double e_time = end.tv_sec + (end.tv_nsec / 1e9);
+    ecall_retrieve_File(eid, fileName);
 
 
 
 
 
+    getchar();
+    getchar();
+    getchar();
+    ecall_small_corruption(eid, fileName, 1);
+    getchar();
 
 
     log_double("=",0);

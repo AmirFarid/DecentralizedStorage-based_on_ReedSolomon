@@ -43,29 +43,58 @@ void get_file_size(FILE *file){
 
 }
 
-void write_file(uint16_t *chunks, int n, int k, int chunk_size, int mode, int is_parity){
+void write_file(uint16_t *chunks, int n, int k, int chunk_size, int mode, int is_parity, uint8_t *Shuffle_key){
+
+    int num_blocks = chunk_size / 2048;
 
     if(is_parity == 1){
-        for (int i = k; i < n; i++) {
+
+
+
+
+      for( int i = k; i < n; i++){
+        uint16_t *parity = malloc(sizeof(uint16_t) * chunk_size);
         char filename[100];
+        // specify the file name
         if (mode == 2){
             snprintf(filename, sizeof(filename), "App/decentralize/chunks/data_%d.dat", i);
         }else if (mode == 1){
             snprintf(filename, sizeof(filename), "App/decentralize/NF/data_%d.dat", i);
         }
-
+        // open the file
         FILE *file = fopen(filename, "wb");
-         if (!file) {
+        if (!file) {
         perror("fopen failed");
         exit(EXIT_FAILURE);
-    }
-        if (fwrite(&chunks[i * chunk_size], sizeof(uint16_t), chunk_size, file) != chunk_size) {
+        }
+        // find the tuple for the digit
+        printf("i: %d\n", i);
+        printf("=======================================\n");
+        for (int j = 0; j < num_blocks; j++) {
+        int *tuple = malloc(sizeof(int) * n);
+        find_tuple_for_digit(Shuffle_key, j, tuple, num_blocks* n, n);
+          for (int l = 0; l < 2048; l++) {
+            parity[(tuple[i] % num_blocks) * 2048 + l] = chunks[(i* chunk_size) + j * 2048 + l];
+            // if ( l < 20) {
+            //   printf("parity[%d]: %X\n", l, parity[(tuple[i] % num_blocks) * 2048 + l]);
+            //   printf("chunks[%d]: %d\n", l, chunks[j * 2048 + l]);
+
+            // }
+          }
+        free(tuple);
+        }
+        // if (fwrite(&parity[(i * 2048)], sizeof(uint16_t), 2048, file) != 2048) {
+        if (fwrite(parity, sizeof(uint16_t), chunk_size, file) != chunk_size) {
         perror("fwrite failed");
         fclose(file);
         exit(EXIT_FAILURE);
-    }
         fclose(file);
-    }
+        }
+        free(parity);
+        fclose(file);
+      }
+
+
   }else{
     
         for (int i = 0; i < k; i++) {
@@ -146,7 +175,7 @@ void recover(int chunk_size, int padding_size) {
 
 
 #include <inttypes.h> // for PRIu16
-void encode(uint16_t *chunks, int n, int chunk_size, int mode) {
+void encode(uint16_t *chunks, int n, int chunk_size, int mode, uint8_t *Shuffle_key) {
 
     int counter2 = 0;
 
@@ -161,6 +190,8 @@ void encode(uint16_t *chunks, int n, int chunk_size, int mode) {
     int num_blocks = chunk_size / 2048;
     printf("num_blocks: %d\n", num_blocks);
     int counter = 0;
+    int holo =0;
+    int cc=30;
     for (size_t j = 0; j < num_blocks; j++)
     {
     
@@ -182,9 +213,20 @@ void encode(uint16_t *chunks, int n, int chunk_size, int mode) {
           // Encode
           jerasure_matrix_encode(rs_K, rs_N-rs_K, symSize, matrix, data_ptrs, coding_ptrs, sizeof(uint16_t));
           // Store results
+          if(j != holo){
+            printf("this is j %d\n",j);
+            printf("\n");
+
+            holo = j;
+            cc = 30;
+          }
           for (int i = rs_K; i < rs_N; i++) {
             // I am pretty sure tomorrow I will regret this
-              chunks[(num_blocks * 2048 * rs_K) + (j *2048) + ((i-rs_K) * num_blocks * 2048) + s] = *((uint16_t *)coding_ptrs[i-rs_K]);              
+              chunks[(num_blocks * 2048 * rs_K) + (j *2048) + ((i-rs_K) * num_blocks * 2048) + s] = *((uint16_t *)coding_ptrs[i-rs_K]);
+              if (cc >= 0 && i == rs_K){
+                printf("%X",chunks[(num_blocks * 2048 * rs_K) + (j *2048) + ((i-rs_K) * num_blocks * 2048) + s] );
+                cc -=1;
+              }              
           }
           // Cleanup
           for (int i = 0; i < rs_K; i++) free(data_ptrs[i]);
@@ -193,11 +235,17 @@ void encode(uint16_t *chunks, int n, int chunk_size, int mode) {
           free(coding_ptrs);
       }
     }
+
+    for(int i =0; i < num_blocks;i++){
+
+    }
+
+
     // only write the parity chunks
     struct timespec start, end;
 
     clock_gettime(CLOCK_MONOTONIC, &start);
-    write_file(chunks, rs_N, rs_K, chunk_size, mode, 1);
+    write_file(chunks, rs_N, rs_K, chunk_size, mode, 1, Shuffle_key);
     clock_gettime(CLOCK_MONOTONIC, &end);
 
     double s_time = start.tv_sec + (start.tv_nsec / 1e9);
@@ -644,7 +692,7 @@ void matrix_dotprod(int k, int w, int *matrix_row,
 //                 if (file == NULL) {
 //                     file = fopen(filename, "wb");
 //                 }
-                
+                // Read file time
 //                 uint16_t value;
 //                 if (idx < rs_K) {
 //                     value = *((uint16_t *)data_ptrs[idx]);
@@ -733,25 +781,50 @@ void read_file(const char *filename, uint16_t **chunks, int *chunk_size, int *pa
 
     uint16_t *chunks2 = (uint16_t *)calloc(rs_N * (*chunk_size), sizeof(uint16_t));
 
+    struct timespec start2, end2;
+
+    clock_gettime(CLOCK_MONOTONIC, &start2);
+
+    int **tuple_map = malloc(sizeof(int*) * num_blocks);
+    for (int i = 0; i < num_blocks; i++) {
+        tuple_map[i] = malloc(sizeof(int) * rs_N);
+        find_tuple_for_digit(Shuffle_key, i, tuple_map[i], num_blocks * rs_N, rs_N);
+    }
 
     for (int i = 0; i < num_blocks; i++) {
-      int *tuple = malloc(sizeof(int) * rs_K);
-      find_tuple_for_digit(Shuffle_key, i, tuple, num_blocks*rs_K, rs_K);
+      // int *tuple = malloc(sizeof(int) * rs_K);
+      // find_tuple_for_digit(Shuffle_key, i, tuple, num_blocks*rs_K, rs_K);
+      int *tuple = tuple_map[i];
         for (int k = 0; k < rs_K; k++) {
-          printf("tuple[%d]: %d\n", k, tuple[k]);
+          // printf("tuple[%d]: %d\n", k, tuple[k]);
           for (int j = 0; j < 2048; j++) {
             chunks2[((k *num_blocks)+i) * 2048 + j] = (*chunks)[tuple[k] * 2048 + j];
           }
+        }
+        for (int k = 0; k < rs_N; k++) {
+          printf("tuple[%d]: %d\n", k, tuple[k]);
         }
        printf("====================================\n");
        free(tuple);
     }
 
+    // getchar();
 
-    encode(chunks2, rs_N, *chunk_size, mode);
-    write_file(*chunks, rs_N, rs_K, *chunk_size, mode, 0);
+    encode(chunks2, rs_N, *chunk_size, mode, Shuffle_key);
+
+    clock_gettime(CLOCK_MONOTONIC, &end2);
+
+    double s_time2 = start2.tv_sec + (start2.tv_nsec / 1e9);
+    double e_time2 = end2.tv_sec + (end2.tv_nsec / 1e9);
+    printf("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n");
+
+    printf("check time imp: %f seconds\n", e_time2 - s_time2);
+    printf("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n");
+    write_file(*chunks, rs_N, rs_K, *chunk_size, mode, 0, Shuffle_key);
     free(chunks2);
     fclose(file);
+
+    free(tuple_map);
 }
 
 // void remove_file(int index) {

@@ -46,9 +46,9 @@ typedef enum
 
 NodeInfo nodes[NUM_NODES] = {
     {"192.168.0.202", 8080, -1, 0}, // This is the host node do not count it as a node
-    {"192.168.0.203", 8080, -1, 0},
-    {"192.168.0.204", 8080, -1, 0},
-    {"192.168.0.201", 8080, -1, 0},
+    // {"192.168.0.203", 8080, -1, 0},
+    // {"192.168.0.204", 8080, -1, 0},
+    // {"192.168.0.201", 8080, -1, 0},
     {"192.168.0.202", 8080, -1, 0},
     
 
@@ -1482,18 +1482,38 @@ void *request_data_from_node(void *arg)
 
             for(int j = 0; j < BLOCK_SIZE; j++){
                 if(j < 40){
-                printf("%X", ALL_DATA[K * Number_Of_Blocks * BLOCK_SIZE + (args->total_blocks_index * BLOCK_SIZE) + j]);
+                // printf("%X", ALL_DATA[K * Number_Of_Blocks * BLOCK_SIZE + (args->total_blocks_index * BLOCK_SIZE) + j]);
+                printf("%X", ALL_DATA[args->total_blocks_index * BLOCK_SIZE + j]);
+
                 }
-                shared_args->output_code_word_buffer[args->offset * BLOCK_SIZE + j] = ALL_DATA[K * Number_Of_Blocks * BLOCK_SIZE + (args->total_blocks_index * BLOCK_SIZE) + j];
+                shared_args->output_code_word_buffer[args->offset * BLOCK_SIZE + j] = ALL_DATA[args->total_blocks_index * BLOCK_SIZE + j];
+
+                // shared_args->output_code_word_buffer[args->offset * BLOCK_SIZE + j] = ALL_DATA[K * Number_Of_Blocks * BLOCK_SIZE + (args->total_blocks_index * BLOCK_SIZE) + j];
                     // shared_args->output_index_list[args->offset * 32 + j] = SIGNATURES[K * Number_Of_Blocks * 32 + (args->total_blocks_index * 32) + j];
             }
+
+            //     uint8_t *tmp_for_decrypt = malloc(BLOCK_SIZE);
+			// 	memcpy(tmp_for_decrypt, ALL_DATA+ (args->total_blocks_index * BLOCK_SIZE), BLOCK_SIZE);
+			// 	DecryptData2(PC_KEY, tmp_for_decrypt, BLOCK_SIZE);
+             
+            // printf("\n");
+            // printf("\n");
+            // printf("\n");
+            // printf("\n");
+            // printf("\n");
+
+            // for(int j = 0; j < 40; j++){
+            //     printf("%X", tmp_for_decrypt[j]);
+            // }
 
             printf("\n");
             printf("Signature: fake 2 %d\n", args->offset);
             for(int i = 0; i < 32; i++){
-                shared_args->output_signature_list[args->offset * 32 + i] = SIGNATURES[K * Number_Of_Blocks * 32 + (args->total_blocks_index * 32) + i];
+                // shared_args->output_signature_list[args->offset * 32 + i] = SIGNATURES[K * Number_Of_Blocks * 32 + (args->total_blocks_index * 32) + i];
+                shared_args->output_signature_list[args->offset * 32 + i] = SIGNATURES[args->total_blocks_index * 32 + i];
+
                 // memcpy(shared_args->output_signature_list + args->offset * 32, SIGNATURES + (K * Number_Of_Blocks * 32 + (args->total_blocks_index * 32)), 32);
-                printf("%X", SIGNATURES[K * Number_Of_Blocks * 32 + (args->total_blocks_index * 32) + i]);
+                printf("%X", SIGNATURES[args->total_blocks_index * 32 + i]);
             }
             printf("\n");
         pthread_mutex_unlock(&shared_args->lock);
@@ -1701,6 +1721,7 @@ void ocall_get_batch_blocks(int fileNum, recoverable_block_indicies *rb_indicies
     }
 
     for(int i = K; i < N; i++){
+        sleep(2);
             printf("==============================================\n");
             printf("this is Parity turn: %d\n", i);
             printf("==============================================\n");
@@ -1787,6 +1808,7 @@ void ocall_get_rs_matrix(int k, int m, int symSize, int *matrix, int matrix_size
     free(rs_matrix);
 }
 
+
 /**
  * @brief this function divides the file into K chunks and generates N - K parity chunks.
  * distributes the chunks to the nodes if the chunk is a parity chunk, it encrypts the chunk with the parity chunk encryption key
@@ -1800,6 +1822,13 @@ void initiate_Chunks(char *fileChunkName, char *current_file, int n, int k)
 
     // divide the file into K chunks and generate N - K parity chunks. generated parities are stored in decentralize/chunks/chunk_i.bin
     initiate_rs(fileChunkName, k, n, Shuffle_key, 2);
+    printf("rs initiated\n");
+    getchar();
+
+
+    double total_time = 0;
+
+
 
     for (int i = 0; i < n; i++)
     {
@@ -1832,7 +1861,39 @@ void initiate_Chunks(char *fileChunkName, char *current_file, int n, int k)
             continue;
         }
 
-        // break;
+        // coment this after testing
+
+        if (i > k) {
+
+            uint8_t buffer[BLOCK_SIZE];
+
+            if(fread(buffer, 1, BLOCK_SIZE, fp) != BLOCK_SIZE) {
+                perror("Failed to read chunk file");
+                fclose(fp);
+                return;
+            }
+
+
+            uint8_t *buffer2 = malloc(BLOCK_SIZE);
+            memcpy(buffer2, buffer, BLOCK_SIZE);
+        
+        
+            struct timespec start, end;
+            clock_gettime(CLOCK_MONOTONIC, &start);
+
+            EncryptData2(PC_KEY, buffer2, BLOCK_SIZE);
+
+            clock_gettime(CLOCK_MONOTONIC, &end);
+            double s_time = start.tv_sec + (start.tv_nsec / 1e9);
+            double e_time = end.tv_sec + (end.tv_nsec / 1e9);
+            total_time += e_time - s_time;
+            if( i < n - 1) continue;
+        }
+        printf("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n");
+        printf("Time taken to  ecrypt all blocks: - %f seconds\n", total_time);
+        printf("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n");
+
+        break;
 
         uint32_t chunk_type = 1; // 1 for data chunk, 2 for parity chunk
         uint32_t chunk_len;
@@ -1910,13 +1971,13 @@ void initiate_Chunks(char *fileChunkName, char *current_file, int n, int k)
 
             // shuffle the file
             int num_bits = ceil(log2(Number_Of_Blocks));
-            for (int j = 0; j < Number_Of_Blocks; j++)
-            {
-                uint64_t permuted_index = feistel_network_prp(Shuffle_key, j, Number_Of_Blocks * (N -K));
-                while(permuted_index >= Number_Of_Blocks * (N -K)){
-                    permuted_index = feistel_network_prp(Shuffle_key, permuted_index, Number_Of_Blocks * (N -K));
-                }
-                printf("permuted_index: %d\n", permuted_index);
+            // for (int j = 0; j < Number_Of_Blocks; j++)
+            // {
+            //     uint64_t permuted_index = feistel_network_prp(Shuffle_key, j, Number_Of_Blocks * (N -K));
+            //     while(permuted_index >= Number_Of_Blocks * (N -K)){
+            //         permuted_index = feistel_network_prp(Shuffle_key, permuted_index, Number_Of_Blocks * (N -K));
+            //     }
+            //     printf("permuted_index: %d\n", permuted_index);
 
                 struct timespec start, end;
 
@@ -1935,7 +1996,7 @@ void initiate_Chunks(char *fileChunkName, char *current_file, int n, int k)
                 // printf("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n");
 
                 // offset += bytes_read;
-            }
+            // }
 
             for (int i = 0; i < Number_Of_Blocks; i++)
             {
@@ -2454,8 +2515,16 @@ void load_file_data(char *file_name, int num_blocks, int mode , int k , int n, s
         {
             uint8_t *buffer = malloc(BLOCK_SIZE);
 
-            int permuted_index = permutation((Number_Of_Blocks * (o - K) )+ j, num_bits2, Number_Of_Blocks * (N -K));
-            printf("this is the i %d and the permuted index: %d\n", (Number_Of_Blocks * (o - K) )+ j, permuted_index);
+            // int permuted_index = permutation((Number_Of_Blocks * (o - K) )+ j, num_bits2, Number_Of_Blocks * (N -K));
+            // printf("this is the i %d and the permuted index: %d\n", (Number_Of_Blocks * (o - K) )+ j, permuted_index);
+
+            printf("this is the block %d\n", j);
+            printf("this is the parity block %d\n", o);
+            printf("this is the offset %d\n", k - o);
+            printf("this is the num blocks %d\n", num_blocks);
+
+            // printf("this is the chunk file %d\n", chunk_file);
+
 
             if(fread(buffer, 1, BLOCK_SIZE, chunk_file) != BLOCK_SIZE) {
                 perror("Failed to read chunk file");
@@ -2464,19 +2533,57 @@ void load_file_data(char *file_name, int num_blocks, int mode , int k , int n, s
                 return;
             }
 
+            printf("$%d:1\n",j);
+
+            for(int i = 0; i < 32; i++){
+                printf("%X", buffer[i]);
+            }
+
+            printf("\n");
+
+
             uint8_t *buffer2 = malloc(BLOCK_SIZE);
             memcpy(buffer2, buffer, BLOCK_SIZE);
             EncryptData2(PC_KEY, buffer2, BLOCK_SIZE);
 
+            // printf("$%d:2\n",j);
+
+            // for(int i = 0; i < 32; i++){
+            //     printf("%X", buffer2[i]);
+            // }
+
+            printf("\n");
 
             ssize_t size = 32;
             uint8_t *buffer3 = malloc(BLOCK_SIZE);
 
             memcpy(buffer3, buffer2, BLOCK_SIZE);
-            hmac_sha2(sig_key, 32, (const uint8_t *)buffer3, BLOCK_SIZE, (uint8_t *)SIGNATURES + (K * num_blocks * 32) + (permuted_index * 32), &size);
+            hmac_sha2(sig_key, 32, (const uint8_t *)buffer3, BLOCK_SIZE, (uint8_t *)SIGNATURES + (K * num_blocks * 32) + ((o-k) * num_blocks * 32) + (j * 32), &size);
 
 
-            memcpy(ALL_DATA + (K * chunk_size) + (permuted_index * BLOCK_SIZE), buffer2, BLOCK_SIZE);
+            memcpy(ALL_DATA + (K * chunk_size) + ((o-k)* chunk_size)+ (j * BLOCK_SIZE), buffer2, BLOCK_SIZE);
+            // printf("$%d:3\n",j);
+
+            // for(int i = 0; i < 32; i++){
+            //     printf("%X", ALL_DATA[(K * chunk_size) + ((k-o)* chunk_size) + (j * BLOCK_SIZE) + i]);
+            // }
+
+            // printf("\n");
+
+            printf("$%d:4\n",j);
+
+            if (j != 0){
+            uint8_t *tmp_for_decrypt = malloc(BLOCK_SIZE);
+            memcpy(tmp_for_decrypt, ALL_DATA + (K * chunk_size) + ((o -k)* num_blocks * BLOCK_SIZE)+ ((j-1) * BLOCK_SIZE), BLOCK_SIZE);
+            DecryptData2(PC_KEY, tmp_for_decrypt, BLOCK_SIZE);
+
+            for(int i = 0; i < 32; i++){
+                printf("%X", tmp_for_decrypt[i]);
+            }
+            printf("----------------------------------------------");
+
+            printf("\n");
+            }
 
             free(buffer);
             free(buffer2);
@@ -2492,13 +2599,10 @@ void load_file_data(char *file_name, int num_blocks, int mode , int k , int n, s
     }
 
 
-    int *tuple1 = malloc(sizeof(int) * k);
+    int *tuple1 = malloc(sizeof(int) * n);
     printf("\n");
     printf("Can you see this?\n");
-    find_tuple_for_digit(Shuffle_key, 1, tuple1, num_blocks*k, k);
-    for (int i = 0; i < k; i++) {
-        printf("tuple[%d]: %d\n", i, tuple1[i]);
-    }
+    find_tuple_for_digit(Shuffle_key, 1, tuple1, num_blocks*n, n);
     printf("\n");
     printf("Can you see this?\n");
 
@@ -2506,7 +2610,39 @@ void load_file_data(char *file_name, int num_blocks, int mode , int k , int n, s
     printf("Number of blocks: %d\n", Number_Of_Blocks);
     printf("Number of parity blocks: %d\n", N - K);
     printf("Number of total blocks: %d\n", N);
+
+
+    for (int i = 0; i < n; i++) {
+        printf("tuple[%d]: %d\n", i, tuple1[i]);
+    }
+
+for (int i = 0; i < num_blocks; i++)
+{
+    // printf("this is the block %d\n", 18 + i);
+    // uint8_t *tmp_for_decrypt = malloc(BLOCK_SIZE);
+	// memcpy(tmp_for_decrypt, ALL_DATA+ ((18 + i) * BLOCK_SIZE), BLOCK_SIZE);
+	// DecryptData2(PC_KEY, tmp_for_decrypt, BLOCK_SIZE);
+                // printf("%d\n",tuple1[i]);
+    for(int j = 0; j < 40; j++){
+                // printf("%X", tmp_for_decrypt[j]);
+                printf("%X", ALL_DATA[(15 + i) * BLOCK_SIZE + j]);
+
+            }
+            printf("\n\n");
+}
+
+
+
+    
     free(tuple1);
+
+
+    // getchar();
+    // getchar();
+    // getchar();
+
+
+
     // for(int i = K * Number_Of_Blocks; i < N * Number_Of_Blocks; i++){
 
     //     printf("this is the block %d\n", i);

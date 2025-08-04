@@ -2695,8 +2695,8 @@ void recover_block(int fileNum, int blockNum, uint8_t *blockData, int *toggle){
 	// so we know which code word to use (parity)
 
 
-	int *out_tuple = malloc(sizeof(int) * files[fileNum].k);
-	find_tuple_for_digit(files[fileNum].shuffel_key, blockNum, out_tuple, files[fileNum].numBlocks *files[fileNum].k, files[fileNum].k);	
+	int *out_tuple = malloc(sizeof(int) * files[fileNum].n);
+	find_tuple_for_digit(files[fileNum].shuffel_key, blockNum, out_tuple, files[fileNum].numBlocks *files[fileNum].n, files[fileNum].n);	
 
 
 	int code_word_number = out_tuple[0];
@@ -2765,23 +2765,20 @@ void recover_block(int fileNum, int blockNum, uint8_t *blockData, int *toggle){
 	for (int i = files[fileNum].k; i < files[fileNum].n; i++)
 	{
 
-		int requested_block = code_word_number + (i - files[fileNum].k) * files[fileNum].numBlocks;
+		// int requested_block = code_word_number + (i - files[fileNum].k) * files[fileNum].numBlocks;
 
-		int tmp_index = feistel_network_prp(files[fileNum].shuffel_key, requested_block, numBitsParity);
-		while (tmp_index >= total_parity_blocks) {
-			tmp_index = feistel_network_prp(files[fileNum].shuffel_key, tmp_index, numBitsParity);
-		}
+
 
 		rb_indicies[i].is_local = 0;
 		
 		rb_indicies[i].is_corrupted = 0;
 
 
-		rb_indicies[i].total_blocks_index = tmp_index;
-		int temp_internal_block_index = tmp_index % files[fileNum].numBlocks;
-		rb_indicies[i].internal_block_index = temp_internal_block_index;
-		rb_indicies[i].node_index = (tmp_index - temp_internal_block_index) / files[fileNum].numBlocks + files[fileNum].k;
-		rb_indicies[i].code_word_number = code_word_number;	
+		// rb_indicies[i].total_blocks_index = tmp_index;
+		// int temp_internal_block_index = tmp_index % files[fileNum].numBlocks;
+		// rb_indicies[i].internal_block_index = temp_internal_block_index;
+		// rb_indicies[i].node_index = (tmp_index - temp_internal_block_index) / files[fileNum].numBlocks + files[fileNum].k;
+		// rb_indicies[i].code_word_number = code_word_number;	
 	// ocall_printf("*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=", 42, 0);
 	// ocall_printf("*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=", 42, 0);
 	// ocall_printf("*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=", 42, 0);
@@ -2800,6 +2797,23 @@ void recover_block(int fileNum, int blockNum, uint8_t *blockData, int *toggle){
 	// ocall_printf("*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=", 42, 0);
 	// ocall_printf("*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=", 42, 0);
 	// ocall_printf("*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=", 42, 0);
+
+
+		rb_indicies[i].total_blocks_index = out_tuple[i];
+		
+
+		// the temp is the internal block index
+		rb_indicies[i].node_index = (out_tuple[i] / files[fileNum].numBlocks);
+
+		rb_indicies[i].internal_block_index = out_tuple[i] - (rb_indicies[i].node_index * files[fileNum].numBlocks);
+		rb_indicies[i].code_word_number = code_word_number;
+
+		// if (rb_indicies[i].node_index == files[fileNum].current_chunk_id) {
+
+		// 	rb_indicies[i].is_local = 1;
+		// } else {
+		// 	rb_indicies[i].is_local = 0;
+		// }
 	}
 	
 
@@ -2965,8 +2979,8 @@ ocall_printf("=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=  =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=",
 	ocall_printf(code_word_tmp + 2 * BLOCK_SIZE, 32, 1);
 	ocall_printf("code_word_tmp 3 ", strlen("code_word_tmp 3 "), 0);
 	ocall_printf(code_word_tmp + 3 * BLOCK_SIZE, 32, 1);
-	ocall_printf("code_word_tmp 4 ", strlen("code_word_tmp 4 "), 0);
-	ocall_printf(code_word_tmp + 4 * BLOCK_SIZE, 32, 1);
+	// ocall_printf("code_word_tmp 4 ", strlen("code_word_tmp 4 "), 0);
+	// ocall_printf(code_word_tmp + 4 * BLOCK_SIZE, 32, 1);
 	ocall_printf("==================================================", strlen("=================================================="), 0);
 	ocall_printf("==================================================", strlen("=================================================="), 0);
 
@@ -3300,8 +3314,8 @@ void local_code_words(int fileNum, int code_word_id, uint8_t *blockData, int *to
 	// so we know which code word to use (parity)
 
 
-	int *out_tuple = malloc(sizeof(int) * files[fileNum].k);
-	find_tuple_for_digit(files[fileNum].shuffel_key, code_word_id, out_tuple, files[fileNum].numBlocks *files[fileNum].k, files[fileNum].k);	
+	int *out_tuple = malloc(sizeof(int) * files[fileNum].n);
+	find_tuple_for_digit(files[fileNum].shuffel_key, code_word_id, out_tuple, files[fileNum].numBlocks *files[fileNum].n, files[fileNum].n);	
 
 
 	int code_word_number = out_tuple[0];
@@ -3370,23 +3384,35 @@ void local_code_words(int fileNum, int code_word_id, uint8_t *blockData, int *to
 	for (int i = files[fileNum].k; i < files[fileNum].n; i++)
 	{
 
-		int requested_block = code_word_number + (i - files[fileNum].k) * files[fileNum].numBlocks;
+		// int requested_block = code_word_number + (i - files[fileNum].k) * files[fileNum].numBlocks;
 
-		int tmp_index = feistel_network_prp(files[fileNum].shuffel_key, requested_block, numBitsParity);
-		while (tmp_index >= total_parity_blocks) {
-			tmp_index = feistel_network_prp(files[fileNum].shuffel_key, tmp_index, numBitsParity);
-		}
+		// int tmp_index = feistel_network_prp(files[fileNum].shuffel_key, requested_block, numBitsParity);
+		// while (tmp_index >= total_parity_blocks) {
+		// 	tmp_index = feistel_network_prp(files[fileNum].shuffel_key, tmp_index, numBitsParity);
+		// }
 
 		rb_indicies[i].is_local = 0;
 		
 		rb_indicies[i].is_corrupted = 0;
 
 
-		rb_indicies[i].total_blocks_index = tmp_index;
-		int temp_internal_block_index = tmp_index % files[fileNum].numBlocks;
-		rb_indicies[i].internal_block_index = temp_internal_block_index;
-		rb_indicies[i].node_index = (tmp_index - temp_internal_block_index) / files[fileNum].numBlocks + files[fileNum].k;
-		rb_indicies[i].code_word_number = code_word_number;	
+		// rb_indicies[i].total_blocks_index = tmp_index;
+		// int temp_internal_block_index = tmp_index % files[fileNum].numBlocks;
+		// rb_indicies[i].internal_block_index = temp_internal_block_index;
+		// rb_indicies[i].node_index = (tmp_index - temp_internal_block_index) / files[fileNum].numBlocks + files[fileNum].k;
+		// rb_indicies[i].code_word_number = code_word_number;	
+
+
+
+
+		rb_indicies[i].total_blocks_index = out_tuple[i];
+		// the temp is the internal block index
+		rb_indicies[i].node_index = (out_tuple[i] / files[fileNum].numBlocks);
+		rb_indicies[i].internal_block_index = out_tuple[i] - (rb_indicies[i].node_index * files[fileNum].numBlocks);
+		rb_indicies[i].code_word_number = code_word_number;
+
+
+
 	// ocall_printf("*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=", 42, 0);
 	// ocall_printf("*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=", 42, 0);
 	// ocall_printf("*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=", 42, 0);
