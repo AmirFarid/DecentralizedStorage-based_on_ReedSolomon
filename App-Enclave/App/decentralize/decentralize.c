@@ -46,9 +46,9 @@ typedef enum
 
 NodeInfo nodes[NUM_NODES] = {
     {"192.168.0.202", 8080, -1, 0}, // This is the host node do not count it as a node
-    // {"192.168.0.203", 8080, -1, 0},
-    // {"192.168.0.204", 8080, -1, 0},
-    // {"192.168.0.201", 8080, -1, 0},
+    {"192.168.0.203", 8080, -1, 0},
+    {"192.168.0.204", 8080, -1, 0},
+    {"192.168.0.201", 8080, -1, 0},
     {"192.168.0.202", 8080, -1, 0},
     
 
@@ -1823,7 +1823,7 @@ void initiate_Chunks(char *fileChunkName, char *current_file, int n, int k)
     // divide the file into K chunks and generate N - K parity chunks. generated parities are stored in decentralize/chunks/chunk_i.bin
     initiate_rs(fileChunkName, k, n, Shuffle_key, 2);
     printf("rs initiated\n");
-    getchar();
+    // getchar();
 
 
     double total_time = 0;
@@ -1861,39 +1861,66 @@ void initiate_Chunks(char *fileChunkName, char *current_file, int n, int k)
             continue;
         }
 
+        // printf(" i = %d , k = %d , n = %d \n", i, k, n);
+        // if(i < k){
+        //     continue;
+        // }
+
+        // // coment this after testing
+
+        // if (i >= k) {
+        //     char path2[256];
+        //     snprintf(path2, sizeof(path2), CHUNK_PATH_FORMAT, i);
+
+        //     printf("inside: %d\n", i);
+
+        //     FILE *fp2 = fopen(path2, "rb");
+        //     if (!fp2)
+        //     {
+        //         perror("Failed to open chunk file");
+        //         continue;
+        //     }
+
+        //     uint8_t buffer[BLOCK_SIZE];
+
+        //     for(int j = 0; j < Number_Of_Blocks; j++){
+
+
+        //         if(fread(buffer, 1, BLOCK_SIZE, fp2) != BLOCK_SIZE) {
+        //             perror("Failed to read chunk file");
+        //             fclose(fp);
+        //             return;
+        //         }
+
+
+        //         uint8_t *buffer2 = malloc(BLOCK_SIZE);
+        //         memcpy(buffer2, buffer, BLOCK_SIZE);
+        
+        //         // printf("************************************\n");
+
+        //         struct timespec start, end;
+        //         clock_gettime(CLOCK_MONOTONIC, &start);
+
+        //         EncryptData2(PC_KEY, buffer2, BLOCK_SIZE);
+
+        //         clock_gettime(CLOCK_MONOTONIC, &end);
+        //         double s_time = start.tv_sec + (start.tv_nsec / 1e9);
+        //         double e_time = end.tv_sec + (end.tv_nsec / 1e9);
+        //         total_time += e_time - s_time;
+        //         }
+        //         if (i < n-1 )continue;
+        // }
+        // printf("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n");
+        // printf("Time taken to  ecrypt all blocks: + %f seconds\n", total_time);
+        // printf("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n");
+
+        // printf(" i = %d , k = %d , n = %d \n", i, k, n);
+        // getchar();
+
+        // break;
+
         // coment this after testing
 
-        if (i > k) {
-
-            uint8_t buffer[BLOCK_SIZE];
-
-            if(fread(buffer, 1, BLOCK_SIZE, fp) != BLOCK_SIZE) {
-                perror("Failed to read chunk file");
-                fclose(fp);
-                return;
-            }
-
-
-            uint8_t *buffer2 = malloc(BLOCK_SIZE);
-            memcpy(buffer2, buffer, BLOCK_SIZE);
-        
-        
-            struct timespec start, end;
-            clock_gettime(CLOCK_MONOTONIC, &start);
-
-            EncryptData2(PC_KEY, buffer2, BLOCK_SIZE);
-
-            clock_gettime(CLOCK_MONOTONIC, &end);
-            double s_time = start.tv_sec + (start.tv_nsec / 1e9);
-            double e_time = end.tv_sec + (end.tv_nsec / 1e9);
-            total_time += e_time - s_time;
-            if( i < n - 1) continue;
-        }
-        printf("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n");
-        printf("Time taken to  ecrypt all blocks: - %f seconds\n", total_time);
-        printf("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n");
-
-        break;
 
         uint32_t chunk_type = 1; // 1 for data chunk, 2 for parity chunk
         uint32_t chunk_len;

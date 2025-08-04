@@ -4,31 +4,15 @@
 #include <openssl/sha.h>
 #include <stdint.h>
 
-// #define MAX_GROUPS 100
-// #define MAX_GROUP_SIZE 100
-// #define N 300
-// #define G 5
-// const char* KEY = "000000000000kjkdsid0000000001111";
 
-// int M = N / G; // Number of tuples
 
 // SHA256-based seed generator
 uint64_t get_seed(const char* key, int* data, int size) {
     unsigned char buffer[256];
-    // snprintf(buffer, sizeof(buffer), "%s", key);
-    // for(int i = 0; i < 16; i++){
-    //     printf("Shuffle_key[%d] = %02x\n", i, key[i]);
-    // }
     int offset = 0;
     for (int i = 0; i < 16; i++) {
-        // printf("hi its me\n");
         snprintf(buffer + offset, sizeof(buffer),"%02x", (unsigned char)key[i]);
-        // printf("key[%d] = %02x\n", i, (unsigned char)key[i]);
         offset += 2;
-        // printf("buffer[%d] = %c\n", 2*i, buffer[2*i]);
-        // printf("buffer[%d] = %c\n", 2*i+1, buffer[2*i+1]);
-
-
     }
     for (int i = 0; i < size; i++) {
         char num[12];
@@ -61,39 +45,6 @@ void seeded_shuffle(int* arr, int size, uint64_t seed) {
     }
 }
 
-// Generates structured tuples, each containing one item from each original group
-// void generate_structured_tuples(int tuples[MAX_GROUPS][G], int* num_tuples, const char* key) {
-//     int original[G][MAX_GROUP_SIZE];
-//     int M = N / G;
-//     *num_tuples = M;
-
-//     for (int g = 0; g < G; g++) {
-//         for (int i = 0; i < M; i++) {
-//             original[g][i] = g * M + i;
-//         }
-//         uint64_t seed = get_seed(key, &g, 1);
-//         seeded_shuffle(original[g], M, seed);
-//     }
-
-//     for (int i = 0; i < M; i++) {
-//         for (int g = 0; g < G; g++) {
-//             tuples[i][g] = original[g][i];
-//         }
-//     }
-// }
-
-// // Return the tuple that contains the digit
-// int get_tuple_for_digit(int digit, int tuples[MAX_GROUPS][G], int num_tuples, int* out_tuple) {
-//     for (int i = 0; i < num_tuples; i++) {
-//         for (int j = 0; j < G; j++) {
-//             if (tuples[i][j] == digit) {
-//                 memcpy(out_tuple, tuples[i], sizeof(int) * G);
-//                 return 1;
-//             }
-//         }
-//     }
-//     return 0;
-// }
 
 
 int find_tuple_for_digit(const char* key, int digit, int *out_tuple, int total_num_blocks, int group_size) {
@@ -132,43 +83,3 @@ int find_tuple_for_digit(const char* key, int digit, int *out_tuple, int total_n
 
     return 1;
 }
-
-
-// int main() {
-//     int tuples[MAX_GROUPS][G];
-//     int num_tuples;
-
-//     generate_structured_tuples(tuples, &num_tuples, KEY);
-
-//     printf("Structured Tuples:\n");
-//     for (int i = 0; i < num_tuples; i++) {
-//         // printf("Tuple %d: ", i);
-//         for (int j = 0; j < G; j++) {
-//             printf("%d ", tuples[i][j]);
-//         }
-//         printf("\n");
-//     }
-
-//     int digit = 3;
-//     int result[G];
-//     if (get_tuple_for_digit(digit, tuples, num_tuples, result)) {
-//         printf("\nDigit %d belongs to tuple: (", digit);
-//         for (int i = 0; i < G; i++) {
-//             printf("%d%s", result[i], i < G - 1 ? ", " : "");
-//         }
-//         printf(")\n");
-//     } else {
-//         printf("\nDigit %d does not belong to any tuple.\n", digit);
-//     }
-
-
-
-// int t[G];
-// if (find_tuple_for_digit(KEY, 3, t)) {
-//     printf("Digit 3 belongs to tuple: (");
-//     for (int i = 0; i < G; i++) printf("%d%s", t[i], i < G - 1 ? ", " : ")\n");
-// }
-
-
-//     return 0;
-// }

@@ -177,7 +177,6 @@ void recover(int chunk_size, int padding_size) {
 #include <inttypes.h> // for PRIu16
 void encode(uint16_t *chunks, int n, int chunk_size, int mode, uint8_t *Shuffle_key) {
 
-    int counter2 = 0;
 
     int symSize = 16;
     int *matrix = reed_sol_vandermonde_coding_matrix(rs_K, rs_N-rs_K, symSize);
@@ -189,9 +188,8 @@ void encode(uint16_t *chunks, int n, int chunk_size, int mode, uint8_t *Shuffle_
     // number of blocks in the file
     int num_blocks = chunk_size / 2048;
     printf("num_blocks: %d\n", num_blocks);
-    int counter = 0;
-    int holo =0;
-    int cc=30;
+    // int holo =0;
+    // int cc=30;
     for (size_t j = 0; j < num_blocks; j++)
     {
     
@@ -213,20 +211,20 @@ void encode(uint16_t *chunks, int n, int chunk_size, int mode, uint8_t *Shuffle_
           // Encode
           jerasure_matrix_encode(rs_K, rs_N-rs_K, symSize, matrix, data_ptrs, coding_ptrs, sizeof(uint16_t));
           // Store results
-          if(j != holo){
-            printf("this is j %d\n",j);
-            printf("\n");
+          // if(j != holo){
+          //   printf("this is j %d\n",j);
+          //   printf("\n");
 
-            holo = j;
-            cc = 30;
-          }
+          //   holo = j;
+          //   cc = 30;
+          // }
           for (int i = rs_K; i < rs_N; i++) {
             // I am pretty sure tomorrow I will regret this
               chunks[(num_blocks * 2048 * rs_K) + (j *2048) + ((i-rs_K) * num_blocks * 2048) + s] = *((uint16_t *)coding_ptrs[i-rs_K]);
-              if (cc >= 0 && i == rs_K){
-                printf("%X",chunks[(num_blocks * 2048 * rs_K) + (j *2048) + ((i-rs_K) * num_blocks * 2048) + s] );
-                cc -=1;
-              }              
+              // if (cc >= 0 && i == rs_K){
+              //   printf("%X",chunks[(num_blocks * 2048 * rs_K) + (j *2048) + ((i-rs_K) * num_blocks * 2048) + s] );
+              //   cc -=1;
+              // }              
           }
           // Cleanup
           for (int i = 0; i < rs_K; i++) free(data_ptrs[i]);
@@ -236,11 +234,7 @@ void encode(uint16_t *chunks, int n, int chunk_size, int mode, uint8_t *Shuffle_
       }
     }
 
-    for(int i =0; i < num_blocks;i++){
-
-    }
-
-
+ 
     // only write the parity chunks
     struct timespec start, end;
 
